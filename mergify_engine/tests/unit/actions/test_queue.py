@@ -205,9 +205,17 @@ def repository(redis_cache, fake_client):
             "default_branch": github_types.GitHubRefType("ref"),
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        github_types.GitHubAccountIdType(123),
-        github_types.GitHubLogin("user"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),

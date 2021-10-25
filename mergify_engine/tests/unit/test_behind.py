@@ -19,6 +19,7 @@ from unittest import mock
 import pytest
 
 from mergify_engine import context
+from mergify_engine import github_types
 
 
 def create_commit(sha=None):
@@ -85,7 +86,24 @@ async def test_pull_behind(commits_tree_generator, redis_cache):
 
     client.item.return_value = item()  # /branch/#foo
 
-    installation = context.Installation(123, "user", {}, client, redis_cache)
+    gh_owner = github_types.GitHubAccount(
+        {
+            "type": "User",
+            "id": github_types.GitHubAccountIdType(12345),
+            "login": github_types.GitHubLogin("CytopiaTeam"),
+            "avatar_url": "",
+        }
+    )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
+    installation = context.Installation(installation_json, {}, client, redis_cache)
     repository = context.Repository(
         installation, {"name": "name", "id": 123456, "private": False}
     )

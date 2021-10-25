@@ -493,18 +493,10 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p, commits = await self.create_pr()
         await self.run_engine()
 
-        installation = context.Installation(
-            p["base"]["user"]["id"],
-            p["base"]["user"]["login"],
-            self.subscription,
-            self.client_integration,
-            self.redis_cache,
-        )
-        repository = context.Repository(installation, p["base"]["repo"])
-        ctxt = await context.Context.create(repository, p, [])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         logins = await live_resolvers.teams(
-            repository,
+            self.repository_ctxt,
             [
                 "user",
                 "@mergifyio-testing/testing",
@@ -520,7 +512,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         logins = await live_resolvers.teams(
-            repository,
+            self.repository_ctxt,
             [
                 "user",
                 "@testing",
@@ -536,13 +528,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(repository, ["@unknown/team"])
+            await live_resolvers.teams(self.repository_ctxt, ["@unknown/team"])
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(repository, ["@mergifyio-testing/not-exists"])
+            await live_resolvers.teams(
+                self.repository_ctxt, ["@mergifyio-testing/not-exists"]
+            )
 
         with self.assertRaises(live_resolvers.LiveResolutionFailure):
-            await live_resolvers.teams(repository, ["@invalid/team/break-here"])
+            await live_resolvers.teams(
+                self.repository_ctxt, ["@invalid/team/break-here"]
+            )
 
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
         assert summary is not None

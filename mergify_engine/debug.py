@@ -204,9 +204,8 @@ async def report(
         print(f"{url} is not valid")
         return None
 
-    installation_json = await github.get_installation_from_login(owner_login)
-    owner_id = installation_json["account"]["id"]
     try:
+        installation_json = await github.get_installation_from_login(owner_login)
         client = github.aget_client(installation_json)
     except exceptions.MergifyNotInstalled:
         print(f"* Mergify is not installed on account {owner_login}")
@@ -215,20 +214,14 @@ async def report(
     # Do a dumb request just to authenticate
     await client.get("/")
 
-    if client.auth.installation is None:
-        print("No installation detected")
-        return None
-
     print(f"* INSTALLATION ID: {client.auth.installation['id']}")
-
-    if owner_id is None:
-        raise RuntimeError("Unable to get owner_id")
 
     if repo is None:
         slug = None
     else:
         slug = owner_login + "/" + repo
 
+    owner_id = installation_json["account"]["id"]
     cached_sub = await subscription.Subscription.get_subscription(redis_cache, owner_id)
     db_sub = await subscription.Subscription._retrieve_subscription_from_db(
         redis_cache, owner_id
@@ -254,18 +247,18 @@ async def report(
     for v in sorted(f.value for f in cached_sub.features):
         print(f"  - {v}")
 
+    installation = context.Installation(
+        installation_json, cached_sub, client, redis_cache
+    )
+
     await report_dashboard_synchro(
-        client.auth.installation["id"], cached_sub, cached_tokens, "ENGINE-CACHE", slug
+        installation.installation["id"], cached_sub, cached_tokens, "ENGINE-CACHE", slug
     )
     await report_dashboard_synchro(
-        client.auth.installation["id"], db_sub, db_tokens, "DASHBOARD", slug
+        installation.installation["id"], db_sub, db_tokens, "DASHBOARD", slug
     )
 
     await report_worker_status(owner_login)
-
-    installation = context.Installation(
-        owner_id, owner_login, cached_sub, client, redis_cache
-    )
 
     if repo is not None:
         repository = await installation.get_repository_by_name(repo)

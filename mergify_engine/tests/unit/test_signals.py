@@ -53,9 +53,17 @@ async def test_signals(redis_cache):
     sub = subscription.Subscription(
         redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        gh_owner["id"],
-        gh_owner["login"],
+        installation_json,
         sub,
         client,
         redis_cache,
