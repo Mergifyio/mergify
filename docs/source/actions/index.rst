@@ -30,6 +30,7 @@ options.
    delete_head_branch
    dismiss_reviews
    draft
+   edit
    label
    merge
    post_check
