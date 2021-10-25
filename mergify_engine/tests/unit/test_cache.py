@@ -18,6 +18,7 @@ import json
 from starlette import testclient
 
 from mergify_engine import utils
+from mergify_engine.dashboard import subscription
 from mergify_engine.web import root
 
 
@@ -54,12 +55,12 @@ def test_subscription_cache_update():
     charset = "utf-8"
 
     data = json.dumps(
-        {
-            "subscription_active": True,
-            "subscription_reason": "Customer",
-            "tokens": {},
-            "features": [],
-        }
+        subscription.SubscriptionDict(
+            {
+                "subscription_reason": "Customer",
+                "features": [],
+            }
+        )
     ).encode(charset)
     headers = {
         "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
