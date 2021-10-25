@@ -355,7 +355,7 @@ class StreamProcessor:
                 )
                 async with github.aget_client(installation_raw) as client:
                     installation = context.Installation(
-                        owner_id, owner_login, sub, client, self.redis_cache
+                        installation_raw, sub, client, self.redis_cache
                     )
                     await self._consume_buckets(org_bucket_name, installation)
                     await self._refresh_merge_trains(org_bucket_name, installation)

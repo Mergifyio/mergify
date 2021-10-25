@@ -16,6 +16,7 @@
 
 import json
 import os
+import typing
 from unittest import mock
 
 import pytest
@@ -27,11 +28,9 @@ from mergify_engine import github_types
 from mergify_engine import utils
 
 
-async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls):
-    owner = "CytopiaTeam"
-    repo = "Cytopia"
-    event_type = "check_run"
-
+async def _do_test_event_to_pull_check_run(
+    redis_cache: utils.RedisCache, filename: str, expected_pulls: typing.List[int]
+) -> None:
     with open(
         os.path.join(os.path.dirname(__file__), "events", filename),
         "r",
@@ -42,22 +41,46 @@ async def _do_test_event_to_pull_check_run(redis_cache, filename, expected_pulls
             .replace("https://api.github.com", config.GITHUB_API_URL)
         )
 
-    installation = context.Installation(123, owner, {}, mock.Mock(), redis_cache)
+    gh_owner = github_types.GitHubAccount(
+        {
+            "type": "User",
+            "id": github_types.GitHubAccountIdType(12345),
+            "login": github_types.GitHubLogin("CytopiaTeam"),
+            "avatar_url": "",
+        }
+    )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+    installation = context.Installation(
+        installation_json, mock.Mock(), mock.Mock(), redis_cache
+    )
     pulls = await github_events.extract_pull_numbers_from_event(
-        installation, repo, event_type, data, []
+        installation,
+        github_types.GitHubRepositoryName("Cytopia"),
+        "check_run",
+        data,
+        [],
     )
     assert pulls == expected_pulls
 
 
 @pytest.mark.asyncio
-async def test_event_to_pull_check_run_forked_repo(redis_cache):
+async def test_event_to_pull_check_run_forked_repo(
+    redis_cache: utils.RedisCache,
+) -> None:
     await _do_test_event_to_pull_check_run(
         redis_cache, "check_run.event_from_forked_repo.json", []
     )
 
 
 @pytest.mark.asyncio
-async def test_event_to_pull_check_run_same_repo(redis_cache):
+async def test_event_to_pull_check_run_same_repo(redis_cache: utils.RedisCache) -> None:
     await _do_test_event_to_pull_check_run(
         redis_cache, "check_run.event_from_same_repo.json", [409]
     )

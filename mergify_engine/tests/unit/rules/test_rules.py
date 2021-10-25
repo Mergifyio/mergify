@@ -408,9 +408,17 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
             "default_branch": github_types.GitHubRefType("ref"),
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        github_types.GitHubAccountIdType(0),
-        github_types.GitHubLogin("foobar"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),
@@ -482,10 +490,17 @@ pull_request_rules:
             "default_branch": github_types.GitHubRefType("ref"),
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
 
     installation = context.Installation(
-        github_types.GitHubAccountIdType(0),
-        github_types.GitHubLogin("foobar"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),
@@ -526,8 +541,7 @@ pull_request_rules:
     client.item.return_value = item()
 
     installation = context.Installation(
-        github_types.GitHubAccountIdType(0),
-        github_types.GitHubLogin("foobar"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),
@@ -586,9 +600,17 @@ async def test_get_mergify_config_location_from_cache(
             "default_branch": github_types.GitHubRefType("ref"),
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        github_types.GitHubAccountIdType(0),
-        github_types.GitHubLogin("foobar"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),
@@ -688,9 +710,17 @@ async def test_get_mergify_config_invalid(
                 "default_branch": github_types.GitHubRefType("ref"),
             }
         )
+        installation_json = github_types.GitHubInstallation(
+            {
+                "id": github_types.GitHubInstallationIdType(12345),
+                "target_type": gh_owner["type"],
+                "permissions": {},
+                "account": gh_owner,
+            }
+        )
+
         installation = context.Installation(
-            github_types.GitHubAccountIdType(0),
-            github_types.GitHubLogin("foobar"),
+            installation_json,
             subscription.Subscription(
                 redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
             ),
@@ -991,9 +1021,17 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             "owner": gh_owner,
         }
     )
+    installation_json = github_types.GitHubInstallation(
+        {
+            "id": github_types.GitHubInstallationIdType(12345),
+            "target_type": gh_owner["type"],
+            "permissions": {},
+            "account": gh_owner,
+        }
+    )
+
     installation = context.Installation(
-        github_types.GitHubAccountIdType(2644),
-        github_types.GitHubLogin("another-jd"),
+        installation_json,
         subscription.Subscription(
             redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
         ),
