@@ -29,7 +29,6 @@ options.
    comment
    delete_head_branch
    dismiss_reviews
-   draft
    label
    merge
    post_check
