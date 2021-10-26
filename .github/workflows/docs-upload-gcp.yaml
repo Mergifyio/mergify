@@ -58,7 +58,7 @@ jobs:
             var state = "error";
             if ("${{ job.status }}" === "success") {
               var pr = "${{ steps.download-artifact.outputs.result }}";
-              target_url = `https://docs-preview.mergify.io/${pr}/docs`,
+              target_url = `https://docs-preview.mergify.com/${pr}/docs`,
               state = "success";
             } else {
               const { data } = await github.rest.actions.listJobsForWorkflowRun({
