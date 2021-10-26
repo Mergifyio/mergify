@@ -60,7 +60,7 @@ def order_files(app, env, docnames):
 
 
 def write_redirect(app, pagename, templatename, context, doctree):
-    url = f"https://docs.mergify.io/{pagename}/"
+    url = f"https://docs.mergify.com/{pagename}/"
     os.makedirs(os.path.join(app.outdir, pagename), exist_ok=True)
     with open(os.path.join(app.outdir, pagename + ".html"), "w") as f:
         f.write(f"""<head>

@@ -584,7 +584,7 @@ interactions:
       [X] `#title>10`\n- [ ] `#title<50`\n- [X] `#body<4096`\n- [X] `#files<100`\n-
       [ ] `body~=(?m)^(Fixes|Related|Closes) (MERGIFY-ENGINE|MRGFY)-`\n- [X] `-label=ignore-guideline`\n\n<hr
       />\n\n<details>\n<summary>Mergify commands and options</summary>\n\n<br />\n\nMore
-      conditions and actions can be found in the [documentation](https://docs.mergify.io/).\n\nYou
+      conditions and actions can be found in the [documentation](https://docs.mergify.com/).\n\nYou
       can also trigger Mergify actions by commenting on this pull request:\n\n- `@Mergifyio
       refresh` will re-evaluate the rules\n- `@Mergifyio rebase` will rebase this
       PR on its base branch\n- `@Mergifyio update` will merge the base branch into
@@ -612,7 +612,7 @@ interactions:
       [ ] `#title<50`\n- [X] `#body<4096`\n- [X] `#files<100`\n- [ ] `body~=(?m)^(Fixes|Related|Closes)
       (MERGIFY-ENGINE|MRGFY)-`\n- [X] `-label=ignore-guideline`\n\n<hr />\n\n<details>\n<summary>Mergify
       commands and options</summary>\n\n<br />\n\nMore conditions and actions can
-      be found in the [documentation](https://docs.mergify.io/).\n\nYou can also trigger
+      be found in the [documentation](https://docs.mergify.com/).\n\nYou can also trigger
       Mergify actions by commenting on this pull request:\n\n- `@Mergifyio refresh`
       will re-evaluate the rules\n- `@Mergifyio rebase` will rebase this PR on its
       base branch\n- `@Mergifyio update` will merge the base branch into this PR\n-
@@ -681,7 +681,7 @@ interactions:
       [ ] `#title<50`\\n- [X] `#body<4096`\\n- [X] `#files<100`\\n- [ ] `body~=(?m)^(Fixes|Related|Closes)
       (MERGIFY-ENGINE|MRGFY)-`\\n- [X] `-label=ignore-guideline`\\n\\n<hr />\\n\\n<details>\\n<summary>Mergify
       commands and options</summary>\\n\\n<br />\\n\\nMore conditions and actions
-      can be found in the [documentation](https://docs.mergify.io/).\\n\\nYou can
+      can be found in the [documentation](https://docs.mergify.com/).\\n\\nYou can
       also trigger Mergify actions by commenting on this pull request:\\n\\n- `@Mergifyio
       refresh` will re-evaluate the rules\\n- `@Mergifyio rebase` will rebase this
       PR on its base branch\\n- `@Mergifyio update` will merge the base branch into

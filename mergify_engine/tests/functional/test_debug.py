@@ -180,7 +180,7 @@ mergeable_state: clean
 > 
 > <br />
 > 
-> More conditions and actions can be found in the [documentation](https://docs.mergify.io/).
+> More conditions and actions can be found in the [documentation](https://docs.mergify.com/).
 > 
 > You can also trigger Mergify actions by commenting on this pull request:
 > 
