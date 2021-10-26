@@ -28,7 +28,7 @@ MERGIFY_OPENSOURCE_SPONSOR_DOC = (
 )
 MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC = """
 
-More informations about Mergify merge queue can be found in the [documentation](https://docs.mergify.io/actions/queue.html).
+More informations about Mergify merge queue can be found in the [documentation](https://docs.mergify.com/actions/queue.html).
 
 <details>
 <summary>Mergify commands</summary>
@@ -54,7 +54,7 @@ MERGIFY_PULL_REQUEST_DOC = """
 
 <br />
 
-More conditions and actions can be found in the [documentation](https://docs.mergify.io/).
+More conditions and actions can be found in the [documentation](https://docs.mergify.com/).
 
 You can also trigger Mergify actions by commenting on this pull request:
 
