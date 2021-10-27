@@ -788,6 +788,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         branch: typing.Optional[str] = None,
         message: typing.Optional[str] = None,
         draft: bool = False,
+        git_tree_ready: bool = False,
     ) -> typing.Tuple[
         github_types.GitHubPullRequest, typing.List[github_types.GitHubBranchCommit]
     ]:
@@ -807,7 +808,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             f"{self._testMethodName}: pull request n{self.pr_counter} from {base_repo}"
         )
 
-        await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
+        if git_tree_ready:
+            await self.git("branch", "-M", branch)
+        else:
+            await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
+
         if files:
             await self._git_create_files(files)
         else:

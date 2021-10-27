@@ -1301,7 +1301,7 @@ class Context(object):
 
     async def _get_external_parents(self) -> typing.Set[github_types.SHAType]:
         known_commits_sha = [commit["sha"] for commit in await self.commits]
-        external_parents_sha = {self.pull["base"]["sha"]}
+        external_parents_sha = set()
         for commit in await self.commits:
             for parent in commit["parents"]:
                 if parent["sha"] not in known_commits_sha:

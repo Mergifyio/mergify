@@ -169,56 +169,83 @@ class TestAttributes(base.FunctionalTestBase):
 
         assert await self.redis_cache.zcard("delayed-refresh") == 1
 
-    async def test_commits_behind_conditions(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "not up2date",
-                    "conditions": ["#commits-behind>0"],
-                    "actions": {
-                        "comment": {
-                            "message": "rebase it please: {{commits_behind|length}} commits behind"
-                        }
-                    },
-                },
-                {
-                    "name": "up2date",
-                    "conditions": ["#commits-behind: 0"],
-                    "actions": {"comment": {"message": "good good good"}},
-                },
-            ]
+    async def test_commits_behind_conditions_pr_open_before(self):
+        await self.setup_repo()
+        protection = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
         }
-        await self.setup_repo(yaml.dump(rules))
-        p1, _ = await self.create_pr()
-        await self.run_engine()
-        await self.wait_for("issue_comment", {"action": "created"})
+        await self.branch_protection_protect(self.main_branch_name, protection)
 
+        p, _ = await self.create_pr()
         pr_force_rebase, _ = await self.create_pr(two_commits=True)
         await self.merge_pull(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.run_engine()
-        await self.wait_for("issue_comment", {"action": "created"})
+
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p)
+        assert await ctxt.is_behind
+        assert len(await ctxt.commits_behind) == 3
+        assert ctxt.pull["mergeable_state"] == "behind"
 
         await self.client_admin.put(
-            f"{self.repository_ctxt.base_url}/pulls/{p1['number']}/update-branch",
+            f"{self.repository_ctxt.base_url}/pulls/{p['number']}/update-branch",
             api_version="lydian",
-            json={"expected_head_sha": p1["head"]["sha"]},
+            json={"expected_head_sha": p["head"]["sha"]},
         )
         await self.wait_for("pull_request", {"action": "synchronize"})
 
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p)
+        assert ctxt.pull["mergeable_state"] != "behind"
+        assert not await ctxt.is_behind
+        assert len(await ctxt.commits_behind) == 0
+
+    async def test_commits_behind_conditions_pr_open_after(self):
+        await self.setup_repo()
+
+        protection = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        pr_force_rebase, _ = await self.create_pr(two_commits=True)
+        await self.merge_pull(pr_force_rebase["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+
+        await self.git("reset", "--hard", "HEAD^^")
+        p, _ = await self.create_pr(git_tree_ready=True)
         await self.run_engine()
-        await self.wait_for("issue_comment", {"action": "created"})
+        ctxt = await context.Context.create(self.repository_ctxt, p)
+        assert ctxt.pull["mergeable_state"] == "behind"
+        assert await ctxt.is_behind
+        assert len(await ctxt.commits_behind) == 3
 
-        comments = await self.get_issue_comments(p1["number"])
-        assert len(comments) == 3
-        assert "good good good" == comments[0]["body"]
-        assert "rebase it please: 3 commits behind" == comments[1]["body"]
-        assert "good good good" == comments[2]["body"]
+        await self.client_admin.put(
+            f"{self.repository_ctxt.base_url}/pulls/{p['number']}/update-branch",
+            api_version="lydian",
+            json={"expected_head_sha": p["head"]["sha"]},
+        )
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
-        comments = await self.get_issue_comments(pr_force_rebase["number"])
-        assert len(comments) == 1
-        assert "good good good" == comments[0]["body"]
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p)
+        assert ctxt.pull["mergeable_state"] != "behind"
+        assert not await ctxt.is_behind
+        assert len(await ctxt.commits_behind) == 0
 
     async def test_updated_relative_match(self):
         rules = {

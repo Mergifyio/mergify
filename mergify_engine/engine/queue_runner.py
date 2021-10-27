@@ -26,6 +26,7 @@ from mergify_engine.queue import merge_train
 async def have_unexpected_draft_pull_request_changes(
     ctxt: context.Context, car: merge_train.TrainCar
 ) -> bool:
+    # TODO(sileht): remove usage of ctxt.pull["base"]["sha"]
     if ctxt.pull["base"]["sha"] != car.initial_current_base_sha:
         ctxt.log.info(
             "train car has an unexpected base sha change",
