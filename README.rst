@@ -28,4 +28,4 @@ For example:
 
 That rule automatically merges a pull request targeting the `main` branch once it has 2 approving reviews and the CI passes.
 
-You can learn more by browsing the `engine documentation <https://docs.mergify.io>`_.
+You can learn more by browsing the `engine documentation <https://docs.mergify.com>`_.
