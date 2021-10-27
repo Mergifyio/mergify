@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import json
 import os
 import sys
 import typing
@@ -195,14 +194,7 @@ def raise_for_status(resp: httpx.Response) -> None:
     else:
         return
 
-    try:
-        details = resp.json().get("message")
-    except json.JSONDecodeError:
-        details = None
-
-    if details is None:
-        details = resp.text if resp.text else "<empty-response>"
-
+    details = resp.text if resp.text else "<empty-response>"
     message = f"{resp.status_code} {error_type}: {resp.reason_phrase} for url `{resp.url}`\nDetails: {details}"
     raise exc_class(message, request=resp.request, response=resp)
 
