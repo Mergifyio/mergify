@@ -1,8 +1,8 @@
 #!/bin/bash
 
-TESTS="$(pytest --collect-only | sed -n -e '/TestCaseFunction/s/.* \([^ >]*\)>.*/\1/gp')"
+TESTS="$(pytest --collect-only | sed -n -e '/\(TestCaseFunction\|Function\)/s/.* \([^ >]*\)>.*/\1/gp')"
 ret=0
-for f in $(ls -d1 zfixtures/cassettes/*/* | awk -F/ '{print $4}' ); do
+for f in $(find zfixtures -name config.json | sed -n -e 's/.*\/\([^/]*\)\/config.json/\1/gp'); do
     used=$(echo -e "$TESTS" | grep "^$f\$")
     if [ ! "$used" ]; then
         if [ "$ret" -eq 0 ] ; then

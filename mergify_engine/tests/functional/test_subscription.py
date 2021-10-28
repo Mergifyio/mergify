@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from unittest import mock
+
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
@@ -23,17 +25,25 @@ from mergify_engine.tests.functional import base
 
 class TestSubscription(base.FunctionalTestBase):
     async def test_subscription(self):
-        self.subscription = subscription.Subscription(
-            self.redis_cache,
-            config.TESTING_ORGANIZATION_ID,
-            "Abuse",
-            frozenset(
-                getattr(subscription.Features, f)
-                for f in subscription.Features.__members__
+        async def fake_subscription(redis_cache, owner_id):
+            return subscription.Subscription(
+                self.redis_cache,
+                config.TESTING_ORGANIZATION_ID,
+                "Abuse",
+                frozenset(
+                    getattr(subscription.Features, f)
+                    for f in subscription.Features.__members__
+                )
+                if self.SUBSCRIPTION_ACTIVE
+                else frozenset([]),
             )
-            if self.SUBSCRIPTION_ACTIVE
-            else frozenset([]),
+
+        patcher = mock.patch(
+            "mergify_engine.dashboard.subscription.Subscription._retrieve_subscription_from_db",
+            side_effect=fake_subscription,
         )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
         await self.setup_repo()
         p, _ = await self.create_pr()

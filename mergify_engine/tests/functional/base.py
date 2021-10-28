@@ -20,7 +20,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import time
 import typing
 import unittest
@@ -30,8 +29,6 @@ from urllib import parse
 import daiquiri
 import httpx
 import pytest
-import vcr
-import vcr.stubs.urllib3_stubs
 
 from mergify_engine import branch_updater
 from mergify_engine import config
@@ -42,16 +39,14 @@ from mergify_engine import gitter
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.clients import github
-from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
-from mergify_engine.dashboard import user_tokens
+from mergify_engine.tests.functional import conftest as func_conftest
 from mergify_engine.web import root
 
 
 LOG = daiquiri.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
-CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"
 FAKE_DATA = "whatdataisthat"
 FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
 
@@ -307,16 +302,14 @@ class EventReader:
             return data
 
 
-class RecordConfigType(typing.TypedDict):
-    organization_id: github_types.GitHubAccountIdType
-    organization_name: github_types.GitHubLogin
-    repository_id: github_types.GitHubRepositoryIdType
-    repository_name: github_types.GitHubRepositoryName
-    branch_prefix: str
-
-
-@pytest.mark.usefixtures("logger_checker")
+@pytest.mark.usefixtures("logger_checker", "unittest_glue")
 class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
+    # Compat mypy/pytest fixtures
+    app: httpx.AsyncClient
+    RECORD_CONFIG: func_conftest.RecordConfigType
+    subscription: subscription.Subscription
+    cassette_library_dir: str
+
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
     FORK_PERSONAL_TOKEN = config.EXTERNAL_USER_PERSONAL_TOKEN
@@ -325,6 +318,28 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # To run tests on private repository, you can use:
     # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
     # SUBSCRIPTION_ACTIVE = True
+
+    def _setupAsyncioLoop(self):
+        # We reuse the event loop created by pytest-asyncio
+        loop = self.pytest_event_loop
+
+        # Copy as-is of unittest.IsolatedAsyncioTestCase code without loop setup
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        loop.set_debug(True)
+        self._asyncioTestLoop = loop
+        fut = loop.create_future()
+        self._asyncioCallsTask = loop.create_task(self._asyncioLoopRunner(fut))
+        loop.run_until_complete(fut)
+
+    def _tearDownAsyncioLoop(self):
+        # Part of the cleanup must be done by pytest-asyncio
+        loop = self.pytest_event_loop
+        loop_close = loop.close
+        loop.close = lambda: True
+        super()._tearDownAsyncioLoop()
+        loop.close = loop_close
+        asyncio.set_event_loop(loop)
 
     async def asyncSetUp(self) -> None:
         super(FunctionalTestBase, self).setUp()
@@ -339,43 +354,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.protected_branches: typing.Set[str] = set()
         self.pr_counter: int = 0
         self.git_counter: int = 0
-        self.cassette_library_dir = os.path.join(
-            CASSETTE_LIBRARY_DIR_BASE, self.__class__.__name__, self._testMethodName
-        )
-
-        # Recording stuffs
-        if RECORD:
-            if os.path.exists(self.cassette_library_dir):
-                shutil.rmtree(self.cassette_library_dir)
-            os.makedirs(self.cassette_library_dir)
-
-        self.recorder = vcr.VCR(
-            cassette_library_dir=self.cassette_library_dir,
-            record_mode="all" if RECORD else "none",
-            match_on=["method", "uri"],
-            ignore_localhost=True,
-            filter_headers=[
-                ("Authorization", "<TOKEN>"),
-                ("X-Hub-Signature", "<SIGNATURE>"),
-                ("User-Agent", None),
-                ("Accept-Encoding", None),
-                ("Connection", None),
-            ],
-            before_record_response=self.response_filter,
-        )
-
-        if RECORD:
-            github.CachedToken.STORAGE = {}
-        else:
-            # Never expire token during replay
-            mock.patch.object(
-                github_app, "get_or_create_jwt", return_value="<TOKEN>"
-            ).start()
-            mock.patch.object(
-                github.GithubAppInstallationAuth,
-                "get_access_token",
-                return_value="<TOKEN>",
-            ).start()
 
         mock.patch.object(branch_updater.gitter, "Gitter", self.get_gitter).start()
         mock.patch.object(duplicate_pull.gitter, "Gitter", self.get_gitter).start()
@@ -389,80 +367,14 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # Web authentification always pass
         mock.patch("hmac.compare_digest", return_value=True).start()
 
-        record_config_file = os.path.join(self.cassette_library_dir, "config.json")
-
-        if RECORD:
-            with open(record_config_file, "w") as f:
-                f.write(
-                    json.dumps(
-                        RecordConfigType(
-                            {
-                                "organization_id": config.TESTING_ORGANIZATION_ID,
-                                "organization_name": config.TESTING_ORGANIZATION_NAME,
-                                "repository_id": config.TESTING_REPOSITORY_ID,
-                                "repository_name": github_types.GitHubRepositoryName(
-                                    config.TESTING_REPOSITORY_NAME
-                                ),
-                                "branch_prefix": datetime.datetime.utcnow().strftime(
-                                    "%Y%m%d%H%M%S"
-                                ),
-                            }
-                        )
-                    )
-                )
-
-        with open(record_config_file, "r") as f:
-            self.RECORD_CONFIG = typing.cast(RecordConfigType, json.loads(f.read()))
-
         self.main_branch_name = self.get_full_branch_name("main")
 
         self.git = self.get_gitter(LOG)
         await self.git.init()
         self.addAsyncCleanup(self.git.cleanup)
 
-        await root.startup()
-        self.app = httpx.AsyncClient(app=root.app, base_url="http://localhost")
-
         await self.clear_redis_cache()
         self.redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
-        self.subscription = subscription.Subscription(
-            self.redis_cache,
-            config.TESTING_ORGANIZATION_ID,
-            "You're not nice",
-            frozenset(
-                getattr(subscription.Features, f)
-                for f in subscription.Features.__members__
-            )
-            if self.SUBSCRIPTION_ACTIVE
-            else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
-        )
-        await self.subscription._save_subscription_to_cache()
-        self.user_tokens = user_tokens.UserTokens(
-            self.redis_cache,
-            config.TESTING_ORGANIZATION_ID,
-            [
-                {
-                    "login": github_types.GitHubLogin("mergify-test1"),
-                    "oauth_access_token": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
-                    "name": None,
-                    "email": None,
-                },
-                {
-                    "login": github_types.GitHubLogin("mergify-test3"),
-                    "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
-                    "name": None,
-                    "email": None,
-                },
-            ],
-        )
-        await typing.cast(
-            user_tokens.UserTokensGitHubCom, self.user_tokens
-        ).save_to_cache()
-
-        # Let's start recording
-        cassette = self.recorder.use_cassette("http.json")
-        cassette.__enter__()
-        self.addCleanup(cassette.__exit__)
 
         installation_json = await github.get_installation_from_account_id(
             config.TESTING_ORGANIZATION_ID
@@ -503,60 +415,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.repository_ctxt = await self.installation_ctxt.get_repository_by_id(
             github_types.GitHubRepositoryIdType(self.RECORD_CONFIG["repository_id"])
         )
-
-        real_get_subscription = subscription.Subscription.get_subscription
-
-        async def fake_retrieve_subscription_from_db(redis_cache, owner_id):
-            if owner_id == config.TESTING_ORGANIZATION_ID:
-                return self.subscription
-            return subscription.Subscription(
-                redis_cache,
-                owner_id,
-                "We're just testing",
-                set(subscription.Features.PUBLIC_REPOSITORY),
-            )
-
-        async def fake_subscription(redis_cache, owner_id):
-            if owner_id == config.TESTING_ORGANIZATION_ID:
-                return await real_get_subscription(redis_cache, owner_id)
-            return subscription.Subscription(
-                redis_cache,
-                owner_id,
-                "We're just testing",
-                set(subscription.Features.PUBLIC_REPOSITORY),
-            )
-
-        mock.patch(
-            "mergify_engine.dashboard.subscription.Subscription._retrieve_subscription_from_db",
-            side_effect=fake_retrieve_subscription_from_db,
-        ).start()
-
-        mock.patch(
-            "mergify_engine.dashboard.subscription.Subscription.get_subscription",
-            side_effect=fake_subscription,
-        ).start()
-
-        async def fake_retrieve_user_tokens_from_db(redis_cache, owner_id):
-            if owner_id == config.TESTING_ORGANIZATION_ID:
-                return self.user_tokens
-            return user_tokens.UserTokens(redis_cache, owner_id, {})
-
-        real_get_user_tokens = user_tokens.UserTokens.get
-
-        async def fake_user_tokens(redis_cache, owner_id):
-            if owner_id == config.TESTING_ORGANIZATION_ID:
-                return await real_get_user_tokens(redis_cache, owner_id)
-            return user_tokens.UserTokens(redis_cache, owner_id, {})
-
-        mock.patch(
-            "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom._retrieve_from_db",
-            side_effect=fake_retrieve_user_tokens_from_db,
-        ).start()
-
-        mock.patch(
-            "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom.get",
-            side_effect=fake_user_tokens,
-        ).start()
 
         # NOTE(sileht): We mock this method because when we replay test, the
         # timing maybe not the same as when we record it, making the formatted
@@ -710,71 +568,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.client_admin.patch(
             self.url_origin, json={"default_branch": self.main_branch_name}
         )
-
-    @staticmethod
-    def response_filter(response):
-        for h in [
-            "CF-Cache-Status",
-            "CF-RAY",
-            "Expect-CT",
-            "Report-To",
-            "NEL",
-            "cf-request-id",
-            "Via",
-            "X-GitHub-Request-Id",
-            "Date",
-            "ETag",
-            "X-RateLimit-Reset",
-            "X-RateLimit-Used",
-            "X-RateLimit-Resource",
-            "X-RateLimit-Limit",
-            "Via",
-            "cookie",
-            "Expires",
-            "Fastly-Request-ID",
-            "X-Timer",
-            "X-Served-By",
-            "Last-Modified",
-            "X-RateLimit-Remaining",
-            "X-Runtime-rack",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Expose-Headers",
-            "Cache-Control",
-            "Content-Security-Policy",
-            "Referrer-Policy",
-            "Server",
-            "Status",
-            "Strict-Transport-Security",
-            "Vary",
-            "X-Content-Type-Options",
-            "X-Frame-Options",
-            "X-XSS-Protection",
-        ]:
-            response["headers"].pop(h, None)
-
-        if "body" in response:
-            # Urllib3 vcrpy format
-            try:
-                data = json.loads(response["body"]["string"].decode())
-            except ValueError:
-                data = None
-        else:
-            # httpx vcrpy format
-            try:
-                data = json.loads(response["content"])
-            except ValueError:
-                data = None
-
-        if data and "token" in data:
-            data["token"] = "<TOKEN>"
-            if "body" in response:
-                # Urllib3 vcrpy format
-                response["body"]["string"] = json.dumps(data).encode()
-            else:
-                # httpx vcrpy format
-                response["content"] = json.dumps(data)
-
-        return response
 
     def get_full_branch_name(self, name: str) -> str:
         return f"{self.RECORD_CONFIG['branch_prefix']}/{self._testMethodName}/{name}"

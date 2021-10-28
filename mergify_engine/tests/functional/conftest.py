@@ -1,0 +1,355 @@
+# -*- encoding: utf-8 -*-
+#
+# Copyright © 2021 Mergify SAS
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+import asyncio
+import datetime
+import json
+import os
+import shutil
+import typing
+from unittest import mock
+
+import httpx
+import pytest
+import vcr
+import vcr.stubs.urllib3_stubs
+
+from mergify_engine import config
+from mergify_engine import github_types
+from mergify_engine import utils
+from mergify_engine.clients import github
+from mergify_engine.clients import github_app
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens as user_tokens_mod
+from mergify_engine.web import root as web_root
+
+
+RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
+CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"
+
+
+class RecordConfigType(typing.TypedDict):
+    organization_id: github_types.GitHubAccountIdType
+    organization_name: github_types.GitHubLogin
+    repository_id: github_types.GitHubRepositoryIdType
+    repository_name: github_types.GitHubRepositoryName
+    branch_prefix: str
+
+
+@pytest.fixture
+async def mergify_web_client() -> typing.AsyncGenerator[httpx.AsyncClient, None]:
+    await web_root.startup()
+    client = httpx.AsyncClient(app=web_root.app, base_url="http://localhost")
+    try:
+        yield client
+    finally:
+        await client.aclose()
+        await web_root.shutdown()
+
+
+class DashboardFixture(typing.NamedTuple):
+    subscription: subscription.Subscription
+    user_tokens: user_tokens_mod.UserTokens
+
+
+@pytest.fixture
+async def dashboard(
+    redis_cache: utils.RedisCache, request: pytest.FixtureRequest
+) -> DashboardFixture:
+    is_unittest_class = request.cls is not None
+    subscription_active = False
+    marker = request.node.get_closest_marker("subscription")
+    if marker:
+        subscription_active = marker.args[0]
+    elif is_unittest_class:
+        subscription_active = request.cls.SUBSCRIPTION_ACTIVE
+
+    sub = subscription.Subscription(
+        redis_cache,
+        config.TESTING_ORGANIZATION_ID,
+        "You're not nice",
+        frozenset(
+            getattr(subscription.Features, f) for f in subscription.Features.__members__
+        )
+        if subscription_active
+        else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+    )
+    await sub._save_subscription_to_cache()
+    user_tokens = user_tokens_mod.UserTokens(
+        redis_cache,
+        config.TESTING_ORGANIZATION_ID,
+        [
+            {
+                "login": github_types.GitHubLogin("mergify-test1"),
+                "oauth_access_token": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
+                "name": None,
+                "email": None,
+            },
+            {
+                "login": github_types.GitHubLogin("mergify-test3"),
+                "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
+                "name": None,
+                "email": None,
+            },
+        ],
+    )
+    await typing.cast(user_tokens_mod.UserTokensGitHubCom, user_tokens).save_to_cache()
+
+    real_get_subscription = subscription.Subscription.get_subscription
+
+    async def fake_retrieve_subscription_from_db(redis_cache, owner_id):
+        if owner_id == config.TESTING_ORGANIZATION_ID:
+            return sub
+        return subscription.Subscription(
+            redis_cache,
+            owner_id,
+            "We're just testing",
+            set(subscription.Features.PUBLIC_REPOSITORY),
+        )
+
+    async def fake_subscription(redis_cache, owner_id):
+        if owner_id == config.TESTING_ORGANIZATION_ID:
+            return await real_get_subscription(redis_cache, owner_id)
+        return subscription.Subscription(
+            redis_cache,
+            owner_id,
+            "We're just testing",
+            set(subscription.Features.PUBLIC_REPOSITORY),
+        )
+
+    patcher = mock.patch(
+        "mergify_engine.dashboard.subscription.Subscription._retrieve_subscription_from_db",
+        side_effect=fake_retrieve_subscription_from_db,
+    )
+    patcher.start()
+    request.addfinalizer(patcher.stop)
+
+    patcher = mock.patch(
+        "mergify_engine.dashboard.subscription.Subscription.get_subscription",
+        side_effect=fake_subscription,
+    )
+    patcher.start()
+    request.addfinalizer(patcher.stop)
+
+    async def fake_retrieve_user_tokens_from_db(redis_cache, owner_id):
+        if owner_id == config.TESTING_ORGANIZATION_ID:
+            return user_tokens
+        return user_tokens_mod.UserTokens(redis_cache, owner_id, {})
+
+    real_get_user_tokens = user_tokens_mod.UserTokens.get
+
+    async def fake_user_tokens(redis_cache, owner_id):
+        if owner_id == config.TESTING_ORGANIZATION_ID:
+            return await real_get_user_tokens(redis_cache, owner_id)
+        return user_tokens_mod.UserTokens(redis_cache, owner_id, {})
+
+    patcher = mock.patch(
+        "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom._retrieve_from_db",
+        side_effect=fake_retrieve_user_tokens_from_db,
+    )
+    patcher.start()
+    request.addfinalizer(patcher.stop)
+
+    patcher = mock.patch(
+        "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom.get",
+        side_effect=fake_user_tokens,
+    )
+    patcher.start()
+    request.addfinalizer(patcher.stop)
+
+    return DashboardFixture(
+        sub,
+        user_tokens,
+    )
+
+
+def pyvcr_response_filter(response):
+    for h in [
+        "CF-Cache-Status",
+        "CF-RAY",
+        "Expect-CT",
+        "Report-To",
+        "NEL",
+        "cf-request-id",
+        "Via",
+        "X-GitHub-Request-Id",
+        "Date",
+        "ETag",
+        "X-RateLimit-Reset",
+        "X-RateLimit-Used",
+        "X-RateLimit-Resource",
+        "X-RateLimit-Limit",
+        "Via",
+        "cookie",
+        "Expires",
+        "Fastly-Request-ID",
+        "X-Timer",
+        "X-Served-By",
+        "Last-Modified",
+        "X-RateLimit-Remaining",
+        "X-Runtime-rack",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Expose-Headers",
+        "Cache-Control",
+        "Content-Security-Policy",
+        "Referrer-Policy",
+        "Server",
+        "Status",
+        "Strict-Transport-Security",
+        "Vary",
+        "X-Content-Type-Options",
+        "X-Frame-Options",
+        "X-XSS-Protection",
+    ]:
+        response["headers"].pop(h, None)
+
+    if "body" in response:
+        # Urllib3 vcrpy format
+        try:
+            data = json.loads(response["body"]["string"].decode())
+        except ValueError:
+            data = None
+    else:
+        # httpx vcrpy format
+        try:
+            data = json.loads(response["content"])
+        except ValueError:
+            data = None
+
+    if data and "token" in data:
+        data["token"] = "<TOKEN>"
+        if "body" in response:
+            # Urllib3 vcrpy format
+            response["body"]["string"] = json.dumps(data).encode()
+        else:
+            # httpx vcrpy format
+            response["content"] = json.dumps(data)
+
+    return response
+
+
+class RecorderFixture(typing.NamedTuple):
+    config: RecordConfigType
+    vcr: vcr.VCR
+
+
+@pytest.fixture(autouse=True)
+async def recorder(
+    request: pytest.FixtureRequest,
+) -> typing.Optional[RecorderFixture]:
+    is_unittest_class = request.cls is not None
+
+    marker = request.node.get_closest_marker("recorder")
+    if not is_unittest_class and marker is None:
+        return None
+
+    if is_unittest_class:
+        cassette_library_dir = os.path.join(
+            CASSETTE_LIBRARY_DIR_BASE,
+            request.cls.__name__,
+            request.node.name,
+        )
+    else:
+        cassette_library_dir = os.path.join(
+            CASSETTE_LIBRARY_DIR_BASE,
+            request.node.module.__name__.replace(
+                "mergify_engine.tests.functional.", ""
+            ).replace(".", "/"),
+            request.node.name,
+        )
+
+    # Recording stuffs
+    if RECORD:
+        if os.path.exists(cassette_library_dir):
+            shutil.rmtree(cassette_library_dir)
+        os.makedirs(cassette_library_dir)
+
+    recorder = vcr.VCR(
+        cassette_library_dir=cassette_library_dir,
+        record_mode="all" if RECORD else "none",
+        match_on=["method", "uri"],
+        ignore_localhost=True,
+        filter_headers=[
+            ("Authorization", "<TOKEN>"),
+            ("X-Hub-Signature", "<SIGNATURE>"),
+            ("User-Agent", None),
+            ("Accept-Encoding", None),
+            ("Connection", None),
+        ],
+        before_record_response=pyvcr_response_filter,
+    )
+
+    if RECORD:
+        github.CachedToken.STORAGE = {}
+    else:
+        # Never expire token during replay
+        patcher = mock.patch.object(
+            github_app, "get_or_create_jwt", return_value="<TOKEN>"
+        )
+        patcher.start()
+        request.addfinalizer(patcher.stop)
+        patcher = mock.patch.object(
+            github.GithubAppInstallationAuth,
+            "get_access_token",
+            return_value="<TOKEN>",
+        )
+        patcher.start()
+        request.addfinalizer(patcher.stop)
+
+    # Let's start recording
+    cassette = recorder.use_cassette("http.json")
+    cassette.__enter__()
+    request.addfinalizer(cassette.__exit__)
+    record_config_file = os.path.join(cassette_library_dir, "config.json")
+
+    if RECORD:
+        with open(record_config_file, "w") as f:
+            f.write(
+                json.dumps(
+                    RecordConfigType(
+                        {
+                            "organization_id": config.TESTING_ORGANIZATION_ID,
+                            "organization_name": config.TESTING_ORGANIZATION_NAME,
+                            "repository_id": config.TESTING_REPOSITORY_ID,
+                            "repository_name": github_types.GitHubRepositoryName(
+                                config.TESTING_REPOSITORY_NAME
+                            ),
+                            "branch_prefix": datetime.datetime.utcnow().strftime(
+                                "%Y%m%d%H%M%S"
+                            ),
+                        }
+                    )
+                )
+            )
+
+    with open(record_config_file, "r") as f:
+        return RecorderFixture(
+            typing.cast(RecordConfigType, json.loads(f.read())), recorder
+        )
+
+
+@pytest.fixture
+def unittest_glue(
+    dashboard: DashboardFixture,
+    mergify_web_client: httpx.AsyncClient,
+    recorder: RecorderFixture,
+    event_loop: asyncio.AbstractEventLoop,
+    request: pytest.FixtureRequest,
+) -> None:
+    request.cls.pytest_event_loop = event_loop
+    request.cls.app = mergify_web_client
+    request.cls.RECORD_CONFIG = recorder.config
+    request.cls.cassette_library_dir = recorder.vcr.cassette_library_dir
+    request.cls.subscription = dashboard.subscription
