@@ -45,15 +45,51 @@ def CommaSeparatedStringList(value: str) -> typing.List[str]:
         return []
 
 
+def CommaSeparatedStringDict(v: str) -> typing.Dict[str, str]:
+    d = {}
+    for bot in v.split(","):
+        if bot.strip():
+            key, _, value = bot.partition(":")
+            d[key.strip()] = value.strip()
+    return d
+
+
 def AccountTokens(v: str) -> typing.Dict[str, str]:
     try:
-        return dict(
-            typing.cast(typing.Tuple[str, str], tuple(map(str.strip, bot.split(":"))))
-            for bot in v.split(",")
-            if bot.strip()
-        )
+        return CommaSeparatedStringDict(v)
     except ValueError:
         raise ValueError("wrong format, expect `login1:token1,login2:token2`")
+
+
+API_ACCESS_KEY_LEN = 32
+API_SECRET_KEY_LEN = 32
+
+
+class ApplicationAPIKey(typing.TypedDict):
+    api_secret_key: str
+    api_access_key: str
+    account_id: int
+
+
+def ApplicationAPIKeys(v: str) -> typing.Dict[str, ApplicationAPIKey]:
+    try:
+        applications = CommaSeparatedStringDict(v)
+        for api_key in applications:
+            if len(api_key) != API_ACCESS_KEY_LEN + API_ACCESS_KEY_LEN:
+                raise ValueError
+
+        return {
+            api_key[:API_ACCESS_KEY_LEN]: {
+                "api_access_key": api_key[:API_ACCESS_KEY_LEN],
+                "api_secret_key": api_key[API_ACCESS_KEY_LEN:],
+                "account_id": int(account_id),
+            }
+            for api_key, account_id in applications.items()
+        }
+    except ValueError:
+        raise ValueError(
+            "wrong format, expect `api_key1:github_account_id1,api_key1:github_account_id2`, api_key must be 64 character long"
+        )
 
 
 Schema = voluptuous.Schema(
@@ -65,6 +101,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "LOG_DEBUG_LOGGER_NAMES", default=""
         ): CommaSeparatedStringList,
+        voluptuous.Required("API_ENABLE", default=False): CoercedBool,
         voluptuous.Required("LOG_LEVEL", default="INFO"): CoercedLoggingLevel,
         voluptuous.Required("LOG_RATELIMIT", default=False): CoercedBool,
         voluptuous.Required("LOG_STDOUT", default=True): CoercedBool,
@@ -98,6 +135,9 @@ Schema = voluptuous.Schema(
         ),
         voluptuous.Required("ACCOUNT_TOKENS", default=""): voluptuous.Coerce(
             AccountTokens
+        ),
+        voluptuous.Required("APPLICATION_APIKEYS", default=""): voluptuous.Coerce(
+            ApplicationAPIKeys
         ),
         voluptuous.Required("WEBHOOK_APP_FORWARD_URL", default=None): voluptuous.Any(
             None, str
@@ -180,6 +220,7 @@ Schema = voluptuous.Schema(
 
 # Config variables available
 VERSION: str
+API_ENABLE: bool
 SENTRY_URL: str
 SENTRY_ENVIRONMENT: str
 CACHE_TOKEN_SECRET: str
@@ -206,6 +247,7 @@ OAUTH_CLIENT_SECRET: str
 GIT_EMAIL: str
 CONTEXT: str
 ACCOUNT_TOKENS: typing.Dict[str, str]
+APPLICATION_APIKEYS: typing.Dict[str, ApplicationAPIKey]
 WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]

@@ -40,6 +40,11 @@ def setup_new_event_loop() -> None:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 
+@pytest.fixture(autouse=True, scope="session")
+def enable_api() -> None:
+    config.API_ENABLE = True
+
+
 @pytest.fixture()
 async def redis_cache() -> typing.AsyncGenerator[utils.RedisCache, None]:
     with utils.yaaredis_for_cache() as client:
