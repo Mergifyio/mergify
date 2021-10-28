@@ -373,6 +373,7 @@ def unittest_glue(
     event_loop: asyncio.AbstractEventLoop,
     request: pytest.FixtureRequest,
 ) -> None:
+    request.cls.api_key_admin = dashboard.api_key_admin
     request.cls.pytest_event_loop = event_loop
     request.cls.app = mergify_web_client
     request.cls.RECORD_CONFIG = recorder.config
