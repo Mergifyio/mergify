@@ -1674,6 +1674,7 @@ class PullRequest(BasePullRequest):
                 elif found:
                     message_lines.append(line)
                 if found:
+                    self.context.log.info("Commit message template found in body")
                     template = "\n".join(line.strip() for line in message_lines)
 
         if template is None:
