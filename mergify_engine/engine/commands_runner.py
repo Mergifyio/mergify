@@ -243,17 +243,18 @@ async def run_command(
         "command": command_full,
         "conclusion": result.conclusion.value,
     }
+    details = ""
+    if result.summary:
+        details = f"<details>\n\n{result.summary}\n\n</details>\n"
+
     return (
         result,
         f"""> {command_full}
 
 #### {result.conclusion.emoji} {result.title}
 
-<details>
+{details}
 
-{result.summary}
-
-</details>
 <!--
 DO NOT EDIT
 -*- Mergify Payload -*-
