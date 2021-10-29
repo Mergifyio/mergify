@@ -25,6 +25,7 @@ from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import count_seats
+from mergify_engine import date
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -57,11 +58,12 @@ def meter_event(
 
 def _extract_slim_event(event_type, data):
     slim_data = {
+        "received_at": date.utcnow().isoformat(),
         "sender": {
             "id": data["sender"]["id"],
             "login": data["sender"]["login"],
             "type": data["sender"]["type"],
-        }
+        },
     }
 
     if event_type == "status":
@@ -429,7 +431,7 @@ async def push_to_worker(
         slim_event = None
         msg_action = f"ignored: {ignore_reason}"
 
-    LOG.info(
+    LOG.debug(
         "GithubApp event %s",
         msg_action,
         event_type=event_type,
