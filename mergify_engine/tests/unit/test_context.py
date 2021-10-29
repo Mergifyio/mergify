@@ -394,8 +394,8 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 7
 
 
-@pytest.mark.asyncio
-async def test_context_depends_on():
+@pytest.fixture
+def a_pull_request() -> github_types.GitHubPullRequest:
     gh_owner = github_types.GitHubAccount(
         {
             "login": github_types.GitHubLogin("user"),
@@ -419,128 +419,7 @@ async def test_context_depends_on():
         }
     )
 
-    pull = github_types.GitHubPullRequest(
-        {
-            "node_id": "42",
-            "locked": False,
-            "assignees": [],
-            "requested_reviewers": [],
-            "requested_teams": [],
-            "milestone": None,
-            "title": "",
-            "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "closed_at": None,
-            "id": github_types.GitHubPullRequestId(0),
-            "maintainer_can_modify": False,
-            "rebaseable": False,
-            "draft": False,
-            "merge_commit_sha": None,
-            "labels": [],
-            "number": github_types.GitHubPullRequestNumber(6),
-            "commits": 1,
-            "merged": True,
-            "state": "closed",
-            "changed_files": 1,
-            "html_url": "<html_url>",
-            "base": {
-                "label": "",
-                "sha": github_types.SHAType("sha"),
-                "user": {
-                    "login": github_types.GitHubLogin("user"),
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-                "ref": github_types.GitHubRefType("ref"),
-                "label": "",
-                "repo": gh_repo,
-            },
-            "head": {
-                "label": "",
-                "sha": github_types.SHAType("old-sha-one"),
-                "ref": github_types.GitHubRefType("fork"),
-                "user": {
-                    "login": github_types.GitHubLogin("user"),
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-                "repo": {
-                    "archived": False,
-                    "url": "",
-                    "html_url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                    "id": github_types.GitHubRepositoryIdType(123),
-                    "full_name": "fork/other",
-                    "name": github_types.GitHubRepositoryName("other"),
-                    "private": False,
-                    "owner": {
-                        "login": github_types.GitHubLogin("user"),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
-                },
-            },
-            "user": {
-                "login": github_types.GitHubLogin("user"),
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "User",
-                "avatar_url": "",
-            },
-            "merged_by": None,
-            "merged_at": None,
-            "mergeable_state": "clean",
-            "body": f"""header
-
-Depends-On: #123
-depends-on: {config.GITHUB_URL}/foo/bar/pull/999
-depends-on: {config.GITHUB_URL}/foo/bar/999
-depends-on: azertyuiopqsdfghjklmwxcvbn
-depends-on: https://somewhereelse.com/foo/bar/999
-Depends-oN: {config.GITHUB_URL}/user/repo/pull/456
-Depends-oN: {config.GITHUB_URL}/user/repo/pull/789
- DEPENDS-ON: #42
-Depends-On:  #48
-Depends-On:  #999 with crap
-DePeNdS-oN: {config.GITHUB_URL}/user/repo/pull/999 with crap
-
-footer
-""",
-        },
-    )
-
-    ctxt = await context.Context.create(mock.Mock(), pull)
-    assert ctxt.get_depends_on() == [42, 48, 123, 456, 789]
-
-
-@pytest.mark.asyncio
-async def test_context_body_null():
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-
-    gh_repo = github_types.GitHubRepository(
-        {
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType(""),
-            "id": github_types.GitHubRepositoryIdType(456),
-            "full_name": "user/repo",
-            "name": github_types.GitHubRepositoryName("repo"),
-            "private": False,
-            "owner": gh_owner,
-        }
-    )
-
-    pull = github_types.GitHubPullRequest(
+    return github_types.GitHubPullRequest(
         {
             "node_id": "42",
             "locked": False,
@@ -616,5 +495,190 @@ async def test_context_body_null():
             "body": None,
         }
     )
-    ctxt = await context.Context.create(mock.Mock(), pull)
+
+
+@pytest.mark.asyncio
+async def test_context_depends_on(a_pull_request):
+    a_pull_request[
+        "body"
+    ] = f"""header
+
+Depends-On: #123
+depends-on: {config.GITHUB_URL}/foo/bar/pull/999
+depends-on: {config.GITHUB_URL}/foo/bar/999
+depends-on: azertyuiopqsdfghjklmwxcvbn
+depends-on: https://somewhereelse.com/foo/bar/999
+Depends-oN: {config.GITHUB_URL}/user/repo/pull/456
+Depends-oN: {config.GITHUB_URL}/user/repo/pull/789
+ DEPENDS-ON: #42
+Depends-On:  #48
+Depends-On:  #999 with crap
+DePeNdS-oN: {config.GITHUB_URL}/user/repo/pull/999 with crap
+
+footer
+"""
+
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert ctxt.get_depends_on() == [42, 48, 123, 456, 789]
+
+
+@pytest.mark.asyncio
+async def test_context_body_null(a_pull_request):
+    a_pull_request["body"] = None
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert await ctxt._get_consolidated_data("body") == ""
+
+
+@pytest.mark.asyncio
+async def test_context_body_html(a_pull_request):
+    a_pull_request["title"] = "chore(deps-dev): update flake8 requirement from <4 to <5"
+    a_pull_request[
+        "body"
+    ] = """
+Updates the requirements on [flake8](https://github.com/pycqa/flake8) to permit the latest version.
+<details>
+<summary>Commits</summary>
+<ul>
+<li><a href="https://github.com/PyCQA/flake8/commit/82b698e09996cdde5d473e234681d8380810d7a2"><code>82b698e</code></a> Release 4.0.1</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/0fac346d8437d205e508643253c7a7d5fdf5dee7"><code>0fac346</code></a> Merge pull request <a href="https://github-redirect.dependabot.com/pycqa/flake8/issues/1410">#1410</a> from PyCQA/parallel-syntax-error</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/aa54693c9ec03368c6e592efff4dd4757dd72a47"><code>aa54693</code></a> fix parallel execution collecting a SyntaxError</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/d31c5356bbb0a884555662185697ddc6bb46a44c"><code>d31c535</code></a> Release 4.0.0</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/afd2399b4cc9b27c4e8a5c2dec8444df8f480293"><code>afd2399</code></a> Merge pull request <a href="https://github-redirect.dependabot.com/pycqa/flake8/issues/1407">#1407</a> from asottile/setup-cfg-fmt</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/960cf8cf2044359d5fbd3454a2a9a1d7a0586594"><code>960cf8c</code></a> rerun setup-cfg-fmt (and restore comments)</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/d7baba5f14091e7975d2abb3ba9bf321b5be6102"><code>d7baba5</code></a> Merge pull request <a href="https://github-redirect.dependabot.com/pycqa/flake8/issues/1406">#1406</a> from asottile/update-versions</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/d79021aafc809d999c4cbbc0a513a5ceb473efa2"><code>d79021a</code></a> update dependency versions</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/283f0c81241673221d9628beb11e2d7356826f00"><code>283f0c8</code></a> Merge pull request <a href="https://github-redirect.dependabot.com/pycqa/flake8/issues/1404">#1404</a> from PyCQA/drop-xdg-config</li>
+<li><a href="https://github.com/PyCQA/flake8/commit/807904aebc20814ac595b0004ab526fffb5ef681"><code>807904a</code></a> Drop support for Home and XDG config files</li>
+<li>Additional commits viewable in <a href="https://github.com/pycqa/flake8/compare/0.1...4.0.1">compare view</a></li>
+</ul>
+</details>
+<br />
+
+
+Dependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.
+
+[//]: # (dependabot-automerge-start)
+[//]: # (dependabot-automerge-end)
+
+---
+
+<details>
+<summary>Dependabot commands and options</summary>
+<br />
+
+You can trigger Dependabot actions by commenting on this PR:
+- `@dependabot rebase` will rebase this PR
+- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it
+- `@dependabot merge` will merge this PR after your CI passes on it
+- `@dependabot squash and merge` will squash and merge this PR after your CI passes on it
+- `@dependabot cancel merge` will cancel a previously requested merge and block automerging
+- `@dependabot reopen` will reopen this PR if it is closed
+- `@dependabot close` will close this PR and stop Dependabot recreating it. You can achieve the same result by closing it manually
+- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)
+- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)
+- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)
+
+
+</details>
+"""
+
+    expected_title = "chore(deps-dev): update flake8 requirement from <4 to <5 (#6)"
+    expected_body = """
+Updates the requirements on [flake8](https://github.com/pycqa/flake8) to permit the latest version.
+
+Commits
+* [`82b698e`](https://github.com/PyCQA/flake8/commit/82b698e09996cdde5d473e234681d8380810d7a2) Release 4.0.1
+* [`0fac346`](https://github.com/PyCQA/flake8/commit/0fac346d8437d205e508643253c7a7d5fdf5dee7) Merge pull request [#1410](https://github-redirect.dependabot.com/pycqa/flake8/issues/1410) from PyCQA/parallel-syntax-error
+* [`aa54693`](https://github.com/PyCQA/flake8/commit/aa54693c9ec03368c6e592efff4dd4757dd72a47) fix parallel execution collecting a SyntaxError
+* [`d31c535`](https://github.com/PyCQA/flake8/commit/d31c5356bbb0a884555662185697ddc6bb46a44c) Release 4.0.0
+* [`afd2399`](https://github.com/PyCQA/flake8/commit/afd2399b4cc9b27c4e8a5c2dec8444df8f480293) Merge pull request [#1407](https://github-redirect.dependabot.com/pycqa/flake8/issues/1407) from asottile/setup-cfg-fmt
+* [`960cf8c`](https://github.com/PyCQA/flake8/commit/960cf8cf2044359d5fbd3454a2a9a1d7a0586594) rerun setup-cfg-fmt (and restore comments)
+* [`d7baba5`](https://github.com/PyCQA/flake8/commit/d7baba5f14091e7975d2abb3ba9bf321b5be6102) Merge pull request [#1406](https://github-redirect.dependabot.com/pycqa/flake8/issues/1406) from asottile/update-versions
+* [`d79021a`](https://github.com/PyCQA/flake8/commit/d79021aafc809d999c4cbbc0a513a5ceb473efa2) update dependency versions
+* [`283f0c8`](https://github.com/PyCQA/flake8/commit/283f0c81241673221d9628beb11e2d7356826f00) Merge pull request [#1404](https://github-redirect.dependabot.com/pycqa/flake8/issues/1404) from PyCQA/drop-xdg-config
+* [`807904a`](https://github.com/PyCQA/flake8/commit/807904aebc20814ac595b0004ab526fffb5ef681) Drop support for Home and XDG config files
+* Additional commits viewable in [compare view](https://github.com/pycqa/flake8/compare/0.1...4.0.1)
+
+
+
+  
+
+
+
+Dependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.
+
+[//]: # (dependabot-automerge-start)
+[//]: # (dependabot-automerge-end)
+
+---
+
+
+Dependabot commands and options
+  
+
+
+You can trigger Dependabot actions by commenting on this PR:
+- `@dependabot rebase` will rebase this PR
+- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it
+- `@dependabot merge` will merge this PR after your CI passes on it
+- `@dependabot squash and merge` will squash and merge this PR after your CI passes on it
+- `@dependabot cancel merge` will cancel a previously requested merge and block automerging
+- `@dependabot reopen` will reopen this PR if it is closed
+- `@dependabot close` will close this PR and stop Dependabot recreating it. You can achieve the same result by closing it manually
+- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)
+- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)
+- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)
+
+
+
+"""  # noqa
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert await ctxt.pull_request.get_commit_message(
+        "default", "{{ title }} (#{{ number }})\n\n{{ body | markdownify }}"
+    ) == (expected_title, expected_body)
+
+
+@pytest.mark.asyncio
+async def test_context_body_section(a_pull_request):
+    a_pull_request[
+        "title"
+    ] = "chore(deps-dev): update flake8 requirement <-- noway we commit this-->from <4 to <5"
+    a_pull_request[
+        "body"
+    ] = """
+### Description
+
+My awesome section with a beautiful description
+<!-- I hide a comment !!! -->
+Fixes MRGFY-XXX
+
+### Development
+
+- [X] All checks must pass (Semantic Pull Request, pep8, requirements, unit tests, functional tests, security checks, …)
+- [X] The code changed/added as part of this pull request must be covered with tests
+- [X] Features must have a link to a Linear task
+- [X] Hotfixes must have a link to Sentry issue and the ``hotfix`` label
+
+### Code Review
+
+Code review policies are handled and automated by Mergify.
+
+* When all tests pass, reviewers will be assigned automatically.
+* When change is approved by at least one review and no pending review are
+  remaining, pull request is retested against its base branch.
+* The pull request is then merged automatically.
+
+"""
+
+    expected_title = "chore(deps-dev): update flake8 requirement from <4 to <5 (#6)"
+    expected_body = """My awesome section with a beautiful description
+
+Fixes MRGFY-XXX"""
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert (
+        await ctxt.pull_request.get_commit_message(
+            "default",
+            "{{ title | striptags }} (#{{ number }})\n\n{{ body | get_section('### Description') }}",
+        )
+        == (expected_title, expected_body)
+    )

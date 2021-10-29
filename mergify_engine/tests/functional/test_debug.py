@@ -127,6 +127,7 @@ pull_request_rules:
  'author': 'mergify-test2',
  'base': '{self.main_branch_name}',
  'body': 'test_debugger: pull request n1 from fork',
+ 'body-raw': 'test_debugger: pull request n1 from fork',
  'changes-requested-reviews-by': [],
  'check-failure': [],
  'check-neutral': [],

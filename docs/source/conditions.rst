@@ -130,7 +130,10 @@ Here's the list of pull request attribute that can be used in conditions:
      - The name of the branch the pull request should be pulled into.
    * - ``body``
      - string
-     - The contents of the pull request.
+     - The contents of the pull request description without Markdown/HTML comments.
+   * - ``body-raw``
+     - string
+     - The contents of the pull request description.
    * - ``changes-requested-reviews-by``
      - list of string
      - The list of GitHub user or team login that have requested changes in a

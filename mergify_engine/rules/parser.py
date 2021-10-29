@@ -290,6 +290,7 @@ base = "base" + _match_with_operator(git_branch)
 author = "author" + _match_login_or_teams
 merged_by = "merged-by" + _match_login_or_teams
 body = "body" + _match_with_operator(text)
+body_raw = "body-raw" + _match_with_operator(text)
 assignee = "assignee" + _match_login_or_teams
 label = "label" + _match_with_operator(text)
 title = "title" + _match_with_operator(text)
@@ -334,6 +335,7 @@ quantifiable_attributes = (
     | author
     | merged_by
     | body
+    | body_raw
     | assignee
     | label
     | title
