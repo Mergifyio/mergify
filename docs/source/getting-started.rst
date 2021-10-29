@@ -13,7 +13,7 @@ Mergify is a GitHub Application that operates on your GitHub repositories to
 automate them. You need to install Mergify on your GitHub Account to have it
 working.
 
-1. Login to |https://dashboard.mergify.io/|
+1. Login to |https://dashboard.mergify.com/|
 
 2. Click on ``Enable Mergify on a new account`` or go to |https://github.com/apps/mergify/installations/new|
 
@@ -26,9 +26,9 @@ working.
 
 4. You will be redirected to the dashboard.
 
-.. |https://dashboard.mergify.io/| raw:: html
+.. |https://dashboard.mergify.com/| raw:: html
 
-   <a href="https://dashboard.mergify.io/" target="_blank">https://dashboard.mergify.io/</a>
+   <a href="https://dashboard.mergify.com/" target="_blank">https://dashboard.mergify.com/</a>
 
 
 .. |https://github.com/apps/mergify/installations/new| raw:: html
@@ -116,7 +116,7 @@ Creating the Configuration File
 
 You can create your configuration file using your favorite text editor.
 However, writing and testing in the config editor can be easier. Go to `your
-Mergify dashboard <https://dashboard.mergify.io>`_ and pick the config editor for
+Mergify dashboard <https://dashboard.mergify.com>`_ and pick the config editor for
 your organization. Then, select a repository where you enabled Mergify.
 
 .. image:: _static/config-editor.png

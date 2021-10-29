@@ -39,12 +39,12 @@ You can also trigger Mergify actions by commenting on this pull request:
 
 - `@Mergifyio refresh` will re-evaluate the queue rules
 
-Additionally, on Mergify [dashboard](https://dashboard.mergify.io/) you can:
+Additionally, on Mergify [dashboard](https://dashboard.mergify.com) you can:
 
 - look at your merge queues
 - generate the Mergify configuration with the config editor.
 
-Finally, you can contact us on https://mergify.io/
+Finally, you can contact us on https://mergify.com
 </details>
 """
 
@@ -63,11 +63,11 @@ You can also trigger Mergify actions by commenting on this pull request:
 - `@Mergifyio update` will merge the base branch into this PR
 - `@Mergifyio backport <destination>` will backport this PR on `<destination>` branch
 
-Additionally, on Mergify [dashboard](https://dashboard.mergify.io/) you can:
+Additionally, on Mergify [dashboard](https://dashboard.mergify.com/) you can:
 
 - look at your merge queues
 - generate the Mergify configuration with the config editor.
 
-Finally, you can contact us on https://mergify.io/
+Finally, you can contact us on https://mergify.com
 </details>
 """

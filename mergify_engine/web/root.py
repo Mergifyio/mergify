@@ -75,4 +75,4 @@ async def index(
             "Your Mergify installation succeeded.",
             status_code=200,
         )
-    return responses.RedirectResponse(url="https://mergify.io/")
+    return responses.RedirectResponse(url="https://mergify.com")
