@@ -87,7 +87,7 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
     elif not ctxt.can_change_github_workflow() and await ctxt.github_workflow_changed():
         raise BranchUpdateFailure(
             "The new Mergify permissions must be accepted to rebase pull request with `.github/workflows` changes.\n"
-            "You can accept them at https://dashboard.mergify.io/.\n"
+            "You can accept them at https://dashboard.mergify.com/.\n"
             "In the meantime, this pull request must be rebased manually.",
             title="Pull request can't be updated with latest base branch changes",
         )

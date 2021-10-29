@@ -2,10 +2,11 @@ mergify-engine
 ==============
 
 .. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/Mergifyio/mergify.io
-   :target: https://mergify.io
+   :target: https://mergify.com
    :alt: Mergify Status
 
-This is the engine running behind `Mergify <https://mergify.io>`_, a GitHub automation service for your pull requests.
+This is the engine running behind `Mergify <https://mergify.com>`_, a GitHub
+automation service for your pull requests.
 
 This is how it works:
 

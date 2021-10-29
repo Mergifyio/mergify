@@ -104,7 +104,7 @@ class SubscriptionBase(abc.ABC):
 
     @staticmethod
     def missing_feature_reason(owner: str) -> str:
-        return f"⚠ The [subscription](https://dashboard.mergify.io/github/{owner}/subscription) needs to be updated to enable this feature."
+        return f"⚠ The [subscription](https://dashboard.mergify.com/github/{owner}/subscription) needs to be updated to enable this feature."
 
     @classmethod
     def from_dict(

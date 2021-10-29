@@ -42,7 +42,7 @@ STRICT_MODE_DEPRECATION_GHES = """
 
 > **The configuration uses the deprecated `strict` mode of the merge action.**
 > This option will be removed on version 3.0.0.
-> For more information: https://blog.mergify.io/strict-mode-deprecation/
+> For more information: https://blog.mergify.com/strict-mode-deprecation/
 
 """
 
@@ -53,7 +53,7 @@ STRICT_MODE_DEPRECATION_SASS = """
 > **The configuration uses the deprecated `strict` mode of the merge action.**
 > A brownout is planned for the whole December 6th, 2021 day.
 > This option will be removed on January 10th, 2022.
-> For more information: https://blog.mergify.io/strict-mode-deprecation/
+> For more information: https://blog.mergify.com/strict-mode-deprecation/
 
 """
 

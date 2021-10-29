@@ -27,7 +27,7 @@ def test_badge_redirect():
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
             "https://img.shields.io/endpoint.png"
-            "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
+            "?url=https://dashboard.mergify.com/badges/mergifyio/mergify-engine&style=flat"
         )
 
     with testclient.TestClient(root.app) as client:
@@ -37,7 +37,7 @@ def test_badge_redirect():
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
             "https://img.shields.io/endpoint.svg"
-            "?url=https://dashboard.mergify.io/badges/mergifyio/mergify-engine&style=flat"
+            "?url=https://dashboard.mergify.com/badges/mergifyio/mergify-engine&style=flat"
         )
 
 
@@ -45,5 +45,5 @@ def test_badge_endpoint():
     with testclient.TestClient(root.app) as client:
         reply = client.get("/badges/mergifyio/mergify-engine", allow_redirects=False)
         assert reply.headers["Location"] == (
-            "https://dashboard.mergify.io/badges/mergifyio/mergify-engine"
+            "https://dashboard.mergify.com/badges/mergifyio/mergify-engine"
         )
