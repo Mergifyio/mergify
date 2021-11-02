@@ -33,6 +33,7 @@ import jinja2.meta
 import jinja2.runtime
 import jinja2.sandbox
 import jinja2.utils
+import markdownify
 import tenacity
 
 from mergify_engine import check_api
@@ -989,6 +990,9 @@ class Context(object):
             return self.pull["title"]
 
         elif name == "body":
+            return re.sub("(<!--.*?-->)", "", self.pull["body"] or "")
+
+        elif name == "body-raw":
             return self.pull["body"] or ""
 
         elif name == "files":
@@ -1574,6 +1578,7 @@ class PullRequest(BasePullRequest):
         "locked",
         "title",
         "body",
+        "body-raw",
         "queue-position",
     }
 
@@ -1623,6 +1628,7 @@ class PullRequest(BasePullRequest):
         env = jinja2.sandbox.SandboxedEnvironment(
             undefined=jinja2.StrictUndefined,
         )
+        self._add_custom_filter(env)
         with self._template_exceptions_mapping():
             used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
             infos = {}
@@ -1632,6 +1638,41 @@ class PullRequest(BasePullRequest):
                 else:
                     infos[k] = await getattr(self, k)
             return env.from_string(template).render(**infos)
+
+    def _add_custom_filter(self, env: jinja2.sandbox.SandboxedEnvironment) -> None:
+        env.filters["markdownify"] = lambda s: markdownify.markdownify(s)
+        env.filters["get_section"] = self._filter_get_section
+
+    @staticmethod
+    def _filter_get_section(v: str, section: str) -> str:
+        if not isinstance(section, str):
+            raise TypeError("level must be a string")
+
+        section_escaped = re.escape(section)
+        level = MARKDOWN_TITLE_RE.match(section)
+
+        if level is None:
+            raise TypeError("section level not found")
+
+        level_str = level[0].strip()
+
+        level_re = re.compile(fr"^{level_str} +", re.I)
+        section_re = re.compile(fr"^{section_escaped}\s*$", re.I)
+
+        found = False
+        section_lines = []
+        for line in v.split("\n"):
+            if section_re.match(line):
+                found = True
+            elif found and level_re.match(line):
+                break
+            elif found:
+                section_lines.append(line.strip())
+
+        if not found:
+            raise TypeError("section not found")
+
+        return ("\n".join(section_lines)).strip()
 
     @staticmethod
     @contextlib.contextmanager
@@ -1666,6 +1707,7 @@ class PullRequest(BasePullRequest):
                 return None
             found = False
             message_lines = []
+
             for line in body.split("\n"):
                 if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
                     found = True

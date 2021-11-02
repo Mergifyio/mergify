@@ -337,6 +337,7 @@ class TestAttributes(base.FunctionalTestBase):
             "label": [],
             "linear-history": True,
             "body": "test_draft: pull request n2 from fork",
+            "body-raw": "test_draft: pull request n2 from fork",
             "base": self.main_branch_name,
             "review-requested": [],
             "check-success": ["Summary"],
