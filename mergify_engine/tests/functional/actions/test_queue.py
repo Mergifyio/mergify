@@ -2139,7 +2139,7 @@ DO NOT EDIT
 
         # Queue API with token
         r = await self.app.get(
-            f"/api/repos/{config.TESTING_ORGANIZATION_NAME}/{config.TESTING_REPOSITORY_NAME}/queues",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{config.TESTING_REPOSITORY_NAME}/queues",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
