@@ -174,7 +174,7 @@ class ApplicationGitHubCom(ApplicationBase):
     ) -> "ApplicationGitHubCom":
         async with http.AsyncClient() as client:
             resp = await client.get(
-                f"{config.SUBSCRIPTION_BASE_URL}/engine/user_token/{api_access_key}{api_secret_key}",
+                f"{config.SUBSCRIPTION_BASE_URL}/engine/applications/{api_access_key}{api_secret_key}",
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
             data = resp.json()
