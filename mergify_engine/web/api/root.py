@@ -19,6 +19,7 @@ import collections
 import dataclasses
 import datetime
 import json
+import os
 import typing
 
 import fastapi
@@ -87,6 +88,10 @@ def generate_openapi_spec() -> None:
     parser = argparse.ArgumentParser(description="Generate OpenAPI spec file")
     parser.add_argument("output", help="output file")
     args = parser.parse_args()
+
+    path = os.path.dirname(args.output)
+    if path:
+        os.makedirs(path, exist_ok=True)
 
     with open(args.output, "w") as f:
         json.dump(fp=f, obj=app.openapi())
