@@ -52,7 +52,7 @@ app = fastapi.FastAPI()
 app.mount("/simulator", simulator.app)
 app.mount("/validate", config_validator.app)
 app.mount("/badges", badges.app)
-app.mount("/api", root.app)
+app.mount("/v1", root.app)
 
 # Set the maximum timeout to 5 seconds: GitHub is not going to wait for
 # more than 10 seconds for us to accept an event, so if we're unable to
