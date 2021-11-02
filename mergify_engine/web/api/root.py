@@ -36,6 +36,7 @@ from mergify_engine.clients import http
 from mergify_engine.queue import merge_train
 from mergify_engine.web import api
 from mergify_engine.web import redis
+from mergify_engine.web.api import queues
 from mergify_engine.web.api import security
 
 
@@ -79,6 +80,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(queues.router)
 
 
 def generate_openapi_spec() -> None:

@@ -309,6 +309,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     RECORD_CONFIG: func_conftest.RecordConfigType
     subscription: subscription.Subscription
     cassette_library_dir: str
+    api_key_admin: str
 
     # NOTE(sileht): The repository have been manually created in mergifyio-testing
     # organization and then forked in mergify-test2 user account
