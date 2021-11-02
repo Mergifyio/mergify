@@ -31,13 +31,6 @@ jobs:
           pip install tox
           tox -e docs
 
-      - name: Prepare doc artefacts 🔧
-        run: |
-          mkdir preview
-          mv docs/build preview/docs
-          mv docs/api preview/api
-          cp docs/preview.html preview/index.html
-
       # NOTE(sileht): workflow run on/pull_request doesn't have access to
       # secrets
       # So, we upload it as artifact, then another workflow
@@ -46,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: docs-pr-${{ github.event.pull_request.number }}
-          path: preview
+          path: docs/build
 
       # yamllint disable-line rule:line-length
       - run: echo "::set-output name=docs::https://docs-preview.mergify.com/${{ github.event.pull_request.number }}/docs"

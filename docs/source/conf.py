@@ -46,6 +46,8 @@ pygments_style = "sphinx"
 html_logo = "_static/mergify-logo-horizontal.png"
 html_favicon = "_static/favicon.ico"
 html_static_path = ["_static"]
+html_extra_path = ["_extra"]
+
 # html_sidebars = {
 #    "**": ["about.html", "navigation.html", "relations.html", "searchbox.html"]
 # }
