@@ -1,6 +1,7 @@
 extends: default
 ignore: |
   .git
+  docs/node_modules
   installer/node_modules
 rules:
   document-start: disable
