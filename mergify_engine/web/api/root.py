@@ -49,7 +49,7 @@ def api_enabled() -> None:
 app = fastapi.FastAPI(
     title="Mergify API",
     description="Faster & safer code merge",
-    vesion="1.0",
+    version="v1",
     terms_of_service="https://mergify.io/tos",
     contact={
         "name": "Mergify",
@@ -65,7 +65,7 @@ app = fastapi.FastAPI(
             "description": "Operations with queues.",
         },
     ],
-    servers=[{"url": "https://api.mergify.com/api", "description": "default"}],
+    servers=[{"url": "https://api.mergify.com/v1", "description": "default"}],
     # NOTE(sileht): Ensure endpoints requires a valid token even if they don't
     # use the GitHub API
     dependencies=[
