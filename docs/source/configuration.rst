@@ -318,11 +318,36 @@ will render to:
 when used in your configuration file — considering the pull request author
 login is ``jd``.
 
+`Jinja2 filters <https://jinja.palletsprojects.com/en/3.0.x/templates/#builtin-filters>` are supported, you can build string from list for example with:
+
+.. code-block:: jinja
+
+    Approved by: @{{ approved-reviews-by | join(', @') }}
+
+We also provide custom Jinja2 filters:
+
+* ``markdownify``: to convert HTML to Markdown:
+
+.. code-block:: jinja
+
+    {{ body | markdownify }}
+
+* ``get_section(<section>)``: to extract one Markdown section
+
+.. code-block:: jinja
+
+    {{ body | get_section("## Description") }}
+
 .. note::
 
    You need to replace the ``-`` character by ``_`` from the :ref:`pull request
    attribute <attributes>` names when using templates. The ``-`` is not a valid
    character for variable names in Jinja2 template.
+
+.. note::
+
+   By default, the HTML comments are stripped from ``body``. To get the
+   full body, you can use the ``body_raw`` attribute.
 
 Validation
 ----------
