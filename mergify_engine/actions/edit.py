@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any
-
 import voluptuous
 
 from mergify_engine import actions
@@ -26,74 +24,6 @@ from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import types
-
-
-async def edit_draft_state(
-    self: Any, ctxt: context.Context, draft_converted: bool
-) -> check_api.Result:
-    expected_state = False
-    current_state = "ready for review"
-    mutation = "markPullRequestReadyForReview"
-    if draft_converted:
-        expected_state = True
-        current_state = "draft"
-        mutation = "convertPullRequestToDraft"
-    if ctxt.pull["draft"] == expected_state:
-        return check_api.Result(
-            check_api.Conclusion.SUCCESS,
-            f"Pull request is already {current_state}.",
-            "",
-        )
-    try:
-        bot_account = await action_utils.render_bot_account(
-            ctxt,
-            self.config["bot_account"],
-            required_feature=subscription.Features.BOT_ACCOUNT,
-            missing_feature_message=f"{current_state} with `bot_account` set is disabled",
-            required_permissions=[],
-        )
-    except action_utils.RenderBotAccountFailure as e:
-        return check_api.Result(e.status, e.title, e.reason)
-    tokens = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
-    if not tokens or tokens[0]["oauth_access_token"] is None:
-        return check_api.Result(
-            check_api.Conclusion.FAILURE,
-            f"Unable to set {current_state} with user `{tokens[0]['login']}`",
-            f"Please make sure `{tokens[0]['login']}` has logged in Mergify dashboard.",
-        )
-    mutation = f"""
-        mutation {{
-            {mutation}(input:{{pullRequestId: "{ctxt.pull['node_id']}"}}) {{
-                pullRequest {{
-                    isDraft
-                }}
-            }}
-        }}
-    """
-    response = (
-        await ctxt.client.post(
-            "/graphql",
-            json={"query": mutation},
-            oauth_token=tokens[0]["oauth_access_token"],
-        )
-    ).json()
-    if response["data"] is None:
-        ctxt.log.error(
-            "GraphQL API call failed, unable to convert PR.",
-            current_state=current_state,
-            response=response,
-        )
-        return check_api.Result(
-            check_api.Conclusion.FAILURE,
-            f"GraphQL API call failed, pull request wasn't converted to {current_state}.",
-            "",
-        )
-    ctxt.pull["draft"] = expected_state
-    return check_api.Result(
-        check_api.Conclusion.SUCCESS,
-        f"Pull request successfully converted to {current_state}",
-        "",
-    )
 
 
 class EditAction(actions.Action):
@@ -112,7 +42,7 @@ class EditAction(actions.Action):
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         if self.config["draft"] is not None:
-            return await edit_draft_state(self, ctxt, self.config["draft"])
+            return await self._edit_draft_state(ctxt, self.config["draft"])
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             "Nothing to do.",
@@ -123,3 +53,76 @@ class EditAction(actions.Action):
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:  # pragma: no cover
         return actions.CANCELLED_CHECK_REPORT
+
+    async def _edit_draft_state(
+        self, ctxt: context.Context, draft_converted: bool
+    ) -> check_api.Result:
+
+        if draft_converted:
+            expected_state = True
+            current_state = "draft"
+            mutation = "convertPullRequestToDraft"
+        else:
+            expected_state = False
+            current_state = "ready for review"
+            mutation = "markPullRequestReadyForReview"
+
+        if ctxt.pull["draft"] == expected_state:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                f"Pull request is already {current_state}.",
+                "",
+            )
+
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message=f"{current_state} with `bot_account` set is disabled",
+                required_permissions=[],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        tokens = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
+        if not tokens or tokens[0]["oauth_access_token"] is None:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                f"Unable to set {current_state} with user `{tokens[0]['login']}`",
+                f"Please make sure `{tokens[0]['login']}` has logged in Mergify dashboard.",
+            )
+
+        mutation = f"""
+            mutation {{
+                {mutation}(input:{{pullRequestId: "{ctxt.pull['node_id']}"}}) {{
+                    pullRequest {{
+                        isDraft
+                    }}
+                }}
+            }}
+        """
+        response = (
+            await ctxt.client.post(
+                "/graphql",
+                json={"query": mutation},
+                oauth_token=tokens[0]["oauth_access_token"],
+            )
+        ).json()
+        if response["data"] is None:
+            ctxt.log.error(
+                "GraphQL API call failed, unable to convert PR.",
+                current_state=current_state,
+                response=response,
+            )
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                f"GraphQL API call failed, pull request wasn't converted to {current_state}.",
+                "",
+            )
+        ctxt.pull["draft"] = expected_state
+        return check_api.Result(
+            check_api.Conclusion.SUCCESS,
+            f"Pull request successfully converted to {current_state}",
+            "",
+        )
