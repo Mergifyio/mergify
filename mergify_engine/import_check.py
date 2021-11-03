@@ -12,17 +12,21 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
-from mergify_engine import service
-from mergify_engine import signals
+# NOTE(sileht): This should mimic the worker and asgi app as much as possible.
 
 
-def main() -> int:
-    service.setup("import-check")
-    signals.setup()
-
-    from mergify_engine.web.root import app  # noqa isort:skip
+def import_check_worker() -> int:
     from mergify_engine import worker  # noqa isort:skip
-    from mergify_engine import actions  # noqa isort:skip
+
+    worker.service.setup("import-check-worker")
+    worker.signals.setup()
+
+    return 0
+
+
+def import_check_web() -> int:
+    from mergify_engine.web import asgi
+
+    asgi.service.setup("import-check-web")
 
     return 0
