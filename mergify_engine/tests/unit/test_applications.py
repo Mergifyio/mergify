@@ -12,6 +12,8 @@ from mergify_engine.dashboard import application
 async def test_init(redis_cache):
     application.Application(
         redis_cache,
+        0,
+        "app name",
         "api_access_key",
         "api_secret_key",
         github_types.GitHubAccountIdType(12345),
@@ -25,6 +27,8 @@ async def test_save_apikey(redis_cache):
     account_id = github_types.GitHubAccountIdType(12345)
     app = application.Application(
         redis_cache,
+        0,
+        "app name",
         api_access_key,
         api_secret_key,
         account_id,
@@ -44,7 +48,7 @@ async def test_user_tokens_db_unavailable(retrieve_from_db_mock, redis_cache):
     api_secret_key = "s" * 32
     account_id = github_types.GitHubAccountIdType(12345)
     app = application.Application(
-        redis_cache, api_access_key, api_secret_key, account_id
+        redis_cache, 0, "app name", api_access_key, api_secret_key, account_id
     )
     retrieve_from_db_mock.return_value = app
 
