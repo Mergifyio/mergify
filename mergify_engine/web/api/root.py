@@ -37,6 +37,7 @@ from mergify_engine.clients import http
 from mergify_engine.queue import merge_train
 from mergify_engine.web import api
 from mergify_engine.web import redis
+from mergify_engine.web.api import applications
 from mergify_engine.web.api import queues
 from mergify_engine.web.api import security
 
@@ -61,6 +62,10 @@ app = fastapi.FastAPI(
     docs_url=None,
     openapi_tags=[
         {
+            "name": "applications",
+            "description": "Operations with applications.",
+        },
+        {
             "name": "queues",
             "description": "Operations with queues.",
         },
@@ -81,6 +86,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(applications.router)
 app.include_router(queues.router)
 
 

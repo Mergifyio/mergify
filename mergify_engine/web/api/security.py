@@ -27,21 +27,27 @@ from mergify_engine.web import redis
 security = fastapi.security.http.HTTPBearer()
 
 
-async def get_installation(
+async def get_application(
     credentials: fastapi.security.HTTPAuthorizationCredentials = fastapi.Security(  # noqa: B008
         security
     ),
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
     ),
-) -> github_types.GitHubInstallation:
+) -> application_mod.Application:
     api_access_key = credentials.credentials[: config.API_ACCESS_KEY_LEN]
     api_secret_key = credentials.credentials[config.API_ACCESS_KEY_LEN :]
     try:
-        application = await application_mod.Application.get(
+        return await application_mod.Application.get(
             redis_cache, api_access_key, api_secret_key
         )
     except application_mod.ApplicationUserNotFound:
         raise fastapi.HTTPException(status_code=403)
 
+
+async def get_installation(
+    application: application_mod.Application = fastapi.Depends(  # noqa: B008
+        get_application
+    ),
+) -> github_types.GitHubInstallation:
     return await github.get_installation_from_account_id(application.account_id)

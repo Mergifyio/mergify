@@ -35,6 +35,8 @@ ApplicationClassT = typing.TypeVar("ApplicationClassT", bound="ApplicationBase")
 @dataclasses.dataclass
 class ApplicationBase:
     redis: utils.RedisCache
+    id: int
+    name: str
     api_access_key: str
     api_secret_key: str
     account_id: github_types.GitHubAccountIdType
@@ -133,6 +135,8 @@ class ApplicationGitHubCom(ApplicationBase):
             crypto.encrypt(
                 json.dumps(
                     {
+                        "id": self.id,
+                        "name": self.name,
                         "api_access_key": self.api_access_key,
                         "api_secret_key": self.api_secret_key,
                         "account_id": self.account_id,
@@ -159,8 +163,15 @@ class ApplicationGitHubCom(ApplicationBase):
             if decrypted_application["api_secret_key"] != api_secret_key:
                 # Don't raise ApplicationUserNotFound yet, check the database first
                 return None
+
+            if "id" not in decrypted_application:
+                # TODO(sileht): Backward compat, delete me
+                return None
+
             return cls(
                 redis,
+                decrypted_application["id"],
+                decrypted_application["name"],
                 api_access_key,
                 api_secret_key,
                 decrypted_application["account_id"],
@@ -179,7 +190,12 @@ class ApplicationGitHubCom(ApplicationBase):
             )
             data = resp.json()
             return cls(
-                redis, api_access_key, api_secret_key, data["github_account"]["id"]
+                redis,
+                data["id"],
+                data["name"],
+                api_access_key,
+                api_secret_key,
+                data["github_account"]["id"],
             )
 
 
@@ -205,6 +221,8 @@ class ApplicationOnPremise(ApplicationBase):
             raise ApplicationUserNotFound()
         return cls(
             redis,
+            0,
+            "on-premise-app",
             api_access_key,
             api_secret_key,
             github_types.GitHubAccountIdType(data["account_id"]),

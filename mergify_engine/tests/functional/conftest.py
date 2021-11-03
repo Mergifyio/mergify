@@ -180,6 +180,8 @@ async def dashboard(
         ):
             return application_mod.Application(
                 redis_cache,
+                123,
+                "testing application",
                 api_access_key,
                 api_secret_key,
                 config.TESTING_ORGANIZATION_ID,
