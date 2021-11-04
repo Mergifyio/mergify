@@ -2139,7 +2139,7 @@ DO NOT EDIT
 
         # Queue API with token
         r = await self.app.get(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{config.TESTING_REPOSITORY_NAME}/queues",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queues",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
@@ -2217,6 +2217,9 @@ DO NOT EDIT
         await self.run_engine()
         p3 = await self.get_pull(p3["number"])
         assert p3["merged"]
+
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
 
         # ensure p1 and p2 are back in queue
         pulls = await self.get_pulls()
