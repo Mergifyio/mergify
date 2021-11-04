@@ -19,6 +19,7 @@ import abc
 import dataclasses
 import enum
 import json
+import logging
 import typing
 
 import daiquiri
@@ -75,18 +76,24 @@ class SubscriptionBase(abc.ABC):
     features: typing.FrozenSet[enum.Enum]
     ttl: int = -2
 
+    feature_flag_log_level: int = logging.ERROR
+
     @staticmethod
     def _cache_key(owner_id: int) -> str:
         return f"subscription-cache-owner-{owner_id}"
 
-    @staticmethod
-    def _to_features(feature_list: typing.Iterable[str]) -> typing.FrozenSet[Features]:
+    @classmethod
+    def _to_features(
+        cls, feature_list: typing.Iterable[str]
+    ) -> typing.FrozenSet[Features]:
         features = []
         for f in feature_list:
             try:
                 feature = Features(f)
             except ValueError:
-                LOG.error("Unknown subscription feature %s", f)
+                LOG.log(
+                    cls.feature_flag_log_level, "Unknown subscription feature %s", f
+                )
             else:
                 features.append(feature)
         return frozenset(features)
@@ -219,6 +226,8 @@ class SubscriptionDashboardGitHubCom(SubscriptionBase):
 
 
 class SubscriptionDashboardOnPremise(SubscriptionBase):
+    feature_flag_log_level: int = logging.INFO
+
     @classmethod
     async def _retrieve_subscription_from_db(
         cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
