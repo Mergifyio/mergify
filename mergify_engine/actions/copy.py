@@ -93,7 +93,7 @@ class CopyAction(actions.Action):
             ): DuplicateTitleJinja2,
             voluptuous.Required(
                 "body",
-                default=f"This is an automatic {cls.KIND} of pull request #{{{{number}}}} done by [Mergify](https://mergify.io).\n{{{{ cherry_pick_error }}}}",
+                default=f"This is an automatic {cls.KIND} of pull request #{{{{number}}}} done by [Mergify](https://mergify.com).\n{{{{ cherry_pick_error }}}}",
             ): DuplicateBodyJinja2,
         }
 
@@ -216,7 +216,7 @@ class CopyAction(actions.Action):
                 check_api.Conclusion.FAILURE,
                 self.FAILURE_MESSAGE,
                 "The new Mergify permissions must be accepted to create pull request with `.github/workflows` changes.\n"
-                "You can accept them at https://dashboard.mergify.io/",
+                "You can accept them at https://dashboard.mergify.com/",
             )
 
         template_result = await self._verify_template(ctxt)

@@ -32,7 +32,7 @@ You can embed those badges by adding them to, e.g., your ``README`` files.
 
     [![Mergify Status][mergify-status]][mergify]
 
-    [mergify]: https://mergify.io
+    [mergify]: https://mergify.com
     [mergify-status]: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>&style=flat
 
 
@@ -41,7 +41,7 @@ You can embed those badges by adding them to, e.g., your ``README`` files.
 .. code-block:: rst
 
     .. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>&style=flat
-       :target: https://mergify.io
+       :target: https://mergify.com
        :alt: Mergify Status
 
 
