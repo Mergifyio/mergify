@@ -57,7 +57,7 @@ MERGIFYENGINE_OAUTH_CLIENT_SECRET=${respApp.data.client_secret}
 MERGIFYENGINE_WEBHOOK_SECRET=${respApp.data.webhook_secret}
 MERGIFYENGINE_PRIVATE_KEY=${Buffer.from(respApp.data.pem).toString('base64')}
 MERGIFYENGINE_CACHE_TOKEN_SECRET=${getRandomString(42)}
-MERGIFYENGINE_SUBSCRIPTION_BASE_URL="https://dashboard.mergify.io"
+MERGIFYENGINE_SUBSCRIPTION_BASE_URL="https://dashboard.mergify.com"
 `,
       });
     };
@@ -93,7 +93,7 @@ function StepCreateGitHubApp() {
     const payload = JSON.stringify({
       name: `mergify-${values.login}`,
       description: `Mergify installation for ${values.login}`,
-      url: 'https://mergify.io/',
+      url: 'https://mergify.com/',
       hook_attributes: {
         url: `${window.location.origin}/events`,
       },

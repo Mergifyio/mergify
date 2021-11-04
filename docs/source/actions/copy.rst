@@ -63,7 +63,7 @@ Options
      - The pull request title.
    * - ``body``
      - :ref:`data type template`
-     - ``This is an automatic copy of pull request #{{number}} done by [Mergify](https://mergify.io).\n{{cherry_pick_error}}``
+     - ``This is an automatic copy of pull request #{{number}} done by [Mergify](https://mergify.com).\n{{cherry_pick_error}}``
      - The pull request body.
 
 
