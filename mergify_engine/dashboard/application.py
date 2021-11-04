@@ -72,6 +72,12 @@ class ApplicationBase:
     ) -> ApplicationClassT:
         raise NotImplementedError
 
+    @classmethod
+    async def update(
+        cls, redis: utils.RedisCache, api_access_key: str, app: ApplicationDashboardJSON
+    ) -> None:
+        raise NotImplementedError
+
 
 @dataclasses.dataclass
 class ApplicationGitHubCom(ApplicationBase):
@@ -163,6 +169,30 @@ class ApplicationGitHubCom(ApplicationBase):
         self.ttl = self.RETENTION_SECONDS
 
     @classmethod
+    async def update(
+        cls,
+        redis: utils.RedisCache,
+        api_access_key: str,
+        data: ApplicationDashboardJSON,
+    ) -> None:
+        encrypted_application = await redis.get(cls._cache_key(api_access_key))
+        if encrypted_application is not None:
+            decrypted_application = typing.cast(
+                CachedApplication,
+                json.loads(crypto.decrypt(encrypted_application.encode()).decode()),
+            )
+            app = cls(
+                redis,
+                data["id"],
+                data["name"],
+                decrypted_application["api_access_key"],
+                decrypted_application["api_secret_key"],
+                data["github_account"]["id"],
+            )
+            await app.save_to_cache()
+        return None
+
+    @classmethod
     async def _retrieve_from_cache(
         cls, redis: utils.RedisCache, api_access_key: str, api_secret_key: str
     ) -> typing.Optional["ApplicationGitHubCom"]:
@@ -189,8 +219,8 @@ class ApplicationGitHubCom(ApplicationBase):
                 redis,
                 decrypted_application["id"],
                 decrypted_application["name"],
-                api_access_key,
-                api_secret_key,
+                decrypted_application["api_access_key"],
+                decrypted_application["api_secret_key"],
                 decrypted_application["account_id"],
                 ttl,
             )
