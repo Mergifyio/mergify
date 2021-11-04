@@ -41,6 +41,6 @@ Contact `our support <mailto:support@mergify.io>`_ or our `sales team
    actions/index
    commands
    examples
-   api
+   api-intro
    badge
    faq
