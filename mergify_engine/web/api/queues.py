@@ -117,7 +117,7 @@ router = fastapi.APIRouter()
 
 @router.get(
     "/repos/{owner}/{repository}/queues",  # noqa: FS003
-    summary="Get the merge queues of a repository",
+    summary="Get merge queues",
     description="Get the list of pull requests queued in a merge queue of a repository",
     tags=["queues"],
     response_model=Queues,
