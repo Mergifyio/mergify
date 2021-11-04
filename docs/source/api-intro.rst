@@ -9,7 +9,7 @@
 Mergify provides a RESTful API that you can use to get the data you need to
 integrate with Mergify.
 
-The API endpoint is located at https://api.mergify.com/v1/.
+The API endpoint is located at ``https://api.mergify.com/v1/``.
 
 Authentication
 ==============
@@ -24,7 +24,7 @@ Once the application is created, the dashboard will give you an API key.
 
 
 Then you can use the API key to authenticate against the API. You can check the
-token is valid by getting the application information:
+token is valid by retrieving the application information:
 
 .. code-block:: shell
 
@@ -43,4 +43,5 @@ token is valid by getting the application information:
 Going Further
 =============
 
-You can check the `API references <https://docs.mergify.com/api>` to discover all the data you can access.
+You can check the `API references <https://docs.mergify.com/api>`_ to discover
+all the data you can access.
