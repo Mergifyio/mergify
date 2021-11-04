@@ -25,6 +25,20 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
+class ApplicationDashboardJSON(typing.TypedDict):
+    id: int
+    name: str
+    github_account: github_types.GitHubAccount
+
+
+class CachedApplication(typing.TypedDict):
+    id: int
+    name: str
+    api_access_key: str
+    api_secret_key: str
+    account_id: github_types.GitHubAccountIdType
+
+
 class ApplicationUserNotFound(Exception):
     pass
 
@@ -134,13 +148,15 @@ class ApplicationGitHubCom(ApplicationBase):
             self.RETENTION_SECONDS,
             crypto.encrypt(
                 json.dumps(
-                    {
-                        "id": self.id,
-                        "name": self.name,
-                        "api_access_key": self.api_access_key,
-                        "api_secret_key": self.api_secret_key,
-                        "account_id": self.account_id,
-                    }
+                    CachedApplication(
+                        {
+                            "id": self.id,
+                            "name": self.name,
+                            "api_access_key": self.api_access_key,
+                            "api_secret_key": self.api_secret_key,
+                            "account_id": self.account_id,
+                        }
+                    )
                 ).encode()
             ),
         )
@@ -157,8 +173,9 @@ class ApplicationGitHubCom(ApplicationBase):
                 typing.Tuple[str, int], await pipe.execute()
             )
         if encrypted_application:
-            decrypted_application = json.loads(
-                crypto.decrypt(encrypted_application.encode()).decode()
+            decrypted_application = typing.cast(
+                CachedApplication,
+                json.loads(crypto.decrypt(encrypted_application.encode()).decode()),
             )
             if decrypted_application["api_secret_key"] != api_secret_key:
                 # Don't raise ApplicationUserNotFound yet, check the database first
@@ -188,7 +205,7 @@ class ApplicationGitHubCom(ApplicationBase):
                 f"{config.SUBSCRIPTION_BASE_URL}/engine/applications/{api_access_key}{api_secret_key}",
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
             )
-            data = resp.json()
+            data = typing.cast(ApplicationDashboardJSON, resp.json())
             return cls(
                 redis,
                 data["id"],
