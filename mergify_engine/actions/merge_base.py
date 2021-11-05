@@ -689,7 +689,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
             conclusion = check_api.Conclusion.ACTION_REQUIRED
             title = "Pull request must be merged manually"
             summary = """The new Mergify permissions must be accepted to merge pull request with `.github/workflows` changes.\n
-You can accept them at https://dashboard.mergify.io/\n
+You can accept them at https://dashboard.mergify.com/\n
 \n
 In the meantime, the pull request must be merged manually."
 """

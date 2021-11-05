@@ -253,7 +253,7 @@ async def test_disabled(redis_cache):
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Random request reviews are disabled"
     assert result.summary == (
-        "⚠ The [subscription](https://dashboard.mergify.io/github/Mergifyio/subscription) "
+        "⚠ The [subscription](https://dashboard.mergify.com/github/Mergifyio/subscription) "
         "needs to be updated to enable this feature."
     )
 

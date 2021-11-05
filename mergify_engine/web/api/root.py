@@ -51,10 +51,10 @@ app = fastapi.FastAPI(
     title="Mergify API",
     description="Faster & safer code merge",
     version="v1",
-    terms_of_service="https://mergify.io/tos",
+    terms_of_service="https://mergify.com/tos",
     contact={
         "name": "Mergify",
-        "url": "https://mergify.io",
+        "url": "https://mergify.com",
         "email": "support@mergify.io",
     },
     openapi_url=None,

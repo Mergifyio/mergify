@@ -128,7 +128,7 @@ until all preceding queues are empty.
 Viewing the Merge Queue
 -----------------------
 
-The merge queue can be visualized from your `dashboard <https://dashboard.mergify.io>`_:
+The merge queue can be visualized from your `dashboard <https://dashboard.mergify.com>`_:
 
 .. figure:: ../_static/merge-queue.png
    :alt: The merge queue from the dashboard
@@ -358,7 +358,7 @@ A ``queue_rules`` takes the following parameter:
 .. note::
 
    |premium plan tag|
-   Defining multiple queue rules is only available for `Premium subscribers <https://mergify.io/pricing>`_.
+   Defining multiple queue rules is only available for `Premium subscribers <https://mergify.com/pricing>`_.
 
 
 Examples
