@@ -27,6 +27,10 @@ from mergify_engine import config
 from mergify_engine import github_types
 
 
+if typing.TYPE_CHECKING:
+    import subprocess  # nosec
+
+
 @dataclasses.dataclass
 class GitError(Exception):
     returncode: int
@@ -104,7 +108,12 @@ class Gitter(object):
         # Disable gc since this is a thrown-away repository
         await self("config", "gc.auto", "0")
 
-    async def __call__(self, *args: str, _input: typing.Optional[str] = None) -> str:
+    async def __call__(
+        self,
+        *args: str,
+        _input: typing.Optional[str] = None,
+        _env: typing.Optional["subprocess._ENV"] = None,
+    ) -> str:
         if self.tmp is None:
             raise RuntimeError("__call__() called before init()")
 
@@ -117,6 +126,7 @@ class Gitter(object):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 stdin=None if _input is None else asyncio.subprocess.PIPE,
+                env=_env,
             )
 
             stdout, _ = await asyncio.wait_for(

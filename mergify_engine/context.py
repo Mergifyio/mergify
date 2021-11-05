@@ -674,6 +674,7 @@ ContextAttributeType = typing.Union[
     date.RelativeDatetime,
     typing.List[github_types.SHAType],
     typing.List[github_types.GitHubLogin],
+    typing.List[github_types.GitHubBranchCommit],
 ]
 
 
@@ -708,6 +709,16 @@ class Context(object):
     def base_url(self) -> str:
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
+
+    async def retrieve_unverified_commits(
+        self: typing.Any,
+    ) -> typing.List[github_types.GitHubBranchCommit]:
+        unverified_commits: typing.List[github_types.GitHubBranchCommit]
+        unverified_commits = []
+        for commit in await self.commits:
+            if not commit["commit"]["verification"]["verified"]:
+                unverified_commits.append(commit["commit"]["message"])
+        return unverified_commits
 
     @classmethod
     async def create(
@@ -1128,6 +1139,8 @@ class Context(object):
             if self.pull["merged_at"] is None:
                 return date.DT_MAX
             return date.fromisoformat(self.pull["merged_at"])
+        elif name == "commits-unverified":
+            return await self.retrieve_unverified_commits()
         else:
             raise PullRequestAttributeError(name)
 
@@ -1606,6 +1619,7 @@ class PullRequest(BasePullRequest):
         "check-stale",
         "commits",
         "commits-behind",
+        "commits-unverified",
         "files",
     }
 

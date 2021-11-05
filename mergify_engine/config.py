@@ -227,6 +227,8 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "TESTING_MERGIFY_TEST_2_ID", default=38495008
         ): voluptuous.Coerce(int),
+        voluptuous.Required("TESTING_GPGKEY_SECRET", default=None): str,
+        voluptuous.Required("TESTING_ID_GPGKEY_SECRET", default=None): str,
     }
 )
 
@@ -280,6 +282,8 @@ ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 TESTING_MERGIFY_TEST_1_ID: int
 TESTING_MERGIFY_TEST_2_ID: int
+TESTING_GPGKEY_SECRET: bytes
+TESTING_ID_GPGKEY_SECRET: str
 ALLOW_MERGE_STRICT_MODE: bool
 ALLOW_COMMIT_MESSAGE_OPTION: bool
 
@@ -304,6 +308,11 @@ if globals()["STREAM_URL"] is None:
 if not CONFIG["PRIVATE_KEY"].startswith("----"):
     CONFIG["PRIVATE_KEY"] = base64.b64decode(CONFIG["PRIVATE_KEY"])
     PRIVATE_KEY = CONFIG["PRIVATE_KEY"]
+
+
+if not CONFIG["TESTING_GPGKEY_SECRET"].startswith("----"):
+    CONFIG["TESTING_GPGKEY_SECRET"] = base64.b64decode(CONFIG["TESTING_GPGKEY_SECRET"])
+    TESTING_GPGKEY_SECRET = CONFIG["TESTING_GPGKEY_SECRET"]
 
 
 def is_saas() -> bool:

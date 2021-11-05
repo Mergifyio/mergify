@@ -20,6 +20,9 @@ import json
 import logging
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import time
 import typing
 import unittest
@@ -134,12 +137,17 @@ class GitterRecorder(gitter.Gitter):
                 return r["out"]
 
     def prepare_args(self, args):
-        return [arg.replace(self.tmp, "/tmp/mergify-gitter<random>") for arg in args]
+        prepared_args = [
+            arg.replace(self.tmp, "/tmp/mergify-gitter<random>") for arg in args
+        ]
+        return prepared_args
 
     @staticmethod
     def prepare_kwargs(kwargs):
         if "_input" in kwargs:
             kwargs["_input"] = re.sub(r"://[^@]*@", "://<TOKEN>:@", kwargs["_input"])
+        if "_env" in kwargs:
+            kwargs["_env"] = {"envtest": "this is a test"}
         return kwargs
 
     async def cleanup(self):
@@ -585,6 +593,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         message: typing.Optional[str] = None,
         draft: bool = False,
         git_tree_ready: bool = False,
+        verified: bool = False,
     ) -> typing.Tuple[
         github_types.GitHubPullRequest, typing.List[github_types.GitHubBranchCommit]
     ]:
@@ -614,12 +623,31 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         else:
             open(self.git.tmp + f"/test{self.pr_counter}", "wb").close()
             await self.git("add", f"test{self.pr_counter}")
-        await self.git("commit", "--no-edit", "-m", title)
+        args_commit = ["commit", "--no-edit", "-m", title]
+        tmp_kwargs = {}
+        if verified:
+            temporary_folder = tempfile.mkdtemp()
+            self.addCleanup(shutil.rmtree, temporary_folder)
+            tmp_env = os.environ.copy()
+            tmp_env["GNUPGHOME"] = temporary_folder
+            subprocess.run(
+                ["gpg", "--import"], input=config.TESTING_GPGKEY_SECRET, env=tmp_env
+            )
+            await self.git("config", "user.signingkey", config.TESTING_ID_GPGKEY_SECRET)
+            await self.git(
+                "config", "user.email", "engineering+mergify-test@mergify.io"
+            )
+            args_commit.append("-S")
+            tmp_kwargs = {"_env": tmp_env}
+        await self.git(*args_commit, **tmp_kwargs)
         if two_commits:
             await self.git(
                 "mv", f"test{self.pr_counter}", f"test{self.pr_counter}-moved"
             )
-            await self.git("commit", "--no-edit", "-m", f"{title}, moved")
+            args_second_commit = ["commit", "--no-edit", "-m", f"{title}, moved"]
+            if verified:
+                args_second_commit.append("-S")
+            await self.git(*args_second_commit, **tmp_kwargs)
         await self.git("push", "--quiet", base_repo, branch)
 
         if base_repo == "fork":

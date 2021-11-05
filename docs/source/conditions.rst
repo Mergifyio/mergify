@@ -297,6 +297,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``schedule``
      - string
      - A schedule, e.g., ``Mon-Fri``, ``12:00-18:00`` or ``Mon-Fri 12:00-18:00``
+   * - ``commits-unverified``
+     - list of strings
+     - The list of commit messages that are marked as ``unverified`` by GitHub.
 
 
 .. warning::

@@ -328,6 +328,7 @@ updated_at = "updated-at" + range_operators + (iso_datetime | timedelta_to_now)
 closed_at = "closed-at" + range_operators + (iso_datetime | timedelta_to_now)
 merged_at = "merged-at" + range_operators + (iso_datetime | timedelta_to_now)
 current_timestamp = "current-timestamp" + range_operators + iso_datetime
+commits_unverified = "commits-unverified" + _match_with_operator(text)
 
 quantifiable_attributes = (
     head
@@ -360,6 +361,7 @@ quantifiable_attributes = (
     | check_stale
     | commits_behind
     | queue_position
+    | commits_unverified
 )
 
 locked = _match_boolean("locked")
