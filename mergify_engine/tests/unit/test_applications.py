@@ -42,8 +42,60 @@ async def test_save_apikey(redis_cache):
 
 
 @pytest.mark.asyncio
+async def test_update_apikey(redis_cache):
+    api_access_key = "a" * 32
+    api_secret_key = "s" * 32
+    account_id = github_types.GitHubAccountIdType(12345)
+    app = application.Application(
+        redis_cache,
+        0,
+        "app name",
+        api_access_key,
+        api_secret_key,
+        account_id,
+    )
+
+    await app.save_to_cache()
+    rapp = await application.Application._retrieve_from_cache(
+        redis_cache, api_access_key, api_secret_key
+    )
+    assert app == rapp
+
+    await application.Application.update(
+        redis_cache,
+        api_access_key,
+        application.ApplicationDashboardJSON(
+            {
+                "id": 1,
+                "name": "new name",
+                "github_account": {
+                    "id": 424242,
+                    "login": "login",
+                    "type": "User",
+                    "avatar_url": "",
+                },
+            }
+        ),
+    )
+    rapp = await application.Application._retrieve_from_cache(
+        redis_cache, api_access_key, api_secret_key
+    )
+    expected_app = application.Application(
+        redis_cache,
+        1,
+        "new name",
+        api_access_key,
+        api_secret_key,
+        github_types.GitHubAccountIdType(424242),
+        ttl=application.Application.RETENTION_SECONDS,
+    )
+
+    assert expected_app == rapp
+
+
+@pytest.mark.asyncio
 @mock.patch.object(application.Application, "_retrieve_from_db")
-async def test_user_tokens_db_unavailable(retrieve_from_db_mock, redis_cache):
+async def test_application_db_unavailable(retrieve_from_db_mock, redis_cache):
     api_access_key = "a" * 32
     api_secret_key = "s" * 32
     account_id = github_types.GitHubAccountIdType(12345)
@@ -109,7 +161,7 @@ async def test_unknown_app(redis_cache):
 
 
 @pytest.mark.asyncio
-async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
+async def test_application_tokens_via_env(monkeypatch, redis_cache):
     api_access_key1 = "1" * 32
     api_secret_key1 = "1" * 32
     account_id1 = github_types.GitHubAccountIdType(12345)
