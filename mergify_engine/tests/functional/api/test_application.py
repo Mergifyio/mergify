@@ -32,13 +32,12 @@ async def test_api_application(
         "/v1/application",
         headers={"Authorization": f"bearer {dashboard.api_key_admin}"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json() == {
         "id": 123,
         "name": "testing application",
-        "github_account": {
+        "account_scope": {
             "id": config.TESTING_ORGANIZATION_ID,
             "login": config.TESTING_ORGANIZATION_NAME,
-            "type": "Organization",
         },
     }

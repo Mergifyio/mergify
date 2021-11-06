@@ -14,6 +14,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
+
+import daiquiri
 import fastapi
 
 from mergify_engine import config
@@ -24,10 +27,15 @@ from mergify_engine.dashboard import application as application_mod
 from mergify_engine.web import redis
 
 
+LOG = daiquiri.getLogger(__name__)
+
+ScopeT = typing.NewType("ScopeT", str)
+
 security = fastapi.security.http.HTTPBearer()
 
 
 async def get_application(
+    request: fastapi.Request,
     credentials: fastapi.security.HTTPAuthorizationCredentials = fastapi.Security(  # noqa: B008
         security
     ),
@@ -35,14 +43,27 @@ async def get_application(
         redis.get_redis_cache
     ),
 ) -> application_mod.Application:
+
+    scope: typing.Optional[github_types.GitHubLogin] = request.path_params.get("owner")
     api_access_key = credentials.credentials[: config.API_ACCESS_KEY_LEN]
     api_secret_key = credentials.credentials[config.API_ACCESS_KEY_LEN :]
     try:
-        return await application_mod.Application.get(
-            redis_cache, api_access_key, api_secret_key
+        app = await application_mod.Application.get(
+            redis_cache, api_access_key, api_secret_key, scope
         )
     except application_mod.ApplicationUserNotFound:
         raise fastapi.HTTPException(status_code=403)
+
+    # Seatbelt
+    current_scope = None if app.account_scope is None else app.account_scope["login"]
+    if scope is not None and current_scope != scope:
+        LOG.error(
+            "got application with wrong scope",
+            expected_scope=scope,
+            current_scope=current_scope,
+        )
+        raise fastapi.HTTPException(status_code=403)
+    return app
 
 
 async def get_installation(
@@ -50,4 +71,9 @@ async def get_installation(
         get_application
     ),
 ) -> github_types.GitHubInstallation:
-    return await github.get_installation_from_account_id(application.account_id)
+    if application.account_scope is None:
+        raise fastapi.HTTPException(status_code=403)
+
+    return await github.get_installation_from_account_id(
+        application.account_scope["id"]
+    )

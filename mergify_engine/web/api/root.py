@@ -75,7 +75,7 @@ app = fastapi.FastAPI(
     # use the GitHub API
     dependencies=[
         fastapi.Depends(api_enabled),
-        fastapi.Depends(security.get_installation),
+        fastapi.Depends(security.get_application),
     ],
     reponses=api.default_responses,
 )

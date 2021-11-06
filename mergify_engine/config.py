@@ -45,18 +45,27 @@ def CommaSeparatedStringList(value: str) -> typing.List[str]:
         return []
 
 
-def CommaSeparatedStringDict(v: str) -> typing.Dict[str, str]:
-    d = {}
+def CommaSeparatedStringTuple(
+    v: str, split: int = 2
+) -> typing.List[typing.Tuple[str, ...]]:
+    d = []
     for bot in v.split(","):
         if bot.strip():
-            key, _, value = bot.partition(":")
-            d[key.strip()] = value.strip()
+            values = bot.split(":", maxsplit=split)
+            if len(values) != split:
+                raise ValueError("not enough :")
+            d.append(tuple(v.strip() for v in values))
     return d
 
 
 def AccountTokens(v: str) -> typing.Dict[str, str]:
     try:
-        return CommaSeparatedStringDict(v)
+        return dict(
+            typing.cast(
+                typing.List[typing.Tuple[str, str]],
+                CommaSeparatedStringTuple(v, split=2),
+            )
+        )
     except ValueError:
         raise ValueError("wrong format, expect `login1:token1,login2:token2`")
 
@@ -69,12 +78,13 @@ class ApplicationAPIKey(typing.TypedDict):
     api_secret_key: str
     api_access_key: str
     account_id: int
+    account_login: str
 
 
 def ApplicationAPIKeys(v: str) -> typing.Dict[str, ApplicationAPIKey]:
     try:
-        applications = CommaSeparatedStringDict(v)
-        for api_key in applications:
+        applications = CommaSeparatedStringTuple(v, 3)
+        for api_key, _, _ in applications:
             if len(api_key) != API_ACCESS_KEY_LEN + API_ACCESS_KEY_LEN:
                 raise ValueError
 
@@ -83,12 +93,13 @@ def ApplicationAPIKeys(v: str) -> typing.Dict[str, ApplicationAPIKey]:
                 "api_access_key": api_key[:API_ACCESS_KEY_LEN],
                 "api_secret_key": api_key[API_ACCESS_KEY_LEN:],
                 "account_id": int(account_id),
+                "account_login": account_login,
             }
-            for api_key, account_id in applications.items()
+            for api_key, account_id, account_login in applications
         }
     except ValueError:
         raise ValueError(
-            "wrong format, expect `api_key1:github_account_id1,api_key1:github_account_id2`, api_key must be 64 character long"
+            "wrong format, expect `api_key1:github_account_id1:github_account_login1,api_key1:github_account_id2:github_account_login2`, api_key must be 64 character long"
         )
 
 
