@@ -173,7 +173,9 @@ async def dashboard(
     patcher.start()
     request.addfinalizer(patcher.stop)
 
-    async def fake_application_get(redis_cache, api_access_key, api_secret_key):
+    async def fake_application_get(
+        redis_cache, api_access_key, api_secret_key, account_scope
+    ):
         if (
             api_access_key == api_key_admin[:32]
             and api_secret_key == api_key_admin[32:]
@@ -184,7 +186,10 @@ async def dashboard(
                 "testing application",
                 api_access_key,
                 api_secret_key,
-                config.TESTING_ORGANIZATION_ID,
+                account_scope={
+                    "id": config.TESTING_ORGANIZATION_ID,
+                    "login": config.TESTING_ORGANIZATION_NAME,
+                },
             )
         raise application_mod.ApplicationUserNotFound()
 

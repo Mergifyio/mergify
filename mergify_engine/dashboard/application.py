@@ -25,6 +25,11 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 
 
+class ApplicationAccountScope(typing.TypedDict):
+    id: github_types.GitHubAccountIdType
+    login: github_types.GitHubLogin
+
+
 class ApplicationDashboardJSON(typing.TypedDict):
     id: int
     name: str
@@ -36,7 +41,7 @@ class CachedApplication(typing.TypedDict):
     name: str
     api_access_key: str
     api_secret_key: str
-    account_id: github_types.GitHubAccountIdType
+    account_scope: typing.Optional[ApplicationAccountScope]
 
 
 class ApplicationUserNotFound(Exception):
@@ -53,14 +58,10 @@ class ApplicationBase:
     name: str
     api_access_key: str
     api_secret_key: str
-    account_id: github_types.GitHubAccountIdType
+    account_scope: typing.Optional[ApplicationAccountScope]
 
     @classmethod
-    async def delete(
-        cls: typing.Type[ApplicationClassT],
-        redis: utils.RedisCache,
-        api_access_key: str,
-    ) -> None:
+    async def delete(cls, redis: utils.RedisCache, api_access_key: str) -> None:
         raise NotImplementedError
 
     @classmethod
@@ -69,6 +70,7 @@ class ApplicationBase:
         redis: utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> ApplicationClassT:
         raise NotImplementedError
 
@@ -87,10 +89,19 @@ class ApplicationGitHubCom(ApplicationBase):
     VALIDITY_SECONDS = 3600
 
     @staticmethod
-    def _cache_key(api_access_key: str) -> str:
-        return f"api-key-cache~{api_access_key}"
+    def _cache_key(
+        api_access_key: str,
+        account_scope: typing.Union[
+            typing.Literal["*"], typing.Optional[github_types.GitHubLogin]
+        ],
+    ) -> str:
+        if account_scope is None:
+            account_scope_key = "#"
+        else:
+            account_scope_key = account_scope
+        return f"api-key-cache~{api_access_key}~{account_scope_key}"
 
-    async def _has_expired(self) -> bool:
+    def _has_expired(self) -> bool:
         if self.ttl < 0:  # not cached
             return True
         elapsed_since_stored = self.RETENTION_SECONDS - self.ttl
@@ -98,13 +109,16 @@ class ApplicationGitHubCom(ApplicationBase):
 
     @classmethod
     async def delete(
-        cls: typing.Type[ApplicationClassT],
+        cls,
         redis: utils.RedisCache,
         api_access_key: str,
     ) -> None:
-        await redis.delete(
-            typing.cast(ApplicationGitHubCom, cls)._cache_key(api_access_key)
-        )
+        pipe = await redis.pipeline()
+        async for key in redis.scan_iter(
+            match=cls._cache_key(api_access_key, "*"), count=10000
+        ):
+            await pipe.delete(key)
+        await pipe.execute()
 
     @classmethod
     async def get(
@@ -112,26 +126,34 @@ class ApplicationGitHubCom(ApplicationBase):
         redis: utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> ApplicationClassT:
         return typing.cast(
             ApplicationClassT,
             await typing.cast(ApplicationGitHubCom, cls)._get(
-                redis, api_access_key, api_secret_key
+                redis, api_access_key, api_secret_key, account_scope
             ),
         )
 
     @classmethod
     async def _get(
-        cls, redis: utils.RedisCache, api_access_key: str, api_secret_key: str
+        cls,
+        redis: utils.RedisCache,
+        api_access_key: str,
+        api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> "ApplicationGitHubCom":
         cached_application = await cls._retrieve_from_cache(
-            redis, api_access_key, api_secret_key
+            redis, api_access_key, api_secret_key, account_scope
         )
-        if cached_application is None or await cached_application._has_expired():
+        if cached_application is None or cached_application._has_expired():
             try:
                 db_application = await cls._retrieve_from_db(
-                    redis, api_access_key, api_secret_key
+                    redis, api_access_key, api_secret_key, account_scope
                 )
+            except http.HTTPForbidden:
+                # api key is valid, but not the scope
+                raise ApplicationUserNotFound()
             except http.HTTPNotFound:
                 raise ApplicationUserNotFound()
             except Exception as exc:
@@ -143,6 +165,7 @@ class ApplicationGitHubCom(ApplicationBase):
                     # connectivity issue.
                     return cached_application
                 raise
+
             await db_application.save_to_cache()
             return db_application
         return cached_application
@@ -150,7 +173,10 @@ class ApplicationGitHubCom(ApplicationBase):
     async def save_to_cache(self) -> None:
         """Save an application to the cache."""
         await self.redis.setex(
-            self._cache_key(self.api_access_key),
+            self._cache_key(
+                self.api_access_key,
+                None if self.account_scope is None else self.account_scope["login"],
+            ),
             self.RETENTION_SECONDS,
             crypto.encrypt(
                 json.dumps(
@@ -160,7 +186,7 @@ class ApplicationGitHubCom(ApplicationBase):
                             "name": self.name,
                             "api_access_key": self.api_access_key,
                             "api_secret_key": self.api_secret_key,
-                            "account_id": self.account_id,
+                            "account_scope": self.account_scope,
                         }
                     )
                 ).encode()
@@ -175,30 +201,54 @@ class ApplicationGitHubCom(ApplicationBase):
         api_access_key: str,
         data: ApplicationDashboardJSON,
     ) -> None:
-        encrypted_application = await redis.get(cls._cache_key(api_access_key))
+        if data["github_account"] is None:
+            account_scope = None
+        else:
+            account_scope = data["github_account"]["login"]
+
+        encrypted_application = await redis.get(
+            cls._cache_key(api_access_key, account_scope)
+        )
         if encrypted_application is not None:
             decrypted_application = typing.cast(
                 CachedApplication,
                 json.loads(crypto.decrypt(encrypted_application.encode()).decode()),
             )
+            if "account_scope" not in decrypted_application:
+                # TODO(sileht): Backward compat, delete me
+                return None
+
+            if data["github_account"] is None:
+                full_account_scope = None
+            else:
+                full_account_scope = ApplicationAccountScope(
+                    {
+                        "id": data["github_account"]["id"],
+                        "login": data["github_account"]["login"],
+                    }
+                )
             app = cls(
                 redis,
                 data["id"],
                 data["name"],
                 decrypted_application["api_access_key"],
                 decrypted_application["api_secret_key"],
-                data["github_account"]["id"],
+                full_account_scope,
             )
             await app.save_to_cache()
         return None
 
     @classmethod
     async def _retrieve_from_cache(
-        cls, redis: utils.RedisCache, api_access_key: str, api_secret_key: str
+        cls,
+        redis: utils.RedisCache,
+        api_access_key: str,
+        api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> typing.Optional["ApplicationGitHubCom"]:
         async with await redis.pipeline() as pipe:
-            await pipe.get(cls._cache_key(api_access_key))
-            await pipe.ttl(cls._cache_key(api_access_key))
+            await pipe.get(cls._cache_key(api_access_key, account_scope))
+            await pipe.ttl(cls._cache_key(api_access_key, account_scope))
             encrypted_application, ttl = typing.cast(
                 typing.Tuple[str, int], await pipe.execute()
             )
@@ -211,6 +261,10 @@ class ApplicationGitHubCom(ApplicationBase):
                 # Don't raise ApplicationUserNotFound yet, check the database first
                 return None
 
+            if "account_scope" not in decrypted_application:
+                # TODO(sileht): Backward compat, delete me
+                return None
+
             if "id" not in decrypted_application:
                 # TODO(sileht): Backward compat, delete me
                 return None
@@ -221,19 +275,29 @@ class ApplicationGitHubCom(ApplicationBase):
                 decrypted_application["name"],
                 decrypted_application["api_access_key"],
                 decrypted_application["api_secret_key"],
-                decrypted_application["account_id"],
+                decrypted_application["account_scope"],
                 ttl,
             )
         return None
 
     @classmethod
     async def _retrieve_from_db(
-        cls, redis: utils.RedisCache, api_access_key: str, api_secret_key: str
+        cls,
+        redis: utils.RedisCache,
+        api_access_key: str,
+        api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> "ApplicationGitHubCom":
         async with http.AsyncClient() as client:
+            headers: typing.Dict[str, str]
+            if account_scope is None:
+                headers = {}
+            else:
+                headers = {"Mergify-Application-Account-Scope": account_scope}
             resp = await client.get(
                 f"{config.SUBSCRIPTION_BASE_URL}/engine/applications/{api_access_key}{api_secret_key}",
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
+                headers=headers,
             )
             data = typing.cast(ApplicationDashboardJSON, resp.json())
             return cls(
@@ -242,18 +306,21 @@ class ApplicationGitHubCom(ApplicationBase):
                 data["name"],
                 api_access_key,
                 api_secret_key,
-                data["github_account"]["id"],
+                account_scope=None
+                if account_scope is None
+                else ApplicationAccountScope(
+                    {
+                        "id": data["github_account"]["id"],
+                        "login": data["github_account"]["login"],
+                    }
+                ),
             )
 
 
 @dataclasses.dataclass
 class ApplicationOnPremise(ApplicationBase):
     @classmethod
-    async def delete(
-        cls: typing.Type[ApplicationClassT],
-        redis: utils.RedisCache,
-        api_access_key: str,
-    ) -> None:
+    async def delete(cls, redis: utils.RedisCache, api_access_key: str) -> None:
         pass
 
     @classmethod
@@ -262,9 +329,12 @@ class ApplicationOnPremise(ApplicationBase):
         redis: utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
+        account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> ApplicationClassT:
         data = config.APPLICATION_APIKEYS.get(api_access_key)
         if data is None or data["api_secret_key"] != api_secret_key:
+            raise ApplicationUserNotFound()
+        if account_scope is not None and account_scope != data["account_login"]:
             raise ApplicationUserNotFound()
         return cls(
             redis,
@@ -272,7 +342,12 @@ class ApplicationOnPremise(ApplicationBase):
             "on-premise-app",
             api_access_key,
             api_secret_key,
-            github_types.GitHubAccountIdType(data["account_id"]),
+            ApplicationAccountScope(
+                {
+                    "id": github_types.GitHubAccountIdType(data["account_id"]),
+                    "login": github_types.GitHubLogin(data["account_login"]),
+                }
+            ),
         )
 
 
