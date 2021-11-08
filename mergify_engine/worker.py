@@ -242,7 +242,8 @@ class OrgBucketSelector:
     worker_count: int
 
     def get_worker_id_for(self, org_bucket: bytes) -> int:
-        return int(hashlib.md5(org_bucket).hexdigest(), 16) % self.worker_count  # nosec
+        owner_id = org_bucket.split(b"~")[1]
+        return int(hashlib.md5(owner_id).hexdigest(), 16) % self.worker_count  # nosec
 
     def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
         return self.get_worker_id_for(org_bucket) == self.worker_id
