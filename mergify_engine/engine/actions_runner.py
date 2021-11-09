@@ -197,9 +197,12 @@ async def gen_summary(
             summary += STRICT_MODE_DEPRECATION_SASS
         else:
             summary += STRICT_MODE_DEPRECATION_GHES
-    summary_Value = _has_merge_action_with_commit_message_mode(pull_request_rules)
-    if summary_Value is not None:
-        summary += summary_Value
+
+    summary_commit_message_deprecation = _has_merge_action_with_commit_message_mode(
+        pull_request_rules
+    )
+    if summary_commit_message_deprecation is not None:
+        summary += summary_commit_message_deprecation
     if ctxt.configuration_changed:
         summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)
