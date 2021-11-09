@@ -80,7 +80,7 @@ GH_PULL = github_types.GitHubPullRequest(
         "html_url": "<html_url>",
         "base": {
             "label": "",
-            "sha": github_types.SHAType("sha"),
+            "sha": github_types.SHAType("base-sha"),
             "user": {
                 "login": github_types.GitHubLogin("owner"),
                 "id": github_types.GitHubAccountIdType(0),
@@ -158,6 +158,20 @@ async def test_configuration_changed(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -248,6 +262,20 @@ async def test_configuration_duplicated(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -369,6 +397,20 @@ async def test_configuration_not_changed(
         ),
         status=200,
     )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
@@ -466,6 +508,19 @@ async def test_configuration_initial(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.github/mergify.yml",
+    ).respond_with_data(status=404)
+
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
+    ).respond_with_data(status=404)
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify/config.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
+    ).respond_with_data(status=404)
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.github/mergify.yml",
+        query_string={"ref": GH_PULL["base"]["sha"]},
     ).respond_with_data(status=404)
 
     github_server.expect_oneshot_request(

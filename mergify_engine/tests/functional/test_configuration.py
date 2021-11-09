@@ -145,6 +145,35 @@ expected alphabetic or numeric character, but found"""
             == "Configuration changed. This pull request must be merged manually — no rules match, no planned actions"
         )
 
+    async def test_change_mergify_yml_in_meantime_on_big_pull_request(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "nothing",
+                    "conditions": [f"base!={self.main_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        rules["pull_request_rules"].append(
+            {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
+        )
+        p, _ = await self.create_pr(files={f"f{i}": "data" for i in range(0, 160)})
+        await self.run_engine()
+
+        p_change_config, _ = await self.create_pr(
+            files={".mergify.yml": yaml.dump(rules)}
+        )
+        await self.merge_pull(p_change_config["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert summary["output"]["title"] == "1 rule matches"
+
     async def test_invalid_action_option(self):
         rules = {
             "pull_request_rules": [
