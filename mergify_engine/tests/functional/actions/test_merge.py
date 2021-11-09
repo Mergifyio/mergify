@@ -553,3 +553,17 @@ mergify-test3
 superRP!"""
             == p3["commit"]["message"]
         )
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert (
+            """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `commit_message` mode of the merge action.**
+> A brownout is planned for the whole March 21th, 2022 day.
+> This option will be removed on April 25th, 2022.
+> For more information: https://docs.mergify.com/actions/merge/
+
+"""
+            not in summary["output"]["summary"]
+        )
