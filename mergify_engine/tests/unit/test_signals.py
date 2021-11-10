@@ -133,6 +133,7 @@ async def test_signals(redis_cache):
             "merged_by": None,
             "merged_at": None,
             "mergeable_state": "clean",
+            "mergeable": True,
         },
     )
 

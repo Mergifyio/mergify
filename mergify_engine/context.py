@@ -972,7 +972,7 @@ class Context(object):
             return await self.commits_behind
 
         elif name == "conflict":
-            return self.pull["mergeable_state"] == "dirty"
+            return self.pull["mergeable"] is False
 
         elif name == "linear-history":
             return all(len(commit["parents"]) == 1 for commit in await self.commits)
@@ -1277,6 +1277,7 @@ class Context(object):
         # they are incomplete, This ensure we have the complete view
         fields_to_control = (
             "state",
+            "mergeable",
             "mergeable_state",
             "merged_by",
             "merged",
@@ -1288,7 +1289,10 @@ class Context(object):
         return True
 
     def _is_background_github_processing_completed(self) -> bool:
-        return self.closed or self.pull["mergeable_state"] not in self.UNUSABLE_STATES
+        return self.closed or (
+            self.pull["mergeable_state"] not in self.UNUSABLE_STATES
+            and self.pull["mergeable"] is not None
+        )
 
     async def update(self) -> None:
         # TODO(sileht): Remove me,

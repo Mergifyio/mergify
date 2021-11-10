@@ -1234,16 +1234,41 @@ DO NOT EDIT
         p1, _ = await self.create_pr(files={"TESTING": "p1"})
         p2, _ = await self.create_pr(files={"TESTING": "p2"})
         await self.merge_pull(p1["number"])
-
-        await self.run_engine()
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
-            time.sleep(10)
+            time.sleep(3)
 
         await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for(
+            "issue_comment",
+            {"action": "created", "comment": {"body": "It conflict!"}},
+        )
+
+    async def test_refresh_on_draft_conflict(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "comment-on-conflict",
+                    "conditions": ["conflict"],
+                    "actions": {"comment": {"message": "It conflict!"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
+        p1, _ = await self.create_pr(files={"TESTING": "p1"})
+        p2, _ = await self.create_pr(files={"TESTING": "p2"}, draft=True)
+        await self.merge_pull(p1["number"])
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+
+        # Wait a bit than Github refresh the mergeable_state before running the
+        # engine
+        if base.RECORD:
+            time.sleep(3)
+
+        await self.run_engine()
         await self.wait_for(
             "issue_comment",
             {"action": "created", "comment": {"body": "It conflict!"}},
