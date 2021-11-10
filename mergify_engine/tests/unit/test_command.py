@@ -220,6 +220,7 @@ async def _create_context(
                 "merged_by": None,
                 "merged_at": None,
                 "mergeable_state": "clean",
+                "mergeable": True,
                 "changed_files": 300,
             }
         ),

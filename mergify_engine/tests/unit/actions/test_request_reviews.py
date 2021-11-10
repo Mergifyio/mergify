@@ -204,6 +204,7 @@ async def prepare_context(client, redis_cache, subscribed=True):
             "number": 123,
             "state": None,
             "mergeable_state": "ok",
+            "mergeable": True,
             "merged_by": None,
             "merged": None,
             "merged_at": None,

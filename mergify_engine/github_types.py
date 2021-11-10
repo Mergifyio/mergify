@@ -250,6 +250,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     rebaseable: bool
     draft: bool
     merge_commit_sha: typing.Optional[SHAType]
+    mergeable: typing.Optional[bool]
     mergeable_state: GitHubPullRequestMergeableState
     html_url: str
     title: str

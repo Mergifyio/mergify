@@ -158,6 +158,7 @@ async def test_summary_synchronization_cache(
             "merged_by": None,
             "merged_at": None,
             "mergeable_state": "clean",
+            "mergeable": True,
         },
     )
     assert await ctxt.get_cached_last_summary_head_sha() is None

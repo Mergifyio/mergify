@@ -204,6 +204,7 @@ async def test_get_commits_to_cherry_pick_rebase(
             "merged_by": None,
             "merged_at": None,
             "mergeable_state": "clean",
+            "mergeable": True,
         },
     )
 
@@ -379,6 +380,7 @@ async def test_get_commits_to_cherry_pick_merge(
             "merged_at": None,
             "merged_by": None,
             "mergeable_state": "clean",
+            "mergeable": True,
         },
     )
 

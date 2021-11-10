@@ -127,6 +127,7 @@ GH_PULL = github_types.GitHubPullRequest(
         "merged_by": None,
         "merged_at": None,
         "mergeable_state": "clean",
+        "mergeable": True,
         "changed_files": 300,
     },
 )
