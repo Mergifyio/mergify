@@ -81,16 +81,23 @@ async def _check_configuration_changes(
         else:
             return False
 
+    previous_mergify_config_file = None
+    async for config_file in ctxt.repository.iter_mergify_config_files(
+        ref=ctxt.pull["base"]["sha"], preferred_filename=preferred_filename
+    ):
+        previous_mergify_config_file = config_file
+        break
+
     async for config_file in ctxt.repository.iter_mergify_config_files(
         ref=ctxt.pull["head"]["sha"], preferred_filename=preferred_filename
     ):
         if (
-            current_mergify_config_file is None
-            or config_file["path"] != current_mergify_config_file["path"]
+            previous_mergify_config_file is None
+            or config_file["path"] != previous_mergify_config_file["path"]
         ):
             config_file_to_validate = config_file
             break
-        elif config_file["sha"] != current_mergify_config_file["sha"]:
+        elif config_file["sha"] != previous_mergify_config_file["sha"]:
             config_file_to_validate = config_file
             break
 
