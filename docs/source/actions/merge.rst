@@ -113,7 +113,8 @@ Options
    * - ``commit_message``
      - string
      - ``default``
-     - Defines what commit message to use when merging using the ``squash`` or
+     - |deprecated tag|
+       Defines what commit message to use when merging using the ``squash`` or
        ``merge`` method. Possible values are:
 
        * ``default`` to use the default commit message provided by GitHub
@@ -124,6 +125,7 @@ Options
          itself as the commit message. The pull request number will be added to
          end of the title.
 
+       .. _commit_message_template:
    * - ``commit_message_template``
      - :ref:`data type template`
      -
@@ -170,6 +172,19 @@ request:
 
 Defining the Commit Message
 ---------------------------
+
+|deprecated tag|
+
+.. warning::
+
+    ``commit_message`` is deprecated and will be removed on April 25th, 2022. It's replaced by :ref:`commit_message_template <commit_message_template>`.
+    To migrate from ``commit_message: title+body`` to the :ref:`commit_message_template <commit_message_template>` attribute, set it to:
+
+   .. code-block:: md
+      
+    {{ title }} (#{{ number }})
+   
+    {{ body }}
 
 .. note::
 
