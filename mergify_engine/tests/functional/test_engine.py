@@ -699,6 +699,20 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             f"test_merge_custom_msg_title_body: pull request n1 from fork (#{p['number']})\n\n{msg}"
             == commit["message"]
         )
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert (
+            """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `commit_message` mode of the merge action.**
+> A brownout is planned for the whole March 21th, 2022 day.
+> This option will be removed on April 25th, 2022.
+> For more information: https://docs.mergify.com/actions/merge/
+
+"""
+            in summary["output"]["summary"]
+        )
 
     async def test_merge_and_closes_issues(self):
         rules = {

@@ -287,7 +287,8 @@ These are the options of the ``queue`` action:
    * - ``commit_message``
      - string
      - ``default``
-     - Defines what commit message to use when merging using the ``squash`` or
+     - |deprecated tag|
+       Defines what commit message to use when merging using the ``squash`` or
        ``merge`` method. Possible values are:
 
        * ``default`` to use the default commit message provided by GitHub

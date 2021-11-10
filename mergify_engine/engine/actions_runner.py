@@ -57,6 +57,25 @@ STRICT_MODE_DEPRECATION_SASS = """
 
 """
 
+COMMIT_MESSAGE_MODE_DEPRECATION_GHES = """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `commit_message` mode of the {action_name} action.**
+> This option will be removed on a future version.
+> For more information: https://docs.mergify.com/actions/{action_name}/
+
+"""
+
+COMMIT_MESSAGE_MODE_DEPRECATION_SASS = """
+:bangbang: **Action Required** :bangbang:
+
+> **The configuration uses the deprecated `commit_message` mode of the {action_name} action.**
+> A brownout is planned for the whole March 21th, 2022 day.
+> This option will be removed on April 25th, 2022.
+> For more information: https://docs.mergify.com/actions/{action_name}/
+
+"""
+
 
 async def get_already_merged_summary(
     ctxt: context.Context, match: rules.RulesEvaluator
@@ -151,6 +170,20 @@ def _has_merge_action_with_strict_mode(
     )
 
 
+def _has_merge_action_with_commit_message_mode(
+    pull_request_rules: rules.PullRequestRules,
+) -> typing.Optional[str]:
+
+    for rule in pull_request_rules:
+        for name, action in rule.actions.items():
+            if name in ("merge", "queue") and ("commit_message" in action.raw_config):
+                if config.is_saas():
+                    return COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(action_name=name)
+                else:
+                    return COMMIT_MESSAGE_MODE_DEPRECATION_GHES.format(action_name=name)
+    return None
+
+
 async def gen_summary(
     ctxt: context.Context,
     pull_request_rules: rules.PullRequestRules,
@@ -164,7 +197,9 @@ async def gen_summary(
             summary += STRICT_MODE_DEPRECATION_SASS
         else:
             summary += STRICT_MODE_DEPRECATION_GHES
-
+    summary_Value = _has_merge_action_with_commit_message_mode(pull_request_rules)
+    if summary_Value is not None:
+        summary += summary_Value
     if ctxt.configuration_changed:
         summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)
