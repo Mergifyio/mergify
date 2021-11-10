@@ -492,6 +492,7 @@ def a_pull_request() -> github_types.GitHubPullRequest:
             "merged_by": None,
             "merged_at": None,
             "mergeable_state": "clean",
+            "mergeable": True,
             "body": None,
         }
     )

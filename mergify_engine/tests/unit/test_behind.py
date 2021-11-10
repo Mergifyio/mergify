@@ -112,6 +112,7 @@ async def test_pull_behind(commits_tree_generator, redis_cache):
         {
             "number": 1,
             "mergeable_state": "clean",
+            "mergeable": True,
             "state": "open",
             "merged": False,
             "merged_at": None,

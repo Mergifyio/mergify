@@ -1065,6 +1065,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
                 "merged": False,
                 "draft": False,
                 "mergeable_state": "unstable",
+                "mergeable": True,
                 "labels": [],
                 "changed_files": 1,
                 "base": {

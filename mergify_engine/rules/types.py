@@ -104,6 +104,7 @@ _DUMMY_PR = DummyPullRequest(
                 "merge_commit_sha": None,
                 "commits": 0,
                 "mergeable_state": "unknown",
+                "mergeable": None,
                 "rebaseable": False,
                 "changed_files": 1,
                 "user": {

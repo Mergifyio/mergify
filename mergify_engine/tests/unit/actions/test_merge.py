@@ -53,6 +53,7 @@ PR = {
     "number": 43,
     "state": "unknown",
     "mergeable_state": "ok",
+    "mergeable": True,
     "merged_by": {"login": "me"},
     "merged": False,
     "merged_at": None,
