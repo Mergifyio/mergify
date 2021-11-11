@@ -14,7 +14,7 @@ The API endpoint is located at ``https://api.mergify.com/v1/``.
 Authentication
 ==============
 
-First, you need to create an Application that will be tied to your Organization on the `dashboard <https://dashboard.mergify.com>`.
+First, you need to create an Application that will be tied to your Organization on the `dashboard <https://dashboard.mergify.com>`_.
 
 .. figure:: _static/application_keys.png
 
