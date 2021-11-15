@@ -99,12 +99,21 @@ class PostCheckAction(actions.Action):
                 "Invalid summary template",
                 str(rmf),
             )
-
-        await signals.send(ctxt, "action.post_check")
         if rule.conditions.match:
-            return check_api.Result(check_api.Conclusion.SUCCESS, title, summary)
+            conclusion = check_api.Conclusion.SUCCESS
         else:
-            return check_api.Result(check_api.Conclusion.FAILURE, title, summary)
+            conclusion = check_api.Conclusion.FAILURE
+
+        check = await ctxt.get_engine_check_run(rule.get_check_name("post_check"))
+        if (
+            not check
+            or check["conclusion"] != conclusion.value
+            or check["output"]["title"] != title
+            or check["output"]["summary"] != summary
+        ):
+            await signals.send(ctxt, "action.post_check")
+
+        return check_api.Result(conclusion, title, summary)
 
     run = _post
     cancel = _post
