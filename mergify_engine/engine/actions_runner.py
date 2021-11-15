@@ -435,7 +435,7 @@ async def run_actions(
 
     for rule in matching_rules:
         for action, action_obj in rule.actions.items():
-            check_name = f"Rule: {rule.name} ({action})"
+            check_name = rule.get_check_name(action)
 
             done_by_another_action = (
                 actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES in action_obj.flags

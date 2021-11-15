@@ -60,6 +60,9 @@ class PullRequestRule:
     def from_dict(cls, d: T_from_dict) -> "PullRequestRule":
         return cls(**d)
 
+    def get_check_name(self, action: str) -> str:
+        return f"Rule: {self.name} ({action})"
+
 
 EvaluatedRule = typing.NewType("EvaluatedRule", PullRequestRule)
 
