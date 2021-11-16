@@ -99,6 +99,8 @@ MAX_RETRIES: int = 3
 WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
+DEDICATED_WORKERS_KEY = "dedicated-workers"
+
 OrgBucketNameType = typing.NewType("OrgBucketNameType", str)
 
 
@@ -243,20 +245,24 @@ async def run_engine(
         logger.debug("engine in thread end")
 
 
-@dataclasses.dataclass
-class OrgBucketSelector:
-    redis_stream: utils.RedisStream
-    worker_id: int
-    worker_count: int
+class BucketSelector(typing.Protocol):
+    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+        ...
 
-    def get_worker_id_for(self, org_bucket: bytes) -> int:
-        owner_id = org_bucket.split(b"~")[1]
-        return int(hashlib.md5(owner_id).hexdigest(), 16) % self.worker_count  # nosec
+
+@dataclasses.dataclass
+class DedicatedOrgBucketSelector:
+    redis_stream: utils.RedisStream
+    owner_id: github_types.GitHubAccountIdType
 
     def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
-        return self.get_worker_id_for(org_bucket) == self.worker_id
+        owner_id = int(org_bucket.split(b"~")[1])
+        return owner_id == self.owner_id
 
     async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+        # FIXME(sileht): we can use ZSCORE instead of ZRANGEBYSCORE when we
+        # have drop all login/name from bucket names.
+        # NOTE(sileht): Should we drop the 30s latency ? That may impact the rate limit...
         now = time.time()
         for org_bucket in await self.redis_stream.zrangebyscore(
             "streams",
@@ -265,7 +271,41 @@ class OrgBucketSelector:
         ):
             if self._is_org_bucket_for_me(org_bucket):
                 statsd.increment(
-                    "engine.streams.selected", tags=[f"worker_id:{self.worker_id}"]
+                    "engine.streams.selected",
+                    tags=[f"worker_id:dedicated-{self.owner_id}", "dedicated"],
+                )
+                return OrgBucketNameType(org_bucket.decode())
+
+        return None
+
+
+@dataclasses.dataclass
+class SharedOrgBucketSelector:
+    redis_stream: utils.RedisStream
+    shared_worker_id: int
+    worker_count: int
+
+    def get_shared_worker_id_for(self, org_bucket: bytes) -> int:
+        owner_id = org_bucket.split(b"~")[1]
+        return int(hashlib.md5(owner_id).hexdigest(), 16) % self.worker_count  # nosec
+
+    async def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
+        owner_id = org_bucket.split(b"~")[1]
+        if await self.redis_stream.sismember(DEDICATED_WORKERS_KEY, owner_id):
+            return False
+        return self.get_shared_worker_id_for(org_bucket) == self.shared_worker_id
+
+    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+        now = time.time()
+        for org_bucket in await self.redis_stream.zrangebyscore(
+            "streams",
+            min=0,
+            max=now,
+        ):
+            if await self._is_org_bucket_for_me(org_bucket):
+                statsd.increment(
+                    "engine.streams.selected",
+                    tags=[f"worker_id:shared-{self.shared_worker_id}"],
                 )
                 return OrgBucketNameType(org_bucket.decode())
 
@@ -276,6 +316,7 @@ class OrgBucketSelector:
 class StreamProcessor:
     redis_stream: utils.RedisStream
     redis_cache: utils.RedisCache
+    dedicated: bool
 
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
@@ -351,13 +392,24 @@ class StreamProcessor:
         owner_id: github_types.GitHubAccountIdType,
         owner_login: github_types.GitHubLogin,
     ) -> None:
-        LOG.debug("consoming org bucket", gh_owner=owner_login)
+        LOG.debug("consuming org bucket", gh_owner=owner_login)
 
         try:
             async with self._translate_exception_to_retries(org_bucket_name):
                 sub = await subscription.Subscription.get_subscription(
                     self.redis_cache, owner_id
                 )
+
+                if sub.has_feature(subscription.Features.DEDICATED_WORKER):
+                    if not self.dedicated:
+                        # Spawn a worker
+                        await self.redis_stream.sadd(DEDICATED_WORKERS_KEY, owner_id)
+                        return
+                else:
+                    if self.dedicated:
+                        # Drop this worker
+                        await self.redis_stream.srem(DEDICATED_WORKERS_KEY, owner_id)
+                        return
 
                 installation_raw = await github.get_installation_from_account_id(
                     owner_id
@@ -768,6 +820,7 @@ class Worker:
     )
     monitoring_idle_time: float = 60
     delayed_refresh_idle_time: float = 60
+    dedicated_workers_spawner_idle_time: float = 60
 
     _redis_stream: typing.Optional[utils.RedisStream] = dataclasses.field(
         init=False, default=None
@@ -783,12 +836,18 @@ class Worker:
         init=False, default_factory=asyncio.Event
     )
 
-    _worker_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
+    _shared_worker_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
         init=False, default_factory=list
     )
+    _dedicated_worker_tasks: typing.Dict[
+        github_types.GitHubAccountIdType, asyncio.Task[None]
+    ] = dataclasses.field(init=False, default_factory=dict)
     _stream_monitoring_task: typing.Optional[asyncio.Task[None]] = dataclasses.field(
         init=False, default=None
     )
+    _dedicated_workers_spawner_task: typing.Optional[
+        asyncio.Task[None]
+    ] = dataclasses.field(init=False, default=None)
 
     @property
     def worker_count(self) -> int:
@@ -804,23 +863,47 @@ class Worker:
             github_types.GitHubLogin(org_bucket_splitted[1]),
         )
 
-    async def stream_worker_task(self, worker_id: int) -> None:
+    async def shared_stream_worker_task(self, shared_worker_id: int) -> None:
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
+
+        stream_processor = StreamProcessor(
+            self._redis_stream, self._redis_cache, dedicated=False
+        )
+        org_bucket_selector = SharedOrgBucketSelector(
+            self._redis_stream, shared_worker_id, self.worker_count
+        )
+        return await self._stream_worker_task(
+            f"shared-{shared_worker_id}", stream_processor, org_bucket_selector
+        )
+
+    async def dedicated_stream_worker_task(
+        self, owner_id: github_types.GitHubAccountIdType
+    ) -> None:
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
+
+        stream_processor = StreamProcessor(
+            self._redis_stream, self._redis_cache, dedicated=True
+        )
+        org_bucket_selector = DedicatedOrgBucketSelector(self._redis_stream, owner_id)
+        return await self._stream_worker_task(
+            f"dedicated-{owner_id}", stream_processor, org_bucket_selector
+        )
+
+    async def _stream_worker_task(
+        self,
+        worker_id: str,
+        stream_processor: StreamProcessor,
+        org_bucket_selector: BucketSelector,
+    ) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
         logs.WORKER_ID.set(worker_id)
 
-        stream_processor = StreamProcessor(self._redis_stream, self._redis_cache)
-        org_bucket_selector = OrgBucketSelector(
-            self._redis_stream, worker_id, self.worker_count
-        )
-
-        while not self._stopping.is_set():
-            org_bucket_name = await org_bucket_selector.next_org_bucket()
-            if not org_bucket_name:
-                LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
-                return
-
+        org_bucket_name = await org_bucket_selector.next_org_bucket()
+        if org_bucket_name:
             LOG.debug("worker %s take org bucket: %s", worker_id, org_bucket_name)
             owner_id, owner_login = self._extract_owner(org_bucket_name)
             try:
@@ -897,7 +980,7 @@ class Worker:
 
         await delayed_refresh.send(self._redis_stream, self._redis_cache)
 
-    def get_worker_ids(self) -> typing.List[int]:
+    def get_shared_worker_ids(self) -> typing.List[int]:
         return list(
             range(
                 self.process_index * self.worker_per_process,
@@ -917,16 +1000,16 @@ class Worker:
             await self._redis_cache.set(MERGE_TRAIN_MIGRATION_DONE_KEY, "done")
 
         if "stream" in self.enabled_services:
-            worker_ids = self.get_worker_ids()
+            worker_ids = self.get_shared_worker_ids()
             LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
-                self._worker_tasks.append(
+                self._shared_worker_tasks.append(
                     asyncio.create_task(
                         self.loop_and_sleep_forever(
                             f"worker {worker_id}",
                             self.idle_sleep_time,
                             functools.partial(
-                                self.stream_worker_task,
+                                self.shared_stream_worker_task,
                                 worker_id,
                             ),
                         ),
@@ -934,6 +1017,16 @@ class Worker:
                     )
                 )
             LOG.info("workers started", count=len(worker_ids))
+
+            LOG.info("dedicated worker spawner starting")
+            self._dedicated_workers_spawner_task = asyncio.create_task(
+                self.loop_and_sleep_forever(
+                    "dedicated workers spawner",
+                    self.dedicated_workers_spawner_idle_time,
+                    self.dedicated_workers_spawner_task,
+                )
+            )
+            LOG.info("dedicated worker spawner started")
 
         if "delayed-refresh" in self.enabled_services:
             LOG.info("delayed refresh starting")
@@ -986,9 +1079,53 @@ class Worker:
 
         LOG.debug("%s task exited", task_name)
 
+    async def dedicated_workers_spawner_task(self) -> None:
+        if self._redis_stream is None or self._redis_cache is None:
+            raise RuntimeError("redis clients are not ready")
+
+        data = await self._redis_stream.smembers(DEDICATED_WORKERS_KEY)
+
+        if data is None:
+            expected_workers = set()
+        else:
+            expected_workers = {github_types.GitHubAccountIdType(int(v)) for v in data}
+
+        current_workers = set(self._dedicated_worker_tasks.keys())
+
+        to_stop = current_workers - expected_workers
+        to_start = expected_workers - current_workers
+
+        shutdown_tasks: typing.List[asyncio.Task[None]] = []
+        if to_stop:
+            LOG.info("dedicated workers to stop", workers=to_stop)
+        for owner_id in to_stop:
+            task = self._dedicated_worker_tasks[owner_id]
+            task.cancel(msg="dedicated worker shutdown")
+            shutdown_tasks.append(task)
+        if shutdown_tasks:
+            await asyncio.wait(shutdown_tasks)
+
+        for owner_id in to_stop:
+            del self._dedicated_worker_tasks[owner_id]
+
+        if to_start:
+            LOG.info("dedicated workers to start", workers=to_start)
+        for owner_id in to_start:
+            self._dedicated_worker_tasks[owner_id] = asyncio.create_task(
+                self.loop_and_sleep_forever(
+                    f"dedicated-{owner_id}",
+                    self.idle_sleep_time,
+                    functools.partial(self.dedicated_stream_worker_task, owner_id),
+                )
+            )
+
     async def _shutdown(self) -> None:
+        LOG.info("shutdown start")
         tasks = []
-        tasks.extend(self._worker_tasks)
+        if self._dedicated_workers_spawner_task is not None:
+            tasks.append(self._dedicated_workers_spawner_task)
+        tasks.extend(self._shared_worker_tasks)
+        tasks.extend(self._dedicated_worker_tasks.values())
         if self._delayed_refresh_task is not None:
             tasks.append(self._delayed_refresh_task)
         if self._stream_monitoring_task is not None:
@@ -1004,7 +1141,8 @@ class Worker:
         LOG.info("workers and monitoring exited", count=len(tasks))
 
         LOG.info("redis finalizing")
-        self._worker_tasks = []
+        self._shared_worker_tasks = []
+        self._dedicated_worker_tasks = {}
         if self._redis_stream:
             self._redis_stream.connection_pool.max_idle_time = 0
             self._redis_stream.connection_pool.disconnect()
@@ -1063,25 +1201,28 @@ async def async_status() -> None:
     worker_count: int = worker_per_process * process_count
 
     redis_stream = utils.create_yaaredis_for_stream()
-    org_bucket_selector = OrgBucketSelector(redis_stream, 0, worker_count)
+    org_bucket_selector = SharedOrgBucketSelector(redis_stream, 0, worker_count)
 
     def sorter(item: typing.Tuple[bytes, float]) -> int:
         org_bucket, score = item
-        return org_bucket_selector.get_worker_id_for(org_bucket)
+        return org_bucket_selector.get_shared_worker_id_for(org_bucket)
 
     org_buckets = sorted(
         await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
         key=sorter,
     )
 
-    for worker_id, org_buckets_by_worker in itertools.groupby(org_buckets, key=sorter):
+    # FIXME(sileht): This doesn't report dedicated worker
+    for shared_worker_id, org_buckets_by_worker in itertools.groupby(
+        org_buckets, key=sorter
+    ):
         for org_bucket, score in org_buckets_by_worker:
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
             owner = org_bucket.split(b"~")[2]
             event_org_buckets = await redis_stream.zrange(org_bucket, 0, -1)
             count = sum([await redis_stream.xlen(es) for es in event_org_buckets])
             items = f"{len(event_org_buckets)} pull requests, {count} events"
-            print(f"{{{worker_id:02}}} [{date}] {owner.decode()}: {items}")
+            print(f"{{{shared_worker_id:02}}} [{date}] {owner.decode()}: {items}")
 
 
 def status() -> None:

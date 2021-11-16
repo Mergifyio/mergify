@@ -49,6 +49,7 @@ class Features(enum.Enum):
     QUEUE_ACTION = "queue_action"
     DEPENDS_ON = "depends_on"
     SHOW_SPONSOR = "show_sponsor"
+    DEDICATED_WORKER = "dedicated_worker"
 
 
 class SubscriptionDict(typing.TypedDict):
@@ -64,6 +65,7 @@ class SubscriptionDict(typing.TypedDict):
             "queue_action",
             "depends_on",
             "show_sponsor",
+            "dedicated_worker",
         ]
     ]
 

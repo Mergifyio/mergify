@@ -34,7 +34,7 @@ LEVEL_COLORS = daiquiri.formatter.ColorFormatter.LEVEL_COLORS.copy()
 LEVEL_COLORS[42] = "\033[01;35m"
 
 
-WORKER_ID: contextvars.ContextVar[int] = contextvars.ContextVar("worker_id")
+WORKER_ID: contextvars.ContextVar[str] = contextvars.ContextVar("worker_id")
 
 
 class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[misc]

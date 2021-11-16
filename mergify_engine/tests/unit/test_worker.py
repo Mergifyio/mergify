@@ -34,6 +34,12 @@ from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 
 
+async def fake_get_subscription(*args, **kwargs):
+    sub = mock.Mock()
+    sub.has_feature.return_value = False
+    return sub
+
+
 FAKE_INSTALLATION = {
     "id": 12345,
     "account": {"id": 123, "login": "owner-123"},
@@ -59,7 +65,11 @@ def fake_get_installation_from_account_id(
 
 
 async def run_worker(test_timeout=10, **kwargs):
-    w = worker.Worker(**kwargs)
+    w = worker.Worker(
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        **kwargs,
+    )
     await w.start()
     started_at = time.monotonic()
     while (
@@ -87,12 +97,13 @@ class InstallationMatcher:
 async def test_worker_with_waiting_tasks(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     buckets = set()
     bucket_sources = set()
     for installation_id in range(8):
@@ -173,12 +184,13 @@ async def test_worker_expanded_events(
     aget_client,
     get_installation_from_account_id,
     run_engine,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     client = mock.Mock(
         auth=mock.Mock(
             owner_id=123,
@@ -304,11 +316,12 @@ async def test_worker_expanded_events(
 async def test_worker_with_one_task(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
+    get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_stream,
@@ -375,13 +388,14 @@ async def test_worker_with_one_task(
 async def test_consume_unexisting_stream(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
+    get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
 
@@ -393,11 +407,12 @@ async def test_consume_unexisting_stream(
 async def test_consume_good_stream(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
+    get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_stream,
@@ -427,7 +442,7 @@ async def test_consume_good_stream(
     assert 1 == len(await redis_stream.keys("bucket-sources~*"))
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
@@ -465,7 +480,7 @@ async def test_consume_good_stream(
 async def test_stream_processor_retrying_pull(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     logger_class,
     redis_stream,
     redis_cache,
@@ -474,6 +489,7 @@ async def test_stream_processor_retrying_pull(
     logger = logger_class.return_value
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     # One retries once, the other reaches max_retry
     run_engine.side_effect = [
         exceptions.MergeableStateUnknown(mock.Mock()),
@@ -512,7 +528,7 @@ async def test_stream_processor_retrying_pull(
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 2
@@ -597,11 +613,18 @@ async def test_stream_processor_retrying_pull(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(
-    run_engine, get_installation_from_account_id, _, logger, redis_stream, redis_cache
+    run_engine,
+    get_installation_from_account_id,
+    get_subscription,
+    logger,
+    redis_stream,
+    redis_cache,
 ):
     logs.setup_logging()
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -636,7 +659,7 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
@@ -688,11 +711,17 @@ async def test_stream_processor_retrying_stream_recovered(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(
-    run_engine, get_installation_from_account_id, _, logger, redis_stream, redis_cache
+    run_engine,
+    get_installation_from_account_id,
+    get_subscription,
+    logger,
+    redis_stream,
+    redis_cache,
 ):
     logs.setup_logging()
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 401
@@ -727,7 +756,7 @@ async def test_stream_processor_retrying_stream_failure(
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
@@ -785,7 +814,7 @@ async def test_stream_processor_retrying_stream_failure(
 async def test_stream_processor_pull_unexpected_error(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     logger_class,
     redis_stream,
     redis_cache,
@@ -794,6 +823,7 @@ async def test_stream_processor_pull_unexpected_error(
     logger = logger_class.return_value
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     run_engine.side_effect = Exception
 
     await worker.push(
@@ -807,7 +837,7 @@ async def test_stream_processor_pull_unexpected_error(
         {"payload": "whatever"},
     )
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
     await p.consume("bucket~123~owner-123", 123, "owner-123")
     await p.consume("bucket~123~owner-123", 123, "owner-123")
 
@@ -828,13 +858,14 @@ async def test_stream_processor_pull_unexpected_error(
 async def test_stream_processor_date_scheduling(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
     # Don't process it before 2040
     with freeze_time("2040-01-01"):
         await worker.push(
@@ -866,8 +897,8 @@ async def test_stream_processor_date_scheduling(
     assert 2 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    s = worker.OrgBucketSelector(redis_stream, 0, 1)
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    s = worker.SharedOrgBucketSelector(redis_stream, 0, 1)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
 
     received = []
 
@@ -911,7 +942,11 @@ async def test_stream_processor_date_scheduling(
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
-async def test_worker_drop_bucket(_, redis_stream, redis_cache, logger_checker):
+async def test_worker_drop_bucket(
+    get_subscription, redis_stream, redis_cache, logger_checker
+):
+    get_subscription.side_effect = fake_get_subscription
+
     buckets = set()
     bucket_sources = set()
     _id = 123
@@ -954,7 +989,11 @@ async def test_worker_drop_bucket(_, redis_stream, redis_cache, logger_checker):
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
-async def test_worker_debug_report(_, redis_stream, redis_cache, logger_checker):
+async def test_worker_debug_report(
+    get_subscription, redis_stream, redis_cache, logger_checker
+):
+    get_subscription.side_effect = fake_get_subscription
+
     for installation_id in range(8):
         for pull_number in range(2):
             for data in range(3):
@@ -979,9 +1018,15 @@ async def test_worker_debug_report(_, redis_stream, redis_cache, logger_checker)
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_after_read_error(
-    run_engine, get_installation_from_account_id, _, redis_stream, redis_cache
+    run_engine,
+    get_installation_from_account_id,
+    get_subscription,
+    redis_stream,
+    redis_cache,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
     response = mock.Mock()
     response.json.return_value = {"message": "boom"}
     response.status_code = 503
@@ -990,7 +1035,7 @@ async def test_stream_processor_retrying_after_read_error(
         request=mock.Mock(),
     )
 
-    p = worker.StreamProcessor(redis_stream, redis_cache)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False)
 
     installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
     with pytest.raises(worker.OrgBucketRetry):
@@ -1007,12 +1052,14 @@ async def test_stream_processor_retrying_after_read_error(
 async def test_stream_processor_ignore_503(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
     response = mock.Mock()
     response.text = "Server Error: Sorry, this diff is taking too long to generate."
     response.status_code = 503
@@ -1048,12 +1095,14 @@ async def test_stream_processor_ignore_503(
 async def test_worker_with_multiple_workers(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
     buckets = set()
     bucket_sources = set()
     for installation_id in range(100):
@@ -1116,13 +1165,15 @@ async def test_worker_with_multiple_workers(
 async def test_worker_reschedule(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
     monkeypatch,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis_stream,
@@ -1168,12 +1219,13 @@ async def test_worker_reschedule(
 async def test_worker_stuck_shutdown(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
 
     async def fake_engine(*args, **kwargs):
         await asyncio.sleep(10000000)
@@ -1199,12 +1251,13 @@ async def test_worker_stuck_shutdown(
 async def test_worker_migrate_train(
     run_engine,
     get_installation_from_account_id,
-    _,
+    get_subscription,
     redis_stream,
     redis_cache,
     logger_checker,
 ):
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
 
     assert not await redis_cache.exists("MERGE_TRAIN_MIGRATION_DONE")
     expected_trains = {}
@@ -1234,3 +1287,132 @@ async def test_worker_migrate_train(
     for train in trains:
         owner_id = int(train[13:])
         assert await redis_cache.hgetall(train) == expected_trains[owner_id]
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_dedicated_worker_scaleup_scaledown(
+    run_engine,
+    get_installation_from_account_id,
+    get_subscription,
+    redis_stream,
+    redis_cache,
+    logger_checker,
+):
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+
+    w = worker.Worker(
+        worker_per_process=3,
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+    )
+    await w.start()
+
+    tracker = []
+
+    async def track_context(*args, **kwargs):
+        tracker.append(logs.WORKER_ID.get(None))
+
+    run_engine.side_effect = track_context
+
+    async def fake_get_subscription_dedicated(redis, owner_id):
+        sub = mock.Mock()
+        # 1 is always shared
+        if owner_id == 1:
+            sub.has_feature.return_value = False
+        else:
+            sub.has_feature.return_value = True
+        return sub
+
+    async def fake_get_subscription_shared(redis, owner_id):
+        sub = mock.Mock()
+        sub.has_feature.return_value = False
+        return sub
+
+    async def push_and_wait():
+        # worker hash == 2
+        await worker.push(
+            redis_stream,
+            4242,
+            "owner-4242",
+            4242,
+            "repo",
+            4242,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 1
+        await worker.push(
+            redis_stream,
+            1,
+            "owner-1",
+            1,
+            "repo",
+            1,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 0
+        await worker.push(
+            redis_stream,
+            120,
+            "owner-120",
+            120,
+            "repo",
+            120,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        started_at = time.monotonic()
+        while (
+            w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0
+        ) and time.monotonic() - started_at < 10:
+            await asyncio.sleep(0.5)
+
+    get_subscription.side_effect = fake_get_subscription_dedicated
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "dedicated-120",
+        "dedicated-4242",
+        "shared-1",
+    ]
+    tracker.clear()
+
+    get_subscription.side_effect = fake_get_subscription_shared
+    await push_and_wait()
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "shared-0",
+        "shared-0",
+        "shared-1",
+        "shared-1",
+        "shared-2",
+        "shared-2",
+    ]
+    tracker.clear()
+
+    get_subscription.side_effect = fake_get_subscription_dedicated
+    await push_and_wait()
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "dedicated-120",
+        "dedicated-120",
+        "dedicated-4242",
+        "dedicated-4242",
+        "shared-1",
+        "shared-1",
+    ]
+    tracker.clear()
+
+    get_subscription.side_effect = fake_get_subscription_shared
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "shared-0",
+        "shared-1",
+        "shared-2",
+    ]
+
+    w.stop()
+    await w.wait_shutdown_complete()
