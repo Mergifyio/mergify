@@ -213,8 +213,6 @@ async def repository_queues(
         queues = Queues()
 
         async for train in merge_train.Train.iter_trains(installation, repository_ctxt):
-            await train.load()
-
             queue_rules = await train.get_queue_rules()
             if queue_rules is None:
                 # The train is going the be deleted, so skip it.

@@ -916,20 +916,11 @@ class Train(queue.QueueBase):
         await q.load()
         return q
 
-    @staticmethod
-    def get_redis_key_for(
-        owner_id: github_types.GitHubAccountIdType,
-        repository_id: typing.Union[
-            github_types.GitHubRepositoryIdType, typing.Literal["*"]
-        ],
-        ref: typing.Union[github_types.GitHubRefType, typing.Literal["*"]],
-    ) -> str:
-        return f"merge-train~{owner_id}~{repository_id}~{ref}"
-
     def _get_redis_key(self) -> str:
-        return self.get_redis_key_for(
-            self.repository.installation.owner_id, self.repository.repo["id"], self.ref
-        )
+        return f"merge-trains~{self.repository.installation.owner_id}"
+
+    def _get_redis_hash_key(self) -> str:
+        return f"{self.repository.repo['id']}~{self.ref}"
 
     @classmethod
     async def iter_trains(
@@ -945,23 +936,29 @@ class Train(queue.QueueBase):
         if repository is not None:
             repo_filter = repository.repo["id"]
 
-        async for train_name in installation.redis.scan_iter(
-            cls.get_redis_key_for(installation.owner_id, repo_filter, "*"),
+        async for key, train_raw in installation.redis.hscan_iter(
+            f"merge-trains~{installation.owner_id}",
+            f"{repo_filter}~*",
             count=10000,
         ):
-            train_name_split = train_name.split("~")
-            ref = github_types.GitHubRefType(train_name_split[3])
+            repo_id_str, ref_str = key.split("~")
+            ref = github_types.GitHubRefType(ref_str)
             if exclude_ref is not None and ref == exclude_ref:
                 continue
 
             if repository is None:
-                repo_id = github_types.GitHubRepositoryIdType(int(train_name_split[2]))
-                yield cls(await installation.get_repository_by_id(repo_id), ref)
+                repo_id = github_types.GitHubRepositoryIdType(int(repo_id_str))
+                train = cls(await installation.get_repository_by_id(repo_id), ref)
             else:
-                yield cls(repository, ref)
+                train = cls(repository, ref)
+            await train.load(train_raw)
+            yield train
 
-    async def load(self) -> None:
-        train_raw = await self.repository.installation.redis.get(self._get_redis_key())
+    async def load(self, train_raw: typing.Optional[bytes] = None) -> None:
+        if train_raw is None:
+            train_raw = await self.repository.installation.redis.hget(
+                self._get_redis_key(), self._get_redis_hash_key()
+            )
 
         if train_raw:
             train = typing.cast(Train.Serialized, json.loads(train_raw))
@@ -997,9 +994,13 @@ class Train(queue.QueueBase):
                 cars=[c.serialized() for c in self._cars],
             )
             raw = json.dumps(prepared)
-            await self.repository.installation.redis.set(self._get_redis_key(), raw)
+            await self.repository.installation.redis.hset(
+                self._get_redis_key(), self._get_redis_hash_key(), raw
+            )
         else:
-            await self.repository.installation.redis.delete(self._get_redis_key())
+            await self.repository.installation.redis.hdel(
+                self._get_redis_key(), self._get_redis_hash_key()
+            )
 
     def get_car(self, ctxt: context.Context) -> typing.Optional[TrainCar]:
         return first.first(
@@ -1536,5 +1537,4 @@ class Train(queue.QueueBase):
             ctxt.repository,
             exclude_ref=exclude_ref,
         ):
-            await train.load()
             await train.remove_pull(ctxt)

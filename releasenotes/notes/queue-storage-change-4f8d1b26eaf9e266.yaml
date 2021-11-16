@@ -1,0 +1,6 @@
+---
+upgrade:
+  - |
+    The merge-queue data format stored in redis has changed. The migration is
+    done automatically on first startup of version 3.X and must be done before
+    updating to 4.X.

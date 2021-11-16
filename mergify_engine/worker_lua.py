@@ -219,3 +219,23 @@ async def clean_org_bucket(
         (f"bucket~{owner_id}~{owner_login}",),
         (str(scheduled_at.timestamp()),),
     )
+
+
+MIGRATE_TRAINS = register_script(
+    """
+local trains = redis.call("KEYS", "merge-train~*~*~*")
+for idx, train in ipairs(trains) do
+    for owner_id, repo_id, ref in string.gmatch(train, "merge%-train~([^~]+)~([^~]+)~(.+)") do
+        local data = redis.call("GET", train)
+        redis.call("HSET", "merge-trains~" .. owner_id, repo_id .. "~" .. ref, data)
+        redis.call("DEL", train)
+    end
+end
+"""
+)
+
+
+async def migrate_trains(
+    redis: utils.RedisCache,
+) -> None:
+    await run_script(redis, MIGRATE_TRAINS, ())
