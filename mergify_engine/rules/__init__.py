@@ -149,6 +149,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         "approved-reviews-by",
         "dismissed-reviews-by",
         "commented-reviews-by",
+        "changes-requested-reviews-by",
     )
 
     # The list of pull request rules to match against.
