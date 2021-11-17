@@ -67,25 +67,47 @@ async def queues(
         str, typing.Dict[str, typing.List[int]]
     ] = collections.defaultdict(dict)
     async for queue in redis_cache.scan_iter(
-        match=f"merge-*~{owner_id}~*", count=10000
+        match=f"merge-queue~{owner_id}~*", count=10000
     ):
-        queue_type, _, repo_id, branch = queue.split("~")
+        _, _, repo_id, branch = queue.split("~")
         if auth is not None:
             # Check this token as access to this repository
             async with github_client.AsyncGithubInstallationClient(auth=auth) as client:
                 try:
                     await client.item(f"/repositories/{repo_id}")
-                except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
+                except (
+                    http.HTTPNotFound,
+                    http.HTTPForbidden,
+                    http.HTTPUnauthorized,
+                ):
                     continue
 
-        if queue_type == "merge-queue":
-            queues[repo_id][branch] = [
-                int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
-            ]
-        elif queue_type == "merge-train":
-            train_raw = await redis_cache.get(queue)
+        queues[repo_id][branch] = [
+            int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
+        ]
+
+    async for queue in redis_cache.scan_iter(
+        match=f"merge-trains~{owner_id}", count=10000
+    ):
+        trains_raw = await redis_cache.hgetall(queue)
+        for key, train_raw in trains_raw.items():
             train = typing.cast(merge_train.Train.Serialized, json.loads(train_raw))
-            _, _, repo_id, branch = queue.split("~")
+            repo_id, _, branch = key.partition("~")
+
+            if auth is not None:
+                # Check this token as access to this repository
+                async with github_client.AsyncGithubInstallationClient(
+                    auth=auth
+                ) as client:
+                    try:
+                        await client.item(f"/repositories/{repo_id}")
+                    except (
+                        http.HTTPNotFound,
+                        http.HTTPForbidden,
+                        http.HTTPUnauthorized,
+                    ):
+                        continue
+
             queues[repo_id][branch] = [
                 int(ep[0])
                 for c in train["cars"]
