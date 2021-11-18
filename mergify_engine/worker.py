@@ -359,7 +359,7 @@ class StreamProcessor:
                         installation_raw, sub, client, self.redis_cache
                     )
                     await self._consume_buckets(org_bucket_name, installation)
-                    await self._refresh_merge_trains(org_bucket_name, installation)
+                    await merge_train.Train.refresh_trains(installation)
 
         except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
@@ -429,12 +429,6 @@ class StreamProcessor:
                 org_bucket_name=org_bucket_name,
             )
         LOG.debug("cleanup org bucket end", org_bucket_name=org_bucket_name)
-
-    async def _refresh_merge_trains(
-        self, org_bucket_name: OrgBucketNameType, installation: context.Installation
-    ) -> None:
-        async for train in merge_train.Train.iter_trains(installation):
-            await train.refresh()
 
     @staticmethod
     def _extract_infos_from_bucket_sources_key(
