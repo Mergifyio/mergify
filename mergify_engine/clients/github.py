@@ -44,6 +44,11 @@ class TooManyPages(Exception):
 
 
 @dataclasses.dataclass
+class GraphqlError(Exception):
+    message: str
+
+
+@dataclasses.dataclass
 class CachedToken:
     STORAGE: typing.ClassVar[
         typing.Dict[github_types.GitHubInstallationIdType, "CachedToken"]
@@ -386,6 +391,13 @@ class AsyncGithubClient(http.AsyncClient):
         return await super().delete(
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
+
+    async def graphql_post(self, query: str) -> typing.Any:
+        response = await self.post("/graphql", json={"query": query})
+        data = response.json()
+        if "data" not in data:
+            raise GraphqlError(response.text)
+        return data
 
     async def item(
         self,
