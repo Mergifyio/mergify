@@ -38,6 +38,8 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
 
+LOG = daiquiri.getLogger(__name__)
+
 CHECK_ASSERTS = {
     # green check mark
     "success": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/check-green-16.png",
@@ -923,10 +925,34 @@ class Train(queue.QueueBase):
         return f"{self.repository.repo['id']}~{self.ref}"
 
     @classmethod
+    async def refresh_trains(
+        cls,
+        installation: context.Installation,
+    ) -> None:
+        trains_key = f"merge-trains~{installation.owner_id}"
+        for key in await installation.redis.hkeys(trains_key):
+            repo_id_str, ref_str = key.split("~")
+            ref = github_types.GitHubRefType(ref_str)
+            repo_id = github_types.GitHubRepositoryIdType(int(repo_id_str))
+            try:
+                repository = await installation.get_repository_by_id(repo_id)
+            except http.HTTPNotFound:
+                LOG.warning(
+                    "repository with active merge-queue is unaccessible, deleting merge-queue",
+                    gh_owner=installation.owner_login,
+                    gh_repo_id=repo_id,
+                )
+                await installation.redis.hdel(trains_key, key)
+                continue
+            train = cls(repository, ref)
+            await train.load()
+            await train.refresh()
+
+    @classmethod
     async def iter_trains(
         cls,
         installation: context.Installation,
-        repository: typing.Optional[context.Repository] = None,
+        repository: context.Repository,
         *,
         exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
     ) -> typing.AsyncIterator["Train"]:
@@ -946,11 +972,7 @@ class Train(queue.QueueBase):
             if exclude_ref is not None and ref == exclude_ref:
                 continue
 
-            if repository is None:
-                repo_id = github_types.GitHubRepositoryIdType(int(repo_id_str))
-                train = cls(await installation.get_repository_by_id(repo_id), ref)
-            else:
-                train = cls(repository, ref)
+            train = cls(repository, ref)
             await train.load(train_raw)
             yield train
 
