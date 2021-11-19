@@ -27,6 +27,7 @@ import daiquiri
 import yaaredis
 
 from mergify_engine import config
+from mergify_engine import date
 from mergify_engine import github_types
 
 
@@ -196,6 +197,7 @@ async def _send_refresh(
     source: str,
     pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber] = None,
     ref: typing.Optional[github_types.GitHubRefType] = None,
+    score: typing.Optional[str] = None,
 ) -> None:
     # Break circular import
     from mergify_engine import github_events
@@ -273,7 +275,10 @@ async def send_repository_refresh(
         source=source,
     )
 
-    await _send_refresh(redis_cache, redis_stream, repository, action, source)
+    score = str(date.utcnow().timestamp() * 10)
+    await _send_refresh(
+        redis_cache, redis_stream, repository, action, source, score=score
+    )
 
 
 async def send_branch_refresh(
@@ -293,7 +298,10 @@ async def send_branch_refresh(
         action=action,
         source=source,
     )
-    await _send_refresh(redis_cache, redis_stream, repository, action, source, ref=ref)
+    score = str(date.utcnow().timestamp() * 10)
+    await _send_refresh(
+        redis_cache, redis_stream, repository, action, source, ref=ref, score=score
+    )
 
 
 _T = typing.TypeVar("_T")
