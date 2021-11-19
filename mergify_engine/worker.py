@@ -160,39 +160,47 @@ async def push(
     data: github_types.GitHubEvent,
     score: typing.Optional[str] = None,
 ) -> None:
-    now = date.utcnow()
-    event = msgpack.packb(
-        {
-            "event_type": event_type,
-            "data": data,
-            "timestamp": now.isoformat(),
-        },
-        use_bin_type=True,
-    )
-    scheduled_at = now + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
+    with tracer.trace(
+        "push event",
+        span_type="worker",
+        resource=f"{owner_login}/{repo_name}/{pull_number}",
+    ) as span:
+        span.set_tags(
+            {"gh_owner": owner_login, "gh_repo": repo_name, "gh_pull": pull_number}
+        )
+        now = date.utcnow()
+        event = msgpack.packb(
+            {
+                "event_type": event_type,
+                "data": data,
+                "timestamp": now.isoformat(),
+            },
+            use_bin_type=True,
+        )
+        scheduled_at = now + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
 
-    # NOTE(sileht): lower timestamps are processed first
-    if score is None:
-        score = str(date.utcnow().timestamp())
+        # NOTE(sileht): lower timestamps are processed first
+        if score is None:
+            score = str(date.utcnow().timestamp())
 
-    await worker_lua.push_pull(
-        redis,
-        owner_id,
-        owner_login,
-        repo_id,
-        repo_name,
-        pull_number,
-        scheduled_at,
-        event,
-        score,
-    )
-    LOG.debug(
-        "pushed to worker",
-        gh_owner=owner_login,
-        gh_repo=repo_name,
-        gh_pull=pull_number,
-        event_type=event_type,
-    )
+        await worker_lua.push_pull(
+            redis,
+            owner_id,
+            owner_login,
+            repo_id,
+            repo_name,
+            pull_number,
+            scheduled_at,
+            event,
+            score,
+        )
+        LOG.debug(
+            "pushed to worker",
+            gh_owner=owner_login,
+            gh_repo=repo_name,
+            gh_pull=pull_number,
+            event_type=event_type,
+        )
 
 
 async def run_engine(
