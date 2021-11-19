@@ -106,7 +106,12 @@ def need_retry(
         elif exception.response.status_code == 403:
             return datetime.timedelta(minutes=3)
 
+    elif isinstance(exception, yaaredis.exceptions.ResponseError):
+        # Redis script bug or OOM
+        return datetime.timedelta(minutes=1)
+
     elif isinstance(exception, yaaredis.exceptions.ConnectionError):
+        # Redis down
         return datetime.timedelta(minutes=1)
 
     return None
