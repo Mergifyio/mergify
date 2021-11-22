@@ -333,6 +333,7 @@ class TestAttributes(base.FunctionalTestBase):
             "check-neutral": [],
             "status-neutral": [],
             "commented-reviews-by": [],
+            "commits-unverified": ["test_draft: pull request n2 from fork"],
             "milestone": "",
             "label": [],
             "linear-history": True,
@@ -395,6 +396,117 @@ class TestAttributes(base.FunctionalTestBase):
 
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("and or pr", comments[-1]["body"])
+
+    async def test_one_commit_unverified(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": ["#commits-unverified=1"],
+                    "actions": {"comment": {"message": "commits unverified"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(two_commits=False)
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("commits unverified", comments[-1]["body"])
+
+    async def test_two_commits_unverified(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": ["#commits-unverified=2"],
+                    "actions": {"comment": {"message": "commits unverified"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(two_commits=True)
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("commits unverified", comments[-1]["body"])
+        self.assertEqual("commits unverified", comments[0]["body"])
+
+    async def test_one_commit_unverified_message(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": [
+                        'commits-unverified="test_one_commit_unverified_message: pull request n1 from fork"'
+                    ],
+                    "actions": {"comment": {"message": "commits unverified"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(two_commits=True)
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("commits unverified", comments[-1]["body"])
+
+    async def test_one_commit_unverified_message_wrong(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": ['commits-unverified="foo"'],
+                    "actions": {"comment": {"message": "foo test"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(two_commits=True)
+        await self.run_engine()
+        comments = await self.get_issue_comments(pr["number"])
+        assert len(comments) == 0
+
+    async def test_one_commit_verified(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": ["#commits-unverified=0"],
+                    "actions": {"comment": {"message": "commits verified"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(verified=True)
+        ctxt = await context.Context.create(self.repository_ctxt, pr)
+        assert len(await ctxt.commits) == 1
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("commits verified", comments[-1]["body"])
+
+    async def test_two_commits_verified(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "commits-unverified",
+                    "conditions": ["#commits-unverified=0"],
+                    "actions": {"comment": {"message": "commits verified"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+        pr, _ = await self.create_pr(verified=True, two_commits=True)
+        ctxt = await context.Context.create(self.repository_ctxt, pr)
+        assert len(await ctxt.commits) == 2
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("commits verified", comments[-1]["body"])
 
 
 class TestAttributesWithSub(base.FunctionalTestBase):

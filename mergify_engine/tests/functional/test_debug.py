@@ -140,6 +140,7 @@ pull_request_rules:
  'commented-reviews-by': [],
  'commits': ['test_debugger: pull request n1 from fork'],
  'commits-behind': [],
+ 'commits-unverified': ['test_debugger: pull request n1 from fork'],
  'conflict': False,
  'dismissed-reviews-by': [],
  'files': ['test1'],
