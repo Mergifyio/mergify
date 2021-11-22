@@ -340,6 +340,10 @@ class TrainCar:
             await self._set_creation_failure(f"{exc.title}\n\n{exc.message}", "update")
             raise TrainCarPullRequestCreationFailure(self) from exc
 
+        # NOTE(sileht): We must update head_sha of the pull request otherwise
+        # next temporary pull request may be created on a vanished reference.
+        await ctxt.update()
+
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
             self.train.repository,
             self.train.ref,
