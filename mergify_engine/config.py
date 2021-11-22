@@ -227,8 +227,8 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "TESTING_MERGIFY_TEST_2_ID", default=38495008
         ): voluptuous.Coerce(int),
-        voluptuous.Required("TESTING_GPGKEY_SECRET", default=None): str,
-        voluptuous.Required("TESTING_ID_GPGKEY_SECRET", default=None): str,
+        "TESTING_GPGKEY_SECRET": str,
+        "TESTING_ID_GPGKEY_SECRET": str,
     }
 )
 
