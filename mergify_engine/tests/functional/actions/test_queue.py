@@ -2808,3 +2808,35 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             check["output"]["summary"]
             == "The merge-queue pull request can't be created\nDetails: `Merge conflict`"
         )
+
+    @mock.patch.object(config, "ALLOW_COMMIT_MESSAGE_OPTION", False)
+    async def test_commit_message_queue_brownout(self):
+
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {
+                        "queue": {"commit_message": "title+body", "priority": "high"}
+                    },
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        checks = await context.Context(self.repository_ctxt, p).pull_engine_check_runs
+        assert len(checks) == 1
+        assert "failure" == checks[0]["conclusion"]
+        assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
+        assert (
+            "extra keys not allowed @ pull_request_rules → item 0 → actions → queue → commit_message"
+            == checks[0]["output"]["summary"]
+        )

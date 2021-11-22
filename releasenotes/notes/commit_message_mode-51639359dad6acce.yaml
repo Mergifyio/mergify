@@ -1,0 +1,6 @@
+---
+deprecations:
+  - |
+    The `commit_message` configuration option of the merge and queue action is deprecated and
+    planned for removal on a future version. The option can be removed earlier by setting
+    the environment variable `ALLOW_COMMIT_MESSAGE_OPTION` to `False`.

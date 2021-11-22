@@ -20,6 +20,7 @@ from first import first
 import voluptuous
 
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import delayed_refresh
@@ -57,7 +58,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
         cls,
         partial_validation: bool,
     ) -> typing.Dict[typing.Any, typing.Any]:
-        return {
+
+        validator_default = {
             voluptuous.Required(
                 "name", default="" if partial_validation else voluptuous.UNDEFINED
             ): str,
@@ -76,9 +78,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required("update_method", default="merge"): voluptuous.Any(
                 "rebase", "merge"
             ),
-            voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-                "default", "title+body"
-            ),
             voluptuous.Required(
                 "commit_message_template", default=None
             ): types.Jinja2WithNone,
@@ -87,6 +86,17 @@ Then, re-embark the pull request into the merge queue by posting the comment
             ): queue.PrioritySchema,
             voluptuous.Required("require_branch_protection", default=True): bool,
         }
+
+        validator_commit_message = {
+            voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+                "default", "title+body"
+            ),
+        }
+
+        schema = validator_default
+        if config.ALLOW_COMMIT_MESSAGE_OPTION:
+            schema.update(validator_commit_message)
+        return schema
 
     async def _subscription_status(
         self, ctxt: context.Context
@@ -267,6 +277,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         self.config["strict"] = merge_base.StrictMergeParameter.ordered
+        if not config.ALLOW_COMMIT_MESSAGE_OPTION:
+            self.config["commit_message"] = "default"
 
         try:
             self.queue_rule = mergify_config["queue_rules"][self.config["name"]]
