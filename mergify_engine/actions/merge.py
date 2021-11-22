@@ -49,15 +49,18 @@ class MergeAction(merge_base.MergeBaseAction):
             "merge", "squash", "none", None
         ),
         voluptuous.Required("merge_bot_account", default=None): types.Jinja2WithNone,
-        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
-        ),
         voluptuous.Required(
             "commit_message_template", default=None
         ): types.Jinja2WithNone,
         voluptuous.Required(
             "priority", default=queue.PriorityAliases.medium.value
         ): queue.PrioritySchema,
+    }
+
+    validator_commit_message_mode = {
+        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
+            "default", "title+body"
+        ),
     }
 
     validator_strict_mode = {
@@ -81,6 +84,8 @@ class MergeAction(merge_base.MergeBaseAction):
         schema = cls.validator_default.copy()
         if config.ALLOW_MERGE_STRICT_MODE:
             schema.update(cls.validator_strict_mode)
+        if config.ALLOW_COMMIT_MESSAGE_OPTION:
+            schema.update(cls.validator_commit_message_mode)
         return schema
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
@@ -88,6 +93,8 @@ class MergeAction(merge_base.MergeBaseAction):
             self.config["strict"] = False
             self.config["strict_method"] = "merge"
             self.config["update_bot_account"] = None
+        if not config.ALLOW_COMMIT_MESSAGE_OPTION:
+            self.config["commit_message"] = "default"
 
         self.config["queue_config"] = rules.QueueConfig(
             {
