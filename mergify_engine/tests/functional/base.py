@@ -499,6 +499,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         w = worker.Worker(
             idle_sleep_time=0.42 if RECORD else 0.01,
             enabled_services={"stream", "delayed-refresh"},
+            delayed_refresh_idle_time=0.01,
         )
         await w.start()
 
