@@ -806,147 +806,94 @@ class Worker:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
-        log_context_token = logs.WORKER_ID.set(worker_id)
+        logs.WORKER_ID.set(worker_id)
 
-        # NOTE(sileht): This task must never fail, we don't want to write code to
-        # reap/clean/respawn them
         stream_processor = StreamProcessor(self._redis_stream, self._redis_cache)
         org_bucket_selector = OrgBucketSelector(
             self._redis_stream, worker_id, self.worker_count
         )
 
         while not self._stopping.is_set():
-            try:
-                org_bucket_name = await org_bucket_selector.next_org_bucket()
-                if org_bucket_name:
-                    LOG.debug(
-                        "worker %s take org bucket: %s", worker_id, org_bucket_name
-                    )
-                    owner_id, owner_login = self._extract_owner(org_bucket_name)
-                    try:
-                        with tracer.trace(
-                            "org bucket processing",
-                            span_type="worker",
-                            resource=owner_login,
-                        ) as span:
-                            span.set_tag("gh_owner", owner_login)
-                            with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
-                                await stream_processor.consume(
-                                    org_bucket_name, owner_id, owner_login
-                                )
-                    finally:
-                        LOG.debug(
-                            "worker %s release org bucket: %s",
-                            worker_id,
-                            org_bucket_name,
-                        )
-                else:
-                    LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
-                    await self._sleep_or_stop()
-            except asyncio.CancelledError:
-                LOG.debug("worker %s killed", worker_id)
+            org_bucket_name = await org_bucket_selector.next_org_bucket()
+            if not org_bucket_name:
+                LOG.debug("worker %s has nothing to do, sleeping a bit", worker_id)
                 return
-            except yaaredis.exceptions.ConnectionError:
-                statsd.increment("redis.client.connection.errors")
-                LOG.warning("worker %s lost Redis connection", worker_id, exc_info=True)
-                await self._sleep_or_stop()
-            except Exception:
-                LOG.error("worker %s fail, sleeping a bit", worker_id, exc_info=True)
-                await self._sleep_or_stop()
 
-        LOG.debug("worker %s exited", worker_id)
-        logs.WORKER_ID.reset(log_context_token)
-
-    async def _sleep_or_stop(self, timeout: typing.Optional[float] = None) -> None:
-        if timeout is None:
-            timeout = self.idle_sleep_time
-        try:
-            await asyncio.wait_for(self._stopping.wait(), timeout=timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            pass
+            LOG.debug("worker %s take org bucket: %s", worker_id, org_bucket_name)
+            owner_id, owner_login = self._extract_owner(org_bucket_name)
+            try:
+                with tracer.trace(
+                    "org bucket processing",
+                    span_type="worker",
+                    resource=owner_login,
+                ) as span:
+                    span.set_tag("gh_owner", owner_login)
+                    with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
+                        await stream_processor.consume(
+                            org_bucket_name, owner_id, owner_login
+                        )
+            finally:
+                LOG.debug(
+                    "worker %s release org bucket: %s",
+                    worker_id,
+                    org_bucket_name,
+                )
 
     async def monitoring_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
-        while not self._stopping.is_set():
-            try:
-                # TODO(sileht): maybe also graph streams that are before `now`
-                # to see the diff between the backlog and the upcoming work to do
-                now = time.time()
-                org_buckets = await self._redis_stream.zrangebyscore(
-                    "streams",
-                    min=0,
-                    max=now,
-                    withscores=True,
-                )
-                # NOTE(sileht): The latency may not be exact with the next StreamSelector
-                # based on hash+modulo
-                if len(org_buckets) > self.worker_count:
-                    latency = now - org_buckets[self.worker_count][1]
-                    statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
+        # TODO(sileht): maybe also graph streams that are before `now`
+        # to see the diff between the backlog and the upcoming work to do
+        now = time.time()
+        org_buckets = await self._redis_stream.zrangebyscore(
+            "streams",
+            min=0,
+            max=now,
+            withscores=True,
+        )
+        # NOTE(sileht): The latency may not be exact with the next StreamSelector
+        # based on hash+modulo
+        if len(org_buckets) > self.worker_count:
+            latency = now - org_buckets[self.worker_count][1]
+            statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
+        else:
+            statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
+
+        statsd.gauge("engine.streams.backlog", len(org_buckets))
+        statsd.gauge("engine.workers.count", self.worker_count)
+        statsd.gauge("engine.processes.count", self.process_count)
+        statsd.gauge("engine.workers-per-process.count", self.worker_per_process)
+
+        # TODO(sileht): maybe we can do something with the bucket scores to
+        # build a latency metric
+        bucket_backlog_low = 0
+        bucket_backlog_high = 0
+        for org_bucket, _ in org_buckets:
+            bucket_contents = await self._redis_stream.zrangebyscore(
+                org_bucket, min=0, max="+inf", withscores=True
+            )
+            low_prio_threshold = get_low_priority_minimal_score()
+            for _, score in bucket_contents:
+                if score < low_prio_threshold:
+                    bucket_backlog_high += 1
                 else:
-                    statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
+                    bucket_backlog_low += 1
 
-                statsd.gauge("engine.streams.backlog", len(org_buckets))
-                statsd.gauge("engine.workers.count", self.worker_count)
-                statsd.gauge("engine.processes.count", self.process_count)
-                statsd.gauge(
-                    "engine.workers-per-process.count", self.worker_per_process
-                )
-
-                # TODO(sileht): maybe we can do something with the bucket scores to
-                # build a latency metric
-                bucket_backlog_low = 0
-                bucket_backlog_high = 0
-                for org_bucket, _ in org_buckets:
-                    bucket_contents = await self._redis_stream.zrangebyscore(
-                        org_bucket, min=0, max="+inf", withscores=True
-                    )
-                    low_prio_threshold = get_low_priority_minimal_score()
-                    for _, score in bucket_contents:
-                        if score < low_prio_threshold:
-                            bucket_backlog_high += 1
-                        else:
-                            bucket_backlog_low += 1
-
-                statsd.gauge(
-                    "engine.buckets.backlog",
-                    bucket_backlog_high,
-                    tags=["priority:high"],
-                )
-                statsd.gauge(
-                    "engine.buckets.backlog", bucket_backlog_low, tags=["priority:low"]
-                )
-
-            except asyncio.CancelledError:
-                LOG.debug("monitoring task killed")
-                return
-            except yaaredis.ConnectionError:
-                statsd.increment("redis.client.connection.errors")
-                LOG.warning("monitoring task lost Redis connection", exc_info=True)
-            except Exception:
-                LOG.error("monitoring task failed", exc_info=True)
-
-            await self._sleep_or_stop(60)
+        statsd.gauge(
+            "engine.buckets.backlog",
+            bucket_backlog_high,
+            tags=["priority:high"],
+        )
+        statsd.gauge(
+            "engine.buckets.backlog", bucket_backlog_low, tags=["priority:low"]
+        )
 
     async def delayed_refresh_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
-        while not self._stopping.is_set():
-            try:
-                await delayed_refresh.send(self._redis_stream, self._redis_cache)
-            except asyncio.CancelledError:
-                LOG.debug("delayed refresh task killed")
-                return
-            except yaaredis.ConnectionError:
-                statsd.increment("redis.client.connection.errors")
-                LOG.warning("delayed refresh task lost Redis connection", exc_info=True)
-            except Exception:
-                LOG.error("delayed refresh task failed", exc_info=True)
-
-            await self._sleep_or_stop(60)
+        await delayed_refresh.send(self._redis_stream, self._redis_cache)
 
     def get_worker_ids(self) -> typing.List[int]:
         return list(
@@ -971,22 +918,62 @@ class Worker:
             worker_ids = self.get_worker_ids()
             LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
-                self._worker_tasks.append(
-                    asyncio.create_task(self.stream_worker_task(worker_id))
+                asyncio.create_task(
+                    self.loop_and_sleep_forever(
+                        f"worker {worker_id}",
+                        self.idle_sleep_time,
+                        functools.partial(
+                            self.stream_worker_task,
+                            worker_id,
+                        ),
+                    )
                 )
             LOG.info("workers started", count=len(worker_ids))
 
         if "delayed-refresh" in self.enabled_services:
             LOG.info("delayed refresh starting")
             self._delayed_refresh_task = asyncio.create_task(
-                self.delayed_refresh_task()
+                self.loop_and_sleep_forever(
+                    "delayed_refresh", 60, self.delayed_refresh_task
+                )
             )
             LOG.info("delayed refresh started")
 
         if "stream-monitoring" in self.enabled_services:
             LOG.info("monitoring starting")
-            self._stream_monitoring_task = asyncio.create_task(self.monitoring_task())
+            self._stream_monitoring_task = asyncio.create_task(
+                self.loop_and_sleep_forever("monitoring", 60, self.monitoring_task)
+            )
             LOG.info("monitoring started")
+
+    async def loop_and_sleep_forever(
+        self,
+        task_name: str,
+        sleep_time: float,
+        func: typing.Callable[[], typing.Awaitable[None]],
+    ) -> None:
+        while not self._stopping.is_set():
+            try:
+                await func()
+            except asyncio.CancelledError:
+                LOG.debug("%s task killed", task_name)
+                return
+            except yaaredis.ConnectionError:
+                statsd.increment("redis.client.connection.errors")
+                LOG.warning(
+                    "%s task lost Redis connection",
+                    task_name,
+                    exc_info=True,
+                )
+            except Exception:
+                LOG.error("%s task failed", task_name, exc_info=True)
+
+            try:
+                await asyncio.wait_for(self._stopping.wait(), timeout=sleep_time)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+
+        LOG.debug("%s task exited", task_name)
 
     async def _shutdown(self) -> None:
         tasks = []
