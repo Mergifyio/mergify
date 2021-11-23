@@ -1932,12 +1932,12 @@ async def test_rules_conditions_update():
                 "head": "feature-1",
                 "label": ["foo", "bar"],
                 "check-success": ["tests"],
+                "check-pending": [],
                 "check-failure": ["jenkins/fake-tests"],
-                "check": ["tests", "jenkins/fake-tests"],
-                "check-success-or-neutral-or-pending": ["tests"],
             }
         ),
     ]
+    pulls[0].sync_checks()
     schema = voluptuous.Schema(
         voluptuous.All(
             [voluptuous.Coerce(rules.RuleConditionSchema)],
