@@ -89,6 +89,9 @@ class FakeQueuePullRequest:
             + self.attrs.get("check-pending", [])  # type: ignore
             + self.attrs.get("check-failure", [])  # type: ignore
         )
+        for key, value in list(self.attrs.items()):
+            if key.startswith("check"):
+                self.attrs[f"potential-{key}"] = value + self.attrs.get("check-pending", [])  # type: ignore
 
 
 @pytest.mark.asyncio
@@ -1990,9 +1993,8 @@ async def assert_queue_rule_checks_status(conds, pull, expected_state):
     assert state == expected_state
 
 
-@pytest.mark.xfail(True, reason="not yet supported", strict=True)
 @pytest.mark.asyncio
-async def test_rules_checks_status_with_negative_conditions():
+async def test_rules_checks_status_with_negative_conditions1():
     pull = FakeQueuePullRequest(
         {
             "number": 1,
@@ -2007,6 +2009,62 @@ async def test_rules_checks_status_with_negative_conditions():
             "check-success-or-neutral-or-pending": [],
         }
     )
+    pull.sync_checks()
+    conds = [
+        "check-success=test-starter",
+        "check-pending!=foo",
+        "check-failure!=foo",
+    ]
+
+    # Nothing reported
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+
+    # Pending reported
+    pull.attrs["check-pending"] = ["foo"]
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = ["test-starter"]
+    pull.sync_checks()
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+
+    # Failure reported
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-failure"] = ["foo"]
+    pull.attrs["check-success"] = ["test-starter"]
+    pull.sync_checks()
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
+
+    # Success reported
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = ["test-starter", "foo"]
+    pull.sync_checks()
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
+
+    # half reported, sorry..., UNDEFINED BEHAVIOR
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = ["test-starter"]
+    pull.sync_checks()
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
+
+
+@pytest.mark.asyncio
+async def test_rules_checks_status_with_negative_conditions2():
+    pull = FakeQueuePullRequest(
+        {
+            "number": 1,
+            "current-year": date.Year(2018),
+            "author": "me",
+            "base": "main",
+            "head": "feature-1",
+            "check-success": [],
+            "check-failure": [],
+            "check-pending": [],
+            "check": [],
+            "check-success-or-neutral-or-pending": [],
+        }
+    )
+    pull.sync_checks()
     conds = [
         "check-success=test-starter",
         "-check-pending=foo",
@@ -2061,6 +2119,7 @@ async def test_rules_checks_status_with_or_conditions():
             "check-success-or-neutral-or-pending": [],
         }
     )
+    pull.sync_checks()
     conds = [
         {
             "or": ["check-success=ci-1", "check-success=ci-2"],
@@ -2130,6 +2189,7 @@ async def test_rules_checks_status_expected_failure():
             "check-success-or-neutral-or-pending": [],
         }
     )
+    pull.sync_checks()
     conds = ["check-failure=ci-1"]
 
     # Nothing reported
@@ -2150,12 +2210,11 @@ async def test_rules_checks_status_expected_failure():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
     # Success reported
-    # FIXME(sileht): we should fail! (MRGFY-730)
     pull.attrs["check-pending"] = []
     pull.attrs["check-failure"] = []
     pull.attrs["check-success"] = ["ci-1"]
     pull.sync_checks()
-    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
 
 @pytest.mark.asyncio
@@ -2174,6 +2233,7 @@ async def test_rules_checks_status_regular():
             "check-success-or-neutral-or-pending": [],
         }
     )
+    pull.sync_checks()
     conds = ["check-success=ci-1", "check-success=ci-2"]
 
     # Nothing reported

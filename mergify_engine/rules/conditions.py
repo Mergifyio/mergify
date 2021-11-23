@@ -69,6 +69,15 @@ class RuleCondition:
                 error_message=str(e),
             )
 
+    def add_negate(self) -> None:
+        tree = typing.cast(filter.TreeT, self.partial_filter.tree)
+        if "-" not in tree:
+            self.update(typing.cast(FakeTreeT, {"-": tree}))
+
+    def drop_negate(self) -> None:
+        tree = typing.cast(filter.TreeT, self.partial_filter.tree)
+        self.update(typing.cast(FakeTreeT, tree.get("-", tree)))
+
     def update_attribute_name(self, new_name: str) -> None:
         tree = typing.cast(filter.TreeT, self.partial_filter.tree)
         negate = "-" in tree

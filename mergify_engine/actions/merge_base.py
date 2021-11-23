@@ -83,30 +83,38 @@ async def get_rule_checks_status(
 ) -> check_api.Conclusion:
 
     if rule.conditions.match:
+        log.debug("everything match")
         return check_api.Conclusion.SUCCESS
 
     conditions_initial = rule.conditions.copy()
     conditions_without_checks = rule.conditions.copy()
     conditions_with_all_checks = rule.conditions.copy()
-    conditions_with_check_not_failing = rule.conditions.copy()
+    conditions_with_unknown_checks = rule.conditions.copy()
     for (
         condition_initial,
         condition_without_check,
         condition_with_all_check,
-        condition_with_check_not_failing,
+        condition_with_unknown_check,
     ) in zip(
         conditions_initial.walk(),
         conditions_without_checks.walk(),
         conditions_with_all_checks.walk(),
-        conditions_with_check_not_failing.walk(),
+        conditions_with_unknown_checks.walk(),
     ):
         attr = condition_initial.get_attribute_name()
         if attr.startswith("check-") or attr.startswith("status-"):
             condition_without_check.update("number>0")
-            condition_with_check_not_failing.update_attribute_name(
-                "check-success-or-neutral-or-pending"
+            # NOTE(sileht): not sure this work if operator is !=
+            if attr.startswith("check-"):
+                state = attr[6:]
+            else:
+                state = attr[7:]
+            condition_with_unknown_check.update_attribute_name(
+                f"potential-check-{state}"
             )
+            condition_with_unknown_check.drop_negate()
             condition_with_all_check.update_attribute_name("check")
+            condition_with_all_check.drop_negate()
 
     # NOTE(sileht): Something unrelated to checks unmatch?
     await conditions_without_checks(pulls)
@@ -129,13 +137,13 @@ async def get_rule_checks_status(
     if not conditions_with_all_checks.match:
         return check_api.Conclusion.PENDING
 
-    # NOTE(sileht): Are remaining unmatch checks success or pending?
-    await conditions_with_check_not_failing(pulls)
+    # NOTE(sileht): Do we still have unknown checks
+    await conditions_with_unknown_checks(pulls)
     log.debug(
-        "did checks report success-or-neutral-or-pending? %s",
-        conditions_with_check_not_failing.get_summary(),
+        "did checks all report are unknown? %s",
+        conditions_with_unknown_checks.get_summary(),
     )
-    if conditions_with_check_not_failing.match:
+    if conditions_with_unknown_checks.match:
         return check_api.Conclusion.PENDING
     else:
         return check_api.Conclusion.FAILURE

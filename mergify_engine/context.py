@@ -1088,6 +1088,19 @@ class Context(object):
                 for ctext, state in (await self.checks).items()
                 if state == "stale"
             ]
+        elif name.startswith("potential-check"):
+            # NOTE(sileht): This include pending into all other checks
+            return list(
+                set(
+                    typing.cast(
+                        typing.List[str], await self._get_consolidated_data(name[6:])
+                    )
+                    + typing.cast(
+                        typing.List[str],
+                        await self._get_consolidated_data("check-pending"),
+                    )
+                )
+            )
         elif name == "depends-on":
             # TODO(sileht):  This is the list of merged pull requests that are
             # required by this pull request. An optimisation can be to look at
@@ -1607,16 +1620,16 @@ class PullRequest(BasePullRequest):
         "dismissed-reviews-by",
         "changes-requested-reviews-by",
         "commented-reviews-by",
-        "check-success",
         "check-success-or-neutral",
+        "check-success",
         "check-failure",
         "check-neutral",
-        "status-success",
-        "status-failure",
-        "status-neutral",
         "check-skipped",
         "check-pending",
         "check-stale",
+        "status-success",
+        "status-failure",
+        "status-neutral",
         "commits",
         "commits-behind",
         "commits-unverified",
@@ -1761,18 +1774,6 @@ class QueuePullRequest(BasePullRequest):
     # always the same within the same batch
     QUEUE_ATTRIBUTES = (
         "base",
-        "status-success",
-        "status-failure",
-        "status-neutral",
-        "check",
-        "check-success",
-        "check-success-or-neutral",
-        "check-success-or-neutral-or-pending",
-        "check-failure",
-        "check-neutral",
-        "check-skipped",
-        "check-pending",
-        "check-stale",
         "current-time",
         "current-day",
         "current-month",
@@ -1780,6 +1781,28 @@ class QueuePullRequest(BasePullRequest):
         "current-day-of-week",
         "current-timestamp",
         "schedule",
+        "status-success",
+        "status-failure",
+        "status-neutral",
+        "check",
+        "check-success-or-neutral",
+        "check-success-or-neutral-or-pending",
+        "check-success",
+        "check-failure",
+        "check-neutral",
+        "check-skipped",
+        "check-pending",
+        "check-stale",
+        # used only by get_rule_checks_status()
+        "potential-check",
+        "potential-check-success-or-neutral",
+        "potential-check-success-or-neutral-or-pending",
+        "potential-check-success",
+        "potential-check-failure",
+        "potential-check-neutral",
+        "potential-check-skipped",
+        "potential-check-pending",
+        "potential-check-stale",
     )
 
     async def __getattr__(self, name: str) -> ContextAttributeType:
