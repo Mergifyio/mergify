@@ -918,16 +918,18 @@ class Worker:
             worker_ids = self.get_worker_ids()
             LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
-                asyncio.create_task(
-                    self.loop_and_sleep_forever(
-                        f"worker {worker_id}",
-                        self.idle_sleep_time,
-                        functools.partial(
-                            self.stream_worker_task,
-                            worker_id,
+                self._worker_tasks.append(
+                    asyncio.create_task(
+                        self.loop_and_sleep_forever(
+                            f"worker {worker_id}",
+                            self.idle_sleep_time,
+                            functools.partial(
+                                self.stream_worker_task,
+                                worker_id,
+                            ),
                         ),
-                    ),
-                    name=f"worker {worker_id}",
+                        name=f"worker {worker_id}",
+                    )
                 )
             LOG.info("workers started", count=len(worker_ids))
 
