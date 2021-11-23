@@ -926,7 +926,8 @@ class Worker:
                             self.stream_worker_task,
                             worker_id,
                         ),
-                    )
+                    ),
+                    name=f"worker {worker_id}",
                 )
             LOG.info("workers started", count=len(worker_ids))
 
@@ -934,15 +935,17 @@ class Worker:
             LOG.info("delayed refresh starting")
             self._delayed_refresh_task = asyncio.create_task(
                 self.loop_and_sleep_forever(
-                    "delayed_refresh", 60, self.delayed_refresh_task
-                )
+                    "delayed refresh", 60, self.delayed_refresh_task
+                ),
+                name="delayed refresh",
             )
             LOG.info("delayed refresh started")
 
         if "stream-monitoring" in self.enabled_services:
             LOG.info("monitoring starting")
             self._stream_monitoring_task = asyncio.create_task(
-                self.loop_and_sleep_forever("monitoring", 60, self.monitoring_task)
+                self.loop_and_sleep_forever("monitoring", 60, self.monitoring_task),
+                name="monitoring",
             )
             LOG.info("monitoring started")
 
