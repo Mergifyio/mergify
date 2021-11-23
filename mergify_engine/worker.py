@@ -766,6 +766,8 @@ class Worker:
     ] = dataclasses.field(
         default_factory=lambda: {"stream", "stream-monitoring", "delayed-refresh"}
     )
+    monitoring_idle_time: float = 60
+    delayed_refresh_idle_time: float = 60
 
     _redis_stream: typing.Optional[utils.RedisStream] = dataclasses.field(
         init=False, default=None
@@ -937,7 +939,9 @@ class Worker:
             LOG.info("delayed refresh starting")
             self._delayed_refresh_task = asyncio.create_task(
                 self.loop_and_sleep_forever(
-                    "delayed refresh", 60, self.delayed_refresh_task
+                    "delayed_refresh",
+                    self.delayed_refresh_idle_time,
+                    self.delayed_refresh_task,
                 ),
                 name="delayed refresh",
             )
@@ -946,7 +950,9 @@ class Worker:
         if "stream-monitoring" in self.enabled_services:
             LOG.info("monitoring starting")
             self._stream_monitoring_task = asyncio.create_task(
-                self.loop_and_sleep_forever("monitoring", 60, self.monitoring_task),
+                self.loop_and_sleep_forever(
+                    "monitoring", self.monitoring_idle_time, self.monitoring_task
+                ),
                 name="monitoring",
             )
             LOG.info("monitoring started")
