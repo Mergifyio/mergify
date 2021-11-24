@@ -149,7 +149,7 @@ router = fastapi.APIRouter()
                                             "in_place": True,
                                             "number": 5678,
                                         },
-                                        "queued_at": "2021-10-14T14:19:12",
+                                        "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
                                     {
                                         "number": 4242,
@@ -168,7 +168,7 @@ router = fastapi.APIRouter()
                                             "in_place": False,
                                             "number": 7899,
                                         },
-                                        "queued_at": "2021-10-14T14:19:12",
+                                        "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
                                 ],
                             }
