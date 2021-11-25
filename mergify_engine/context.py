@@ -1662,7 +1662,9 @@ class PullRequest(BasePullRequest):
         env.filters["get_section"] = self._filter_get_section
 
     @staticmethod
-    def _filter_get_section(v: str, section: str) -> str:
+    def _filter_get_section(
+        v: str, section: str, default: typing.Optional[str] = None
+    ) -> str:
         if not isinstance(section, str):
             raise TypeError("level must be a string")
 
@@ -1688,7 +1690,10 @@ class PullRequest(BasePullRequest):
                 section_lines.append(line.strip())
 
         if not found:
-            raise TypeError("section not found")
+            if default is None:
+                raise TypeError("section not found")
+            else:
+                return default
 
         return ("\n".join(section_lines)).strip()
 
@@ -1740,11 +1745,12 @@ class PullRequest(BasePullRequest):
         if template is None:
             return None
 
-        template_title, _, template_message = template.strip().partition("\n")
-        return (
-            await self.render_template(template_title),
-            await self.render_template(template_message.strip()),
-        )
+        commit_message = await self.render_template(template.strip())
+        if not commit_message:
+            return None
+
+        template_title, _, template_message = commit_message.partition("\n")
+        return (template_title, template_message.lstrip())
 
 
 @dataclasses.dataclass

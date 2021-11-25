@@ -332,7 +332,7 @@ We also provide custom Jinja2 filters:
 
     {{ body | markdownify }}
 
-* ``get_section(<section>)``: to extract one Markdown section
+* ``get_section(<section>, <default>)``: to extract one Markdown section
 
 .. code-block:: jinja
 
