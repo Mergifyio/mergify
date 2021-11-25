@@ -201,7 +201,6 @@ async def repository_queues(
                 await client.item(f"/repos/{owner}/{repository}"),
             )
         except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
-            LOG.error("404 REPO")
             raise fastapi.HTTPException(status_code=404)
 
         sub = await subscription.Subscription.get_subscription(
