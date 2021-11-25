@@ -235,6 +235,8 @@ async def repository_queues(
                     speculative_check_pull_request = SpeculativeCheckPullRequest(
                         in_place=False, number=car.queue_pull_request_number
                     )
+                elif car.creation_state == "failed":
+                    speculative_check_pull_request = None
                 else:
                     raise RuntimeError(
                         f"Car creation state unknown: {car.creation_state}"
