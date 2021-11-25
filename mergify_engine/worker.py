@@ -969,12 +969,15 @@ class Worker:
         # build a latency metric
         bucket_backlog_lows: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
         bucket_backlog_highs: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
+        dedicated_worker_events_count: typing.Dict[str, int] = {}
+
         for org_bucket, _ in org_buckets:
             owner_id, owner_login = self._extract_owner(
                 OrgBucketNameType(org_bucket.decode())
             )
             if owner_id in dedicated_worker_owner_ids:
                 worker_id = f"dedicated-{owner_id}"
+                dedicated_worker_events_count[worker_id] = 0
             else:
                 shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
                     org_bucket, self.worker_count
@@ -985,11 +988,16 @@ class Worker:
                 org_bucket, min=0, max="+inf", withscores=True
             )
             low_prio_threshold = get_low_priority_minimal_score()
-            for _, score in bucket_contents:
+            for source_bucket, score in bucket_contents:
                 if score < low_prio_threshold:
                     bucket_backlog_highs[worker_id] += 1
                 else:
                     bucket_backlog_lows[worker_id] += 1
+
+                if owner_id in dedicated_worker_owner_ids:
+                    dedicated_worker_events_count[
+                        worker_id
+                    ] += await self._redis_stream.xlen(source_bucket)
 
         for worker_id, bucket_backlog_high in bucket_backlog_highs.items():
             statsd.gauge(
@@ -1002,6 +1010,12 @@ class Worker:
                 "engine.buckets.backlog",
                 bucket_backlog_low,
                 tags=["priority:low", f"worker_id:{worker_id}"],
+            )
+        for worker_id, events_count in dedicated_worker_events_count.items():
+            statsd.gauge(
+                "engine.buckets.events.count",
+                events_count,
+                tags=[f"worker_id:{worker_id}"],
             )
 
     async def delayed_refresh_task(self) -> None:
