@@ -34,14 +34,18 @@ class ApplicationResponse:
     account_scope: typing.Optional[application_mod.ApplicationAccountScope]
 
 
-router = fastapi.APIRouter()
+router = fastapi.APIRouter(
+    tags=["applications"],
+    dependencies=[
+        fastapi.Depends(security.require_authentication),
+    ],
+)
 
 
 @router.get(
     "/application",  # noqa: FS003
     summary="Get current application",
     description="Get the current authenticated application",
-    tags=["applications"],
     response_model=ApplicationResponse,
     responses={
         **api.default_responses,  # type: ignore

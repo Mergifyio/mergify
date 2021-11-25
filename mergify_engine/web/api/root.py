@@ -38,6 +38,7 @@ from mergify_engine.queue import merge_train
 from mergify_engine.web import api
 from mergify_engine.web import redis
 from mergify_engine.web.api import applications
+from mergify_engine.web.api import badges
 from mergify_engine.web.api import queues
 from mergify_engine.web.api import security
 
@@ -66,17 +67,16 @@ app = fastapi.FastAPI(
             "description": "Operations with applications.",
         },
         {
+            "name": "badges",
+            "description": "Operations with badges.",
+        },
+        {
             "name": "queues",
             "description": "Operations with queues.",
         },
     ],
     servers=[{"url": "https://api.mergify.com/v1", "description": "default"}],
-    # NOTE(sileht): Ensure endpoints requires a valid token even if they don't
-    # use the GitHub API
-    dependencies=[
-        fastapi.Depends(api_enabled),
-        fastapi.Depends(security.get_application),
-    ],
+    dependencies=[fastapi.Depends(api_enabled)],
     reponses=api.default_responses,
 )
 app.add_middleware(
@@ -88,6 +88,7 @@ app.add_middleware(
 )
 app.include_router(applications.router)
 app.include_router(queues.router)
+app.include_router(badges.router)
 
 
 def generate_openapi_spec() -> None:

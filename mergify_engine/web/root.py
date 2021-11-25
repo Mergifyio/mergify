@@ -22,10 +22,10 @@ from starlette import requests
 from starlette import responses
 import yaaredis
 
-from mergify_engine.web import badges
 from mergify_engine.web import config_validator
 from mergify_engine.web import dashboard
 from mergify_engine.web import github
+from mergify_engine.web import legacy_badges
 from mergify_engine.web import legacy_queue
 from mergify_engine.web import redis
 from mergify_engine.web import refresher
@@ -43,7 +43,7 @@ app.include_router(legacy_queue.router)
 
 app.mount("/simulator", simulator.app)
 app.mount("/validate", config_validator.app)
-app.mount("/badges", badges.app)
+app.mount("/badges", legacy_badges.app)
 app.mount("/v1", api_root.app)
 
 
