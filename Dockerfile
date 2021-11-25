@@ -5,7 +5,7 @@ RUN apt update -y && apt upgrade -y && apt install -y git && apt autoremove --pu
 
 ### BUILDER ###
 FROM base-image as builder
-RUN apt install -y gcc nodejs yarnpkg
+RUN apt install -y gcc nodejs npm
 RUN ln -s /usr/bin/yarnpkg /usr/bin/yarn
 
 RUN python3 -m venv /venv
@@ -21,8 +21,8 @@ RUN python3 -m pip install --no-cache-dir -r /requirements.txt
 # Real install that can't be cached
 ADD . /app
 WORKDIR /app/installer
-RUN yarn
-RUN yarn build
+RUN npm install
+RUN npm run build
 RUN rm -rf node_modules
 WORKDIR /app
 RUN python3 -m pip install --no-cache-dir -c ./requirements.txt -e .
