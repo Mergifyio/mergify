@@ -22,7 +22,8 @@ updates:
       timezone: Europe/Paris
     open-pull-requests-limit: 10
     allow:
-      - dependency-type: "production"
+      - dependency-name: "react-scripts"
+        dependency-type: "direct"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
