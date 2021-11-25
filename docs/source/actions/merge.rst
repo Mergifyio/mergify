@@ -178,21 +178,39 @@ Defining the Commit Message
 .. warning::
 
     ``commit_message`` is deprecated and will be removed on April 25th, 2022. It's replaced by :ref:`commit_message_template <commit_message_template>`.
-    To migrate from ``commit_message: title+body`` to the :ref:`commit_message_template <commit_message_template>` attribute, set it to:
 
-   .. code-block:: md
-      
-    {{ title }} (#{{ number }})
-   
-    {{ body }}
 
-.. note::
+    To migrate you need to remove the ``commit_message`` option from your configuration, then
 
-   This feature only works when ``commit_message`` is set to ``default``.
+    * if you used the value ``default`` or ``template``, you are done.
+    * if you used the value ``title+body``, set :ref:`commit_message_template <commit_message_template>` to:
+
+    .. code-block:: md
+
+     {{ title }} (#{{ number }})
+
+     {{ body }}
+
+
+    * if you used to set ``## Commit Message`` in the pull request body, set :ref:`commit_message_template <commit_message_template>` to:
+
+    .. code-block:: md
+
+     {{ body | get_section("## Commit Message") }}
+
 
 When a pull request is merged using the ``squash`` or ``merge`` method, you can
-override the default commit message. To that end, you need to add a section in
-the pull request body that starts with ``Commit Message``.
+override the default commit message. To that end, you need to set
+:ref:`commit_message_template <commit_message_template>`.
+
+You can use part of the pull request body in the ``Commit Message`` Markdown section,
+by setting it to:
+
+.. code-block:: jinja
+
+    {{ body | get_section("## Commit Message") }}
+
+Then in the pull request body you can use:
 
 .. code-block:: md
 
@@ -203,8 +221,7 @@ the pull request body that starts with ``Commit Message``.
     The whole commit message finishes at the end of the pull request body or
     before a new Markdown title.
 
-The whole commit message finishes at the end of the pull request body or before
-a new Markdown title.
+The whole commit message finishes at the end of the Markdown section.
 
 You can use any available attributes of the pull request in the commit message,
 by writing using the :ref:`templating <data type template>` language:
@@ -226,6 +243,22 @@ For example:
     {% endfor %}
 
 Check the :ref:`data type template` for more details on the format.
+
+
+Or you can also mix template from the configuration and the pull request body
+by setting :ref:`commit_message_template <commit_message_template>` to:
+
+.. code-block:: jinja
+
+    {{ body | get_section("## Commit Message") }}
+
+    {% for user in approved_reviews_by %}
+    - {{user}}
+    {% endfor %}
+
+    {% for label in labels %}
+    - {{label}}
+    {% endfor %}
 
 
 .. _strict merge:
