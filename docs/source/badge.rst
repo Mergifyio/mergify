@@ -13,11 +13,11 @@ that your repository is managed by Mergify.
 
 The badge URL for a badge repository is::
 
-  https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>
+  https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/<owner>/<repo>
 
 ``<owner>`` and ``<repo>`` are placeholders which have to be adapted to the
 repository. For example:
-``https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/mergifyio/mergify-engine&style=flat``
+``https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/mergifyio/mergify-engine&style=flat``
 is a valid URL.
 
 
@@ -33,14 +33,14 @@ You can embed those badges by adding them to, e.g., your ``README`` files.
     [![Mergify Status][mergify-status]][mergify]
 
     [mergify]: https://mergify.com
-    [mergify-status]: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>&style=flat
+    [mergify-status]: https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/<owner>/<repo>&style=flat
 
 
 - In a ``README.rst``, add:
 
 .. code-block:: rst
 
-    .. image:: https://img.shields.io/endpoint.svg?url=https://gh.mergify.io/badges/<owner>/<repo>&style=flat
+    .. image:: https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/<owner>/<repo>&style=flat
        :target: https://mergify.com
        :alt: Mergify Status
 

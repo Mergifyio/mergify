@@ -36,6 +36,13 @@ from mergify_engine.web.api import security
 
 LOG = daiquiri.getLogger(__name__)
 
+router = fastapi.APIRouter(
+    tags=["queues"],
+    dependencies=[
+        fastapi.Depends(security.require_authentication),
+    ],
+)
+
 
 @pydantic.dataclasses.dataclass
 class Branch:
@@ -112,14 +119,10 @@ class Queues:
     )
 
 
-router = fastapi.APIRouter()
-
-
 @router.get(
     "/repos/{owner}/{repository}/queues",  # noqa: FS003
     summary="Get merge queues",
     description="Get the list of pull requests queued in a merge queue of a repository",
-    tags=["queues"],
     response_model=Queues,
     responses={
         **api.default_responses,  # type: ignore
