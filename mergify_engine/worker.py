@@ -41,6 +41,7 @@
 
 import argparse
 import asyncio
+import collections
 import contextlib
 import dataclasses
 import datetime
@@ -285,15 +286,19 @@ class SharedOrgBucketSelector:
     shared_worker_id: int
     worker_count: int
 
-    def get_shared_worker_id_for(self, org_bucket: bytes) -> int:
+    @staticmethod
+    def get_shared_worker_id_for(org_bucket: bytes, worker_count: int) -> int:
         owner_id = org_bucket.split(b"~")[1]
-        return int(hashlib.md5(owner_id).hexdigest(), 16) % self.worker_count  # nosec
+        return int(hashlib.md5(owner_id).hexdigest(), 16) % worker_count  # nosec
 
     async def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
         owner_id = org_bucket.split(b"~")[1]
         if await self.redis_stream.sismember(DEDICATED_WORKERS_KEY, owner_id):
             return False
-        return self.get_shared_worker_id_for(org_bucket) == self.shared_worker_id
+        return (
+            self.get_shared_worker_id_for(org_bucket, self.worker_count)
+            == self.shared_worker_id
+        )
 
     async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
         now = time.time()
@@ -928,6 +933,16 @@ class Worker:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
+        dedicated_workers_data = await self._redis_stream.smembers(
+            DEDICATED_WORKERS_KEY
+        )
+        if dedicated_workers_data is None:
+            dedicated_worker_owner_ids = set()
+        else:
+            dedicated_worker_owner_ids = {
+                github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
+            }
+
         # TODO(sileht): maybe also graph streams that are before `now`
         # to see the diff between the backlog and the upcoming work to do
         now = time.time()
@@ -952,27 +967,40 @@ class Worker:
 
         # TODO(sileht): maybe we can do something with the bucket scores to
         # build a latency metric
-        bucket_backlog_low = 0
-        bucket_backlog_high = 0
+        bucket_backlog_lows: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
+        bucket_backlog_highs: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
         for org_bucket, _ in org_buckets:
+            owner_id, owner_login = self._extract_owner(org_bucket)
+            if owner_id in dedicated_worker_owner_ids:
+                worker_id = f"dedicated-{owner_id}"
+            else:
+                shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
+                    org_bucket, self.worker_count
+                )
+                worker_id = f"shared-{shared_id}"
+
             bucket_contents = await self._redis_stream.zrangebyscore(
                 org_bucket, min=0, max="+inf", withscores=True
             )
             low_prio_threshold = get_low_priority_minimal_score()
             for _, score in bucket_contents:
                 if score < low_prio_threshold:
-                    bucket_backlog_high += 1
+                    bucket_backlog_highs[worker_id] += 1
                 else:
-                    bucket_backlog_low += 1
+                    bucket_backlog_lows[worker_id] += 1
 
-        statsd.gauge(
-            "engine.buckets.backlog",
-            bucket_backlog_high,
-            tags=["priority:high"],
-        )
-        statsd.gauge(
-            "engine.buckets.backlog", bucket_backlog_low, tags=["priority:low"]
-        )
+        for worker_id, bucket_backlog_high in bucket_backlog_highs.items():
+            statsd.gauge(
+                "engine.buckets.backlog",
+                bucket_backlog_high,
+                tags=["priority:high", f"worker_id:{worker_id}"],
+            )
+        for worker_id, bucket_backlog_low in bucket_backlog_lows.items():
+            statsd.gauge(
+                "engine.buckets.backlog",
+                bucket_backlog_low,
+                tags=["priority:low", f"worker_id:{worker_id}"],
+            )
 
     async def delayed_refresh_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
@@ -1201,11 +1229,12 @@ async def async_status() -> None:
     worker_count: int = worker_per_process * process_count
 
     redis_stream = utils.create_yaaredis_for_stream()
-    org_bucket_selector = SharedOrgBucketSelector(redis_stream, 0, worker_count)
 
     def sorter(item: typing.Tuple[bytes, float]) -> int:
         org_bucket, score = item
-        return org_bucket_selector.get_shared_worker_id_for(org_bucket)
+        return SharedOrgBucketSelector.get_shared_worker_id_for(
+            org_bucket, worker_count
+        )
 
     org_buckets = sorted(
         await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
