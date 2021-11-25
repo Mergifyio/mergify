@@ -196,7 +196,7 @@ Defining the Commit Message
 
     .. code-block:: md
 
-     {{ body | get_section("## Commit Message") }}
+     {{ body | get_section("## Commit Message", "") }}
 
 
 When a pull request is merged using the ``squash`` or ``merge`` method, you can

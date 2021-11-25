@@ -584,8 +584,7 @@ You can trigger Dependabot actions by commenting on this PR:
 """
 
     expected_title = "chore(deps-dev): update flake8 requirement from <4 to <5 (#6)"
-    expected_body = """
-Updates the requirements on [flake8](https://github.com/pycqa/flake8) to permit the latest version.
+    expected_body = """Updates the requirements on [flake8](https://github.com/pycqa/flake8) to permit the latest version.
 
 Commits
 * [`82b698e`](https://github.com/PyCQA/flake8/commit/82b698e09996cdde5d473e234681d8380810d7a2) Release 4.0.1
@@ -682,4 +681,16 @@ Fixes MRGFY-XXX"""
             "{{ title | striptags }} (#{{ number }})\n\n{{ body | get_section('### Description') }}",
         )
         == (expected_title, expected_body)
+    )
+
+
+@pytest.mark.asyncio
+async def test_context_unexisting_section(a_pull_request):
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert (
+        await ctxt.pull_request.get_commit_message(
+            "default",
+            "{{ body | get_section('### Description', '') }}",
+        )
+        is None
     )
