@@ -21,6 +21,8 @@ updates:
       time: "09:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "production"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
