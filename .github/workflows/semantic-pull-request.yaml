@@ -4,7 +4,7 @@ permissions: read-all
 on:
   pull_request_target:
     branches-ignore:
-      - mergify/merge-queue/**
+      - mergify/merge-queue/main/**
     types:
       - opened
       - edited
