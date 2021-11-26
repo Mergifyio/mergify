@@ -18,6 +18,7 @@ import base64
 import contextlib
 import dataclasses
 import datetime
+import functools
 import itertools
 import json
 import logging
@@ -1641,12 +1642,18 @@ class PullRequest(BasePullRequest):
         extra_variables: typing.Optional[
             typing.Dict[str, typing.Union[str, bool]]
         ] = None,
+        allow_get_section: bool = True,
     ) -> str:
         """Render a template interpolating variables based on pull request attributes."""
         env = jinja2.sandbox.SandboxedEnvironment(
-            undefined=jinja2.StrictUndefined,
+            undefined=jinja2.StrictUndefined, enable_async=True
         )
-        self._add_custom_filter(env)
+        env.filters["markdownify"] = lambda s: markdownify.markdownify(s)
+        if allow_get_section:
+            env.filters["get_section"] = functools.partial(
+                self._filter_get_section, self
+            )
+
         with self._template_exceptions_mapping():
             used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
             infos = {}
@@ -1655,15 +1662,11 @@ class PullRequest(BasePullRequest):
                     infos[k] = extra_variables[k]
                 else:
                     infos[k] = await getattr(self, k)
-            return env.from_string(template).render(**infos)
-
-    def _add_custom_filter(self, env: jinja2.sandbox.SandboxedEnvironment) -> None:
-        env.filters["markdownify"] = lambda s: markdownify.markdownify(s)
-        env.filters["get_section"] = self._filter_get_section
+            return await env.from_string(template).render_async(**infos)
 
     @staticmethod
-    def _filter_get_section(
-        v: str, section: str, default: typing.Optional[str] = None
+    async def _filter_get_section(
+        pull: "PullRequest", v: str, section: str, default: typing.Optional[str] = None
     ) -> str:
         if not isinstance(section, str):
             raise TypeError("level must be a string")
@@ -1689,13 +1692,15 @@ class PullRequest(BasePullRequest):
             elif found:
                 section_lines.append(line.strip())
 
-        if not found:
-            if default is None:
-                raise TypeError("section not found")
-            else:
-                return default
+        if found:
+            text = ("\n".join(section_lines)).strip()
+        elif default is None:
+            raise TypeError("section not found")
+        else:
+            text = default
 
-        return ("\n".join(section_lines)).strip()
+        # We don't allow get_section to avoid never-ending recursion
+        return await pull.render_template(text, allow_get_section=False)
 
     @staticmethod
     @contextlib.contextmanager
