@@ -66,6 +66,10 @@ async def get_application(
     return app
 
 
+# Just an alias to help readability of fastapi.Depends
+require_authentication = get_application
+
+
 async def get_installation(
     application: application_mod.Application = fastapi.Depends(  # noqa: B008
         get_application

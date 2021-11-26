@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2018 Julien Danjou <jd@mergify.io>
+# Copyright © 2021 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -19,10 +19,10 @@ from starlette import testclient
 from mergify_engine.web import root
 
 
-def test_badge_redirect():
+def test_api_badge():
     with testclient.TestClient(root.app) as client:
         reply = client.get(
-            "/badges/mergifyio/mergify-engine.png", allow_redirects=False
+            "/v1/badges/mergifyio/mergify-engine.png", allow_redirects=False
         )
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
@@ -30,9 +30,8 @@ def test_badge_redirect():
             "?url=https://dashboard.mergify.com/badges/mergifyio/mergify-engine&style=flat"
         )
 
-    with testclient.TestClient(root.app) as client:
         reply = client.get(
-            "/badges/mergifyio/mergify-engine.svg", allow_redirects=False
+            "/v1/badges/mergifyio/mergify-engine.svg", allow_redirects=False
         )
         assert reply.status_code == 302
         assert reply.headers["Location"] == (
@@ -40,10 +39,7 @@ def test_badge_redirect():
             "?url=https://dashboard.mergify.com/badges/mergifyio/mergify-engine&style=flat"
         )
 
-
-def test_badge_endpoint():
-    with testclient.TestClient(root.app) as client:
-        reply = client.get("/badges/mergifyio/mergify-engine", allow_redirects=False)
+        reply = client.get("/v1/badges/mergifyio/mergify-engine", allow_redirects=False)
         assert reply.headers["Location"] == (
             "https://dashboard.mergify.com/badges/mergifyio/mergify-engine"
         )
