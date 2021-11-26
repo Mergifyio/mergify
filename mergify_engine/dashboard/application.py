@@ -294,8 +294,9 @@ class ApplicationGitHubCom(ApplicationBase):
                 headers = {}
             else:
                 headers = {"Mergify-Application-Account-Scope": account_scope}
-            resp = await client.get(
-                f"{config.SUBSCRIPTION_BASE_URL}/engine/applications/{api_access_key}{api_secret_key}",
+            resp = await client.post(
+                f"{config.SUBSCRIPTION_BASE_URL}/engine/applications",
+                json={"token": f"{api_access_key}{api_secret_key}"},
                 auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 headers=headers,
             )
