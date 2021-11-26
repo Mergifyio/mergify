@@ -694,3 +694,38 @@ async def test_context_unexisting_section(a_pull_request):
         )
         is None
     )
+
+
+@pytest.mark.asyncio
+async def test_context_unexisting_section_with_templated_default(a_pull_request):
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert (
+        await ctxt.pull_request.get_commit_message(
+            "default",
+            "{{ body | get_section('### Description', '{{number}}\n{{author}}') }}",
+        )
+        == (str(a_pull_request["number"]), a_pull_request["user"]["login"])
+    )
+
+
+@pytest.mark.asyncio
+async def test_context_body_section_with_template(a_pull_request):
+    a_pull_request[
+        "body"
+    ] = """
+
+Yo!
+
+### Commit
+
+BODY OF #{{number}}
+
+"""
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert (
+        await ctxt.pull_request.get_commit_message(
+            "default",
+            "TITLE\n{{ body | get_section('### Commit') }}",
+        )
+        == ("TITLE", f"BODY OF #{a_pull_request['number']}")
+    )
