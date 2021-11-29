@@ -2206,6 +2206,7 @@ DO NOT EDIT
                             "speculative_check_pull_request": {
                                 "in_place": True,
                                 "number": p3["number"],
+                                "started_at": mock.ANY,
                             },
                         },
                         {
