@@ -91,7 +91,7 @@ You can also combine ``or`` and ``and`` like this:
 
 .. note::
 
-    The depth on combined conditions is limited to 3.
+    The depth on combined conditions is limited to 4.
 
 
 .. _attributes:

@@ -170,7 +170,18 @@ def test_pull_request_rule(valid):
                                     {
                                         "or": [
                                             "base:foo",
-                                            {"and": ["base:baz", "base=main"]},
+                                            {
+                                                "and": [
+                                                    "base:baz",
+                                                    "base=main",
+                                                    {
+                                                        "or": [
+                                                            "author:robot",
+                                                            "author=bot",
+                                                        ]
+                                                    },
+                                                ]
+                                            },
                                         ]
                                     },
                                     "label=bar",
