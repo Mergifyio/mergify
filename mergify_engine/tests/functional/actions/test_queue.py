@@ -319,7 +319,7 @@ class TestQueueAction(base.FunctionalTestBase):
                             "name": "default",
                             "priority": "high",
                             "update_method": "rebase",
-                            "update_bot_account": "mergify-test3",
+                            "update_bot_account": "mergify-test4",
                         }
                     },
                 },
@@ -379,7 +379,7 @@ class TestQueueAction(base.FunctionalTestBase):
         assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
         commits = await self.get_commits(p1["number"])
         assert len(commits) == 1
-        assert commits[0]["commit"]["committer"]["name"] == "mergify-test3"
+        assert commits[0]["commit"]["committer"]["name"] == "mergify-test4"
 
         await self.run_engine()
         check = first(

@@ -296,11 +296,11 @@ no changes added to commit (use "git add" and/or "git commit -a")
         prefix = self.get_full_branch_name("stable")
         p = await self._do_test_backport(
             "merge",
-            config={"regexes": [f"^{prefix}/.*$"], "assignees": ["mergify-test3"]},
+            config={"regexes": [f"^{prefix}/.*$"], "assignees": ["mergify-test4"]},
         )
         assert 2 == p["commits"]
         assert len(p["assignees"]) == 1
-        assert p["assignees"][0]["login"] == "mergify-test3"
+        assert p["assignees"][0]["login"] == "mergify-test4"
 
     async def test_backport_squash_and_merge(self):
         p = await self._do_test_backport("squash")
@@ -333,7 +333,7 @@ class TestBackportActionWithSub(BackportActionTestBase):
             "merge",
             config={
                 "branches": [stable_branch],
-                "bot_account": "mergify-test3",
+                "bot_account": "mergify-test4",
             },
-            expected_author="mergify-test3",
+            expected_author="mergify-test4",
         )

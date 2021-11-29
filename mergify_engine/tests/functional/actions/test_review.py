@@ -168,7 +168,7 @@ Unknown pull request attribute: hello
                         "review": {
                             "message": "WTF?",
                             "type": "REQUEST_CHANGES",
-                            "bot_account": "mergify-test3",
+                            "bot_account": "mergify-test4",
                         }
                     },
                 },
@@ -177,7 +177,7 @@ Unknown pull request attribute: hello
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test3")
+        p, _ = await self.create_pr(message="mergify-test4")
         await self.run_engine()
 
         await self.wait_for("pull_request_review", {}),
@@ -186,7 +186,7 @@ Unknown pull request attribute: hello
         reviews = await self.get_reviews(p["number"])
         self.assertEqual(2, len(reviews))
         self.assertEqual("APPROVED", reviews[-2]["state"])
-        self.assertEqual("mergify-test3", reviews[-2]["user"]["login"])
+        self.assertEqual("mergify-test4", reviews[-2]["user"]["login"])
         self.assertEqual("CHANGES_REQUESTED", reviews[-1]["state"])
         self.assertEqual("WTF?", reviews[-1]["body"])
-        self.assertEqual("mergify-test3", reviews[-1]["user"]["login"])
+        self.assertEqual("mergify-test4", reviews[-1]["user"]["login"])

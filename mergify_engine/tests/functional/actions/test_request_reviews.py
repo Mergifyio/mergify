@@ -136,7 +136,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
                     ],
                     "actions": {
                         "request_reviews": {
-                            "users": ["mergify-test1", "mergify-test3"],
+                            "users": ["mergify-test1", "mergify-test4"],
                             "teams": ["mergifyio-testing/testing"],
                         }
                     },
@@ -154,7 +154,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
         await self.create_review_request(pulls[0]["number"], ["mergify-test1"])
         await self.run_engine()
         requests = await self.get_review_requests(pulls[0]["number"])
-        assert sorted(["mergify-test1", "mergify-test3"]) == sorted(
+        assert sorted(["mergify-test1", "mergify-test4"]) == sorted(
             user["login"] for user in requests["users"]
         )
 

@@ -37,13 +37,13 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test3")
+        p, _ = await self.create_pr(message="mergify-test4")
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
         comments = await self.get_issue_comments(p["number"])
         assert comments[-1]["body"] == "WTF?"
-        assert comments[-1]["user"]["login"] == "mergify-test3"
+        assert comments[-1]["user"]["login"] == "mergify-test4"
 
 
 class TestCommentAction(base.FunctionalTestBase):
@@ -199,7 +199,7 @@ Unknown pull request attribute: hello
                     "name": "comment",
                     "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
-                        "comment": {"message": "WTF?", "bot_account": "mergify-test3"}
+                        "comment": {"message": "WTF?", "bot_account": "mergify-test4"}
                     },
                 }
             ]

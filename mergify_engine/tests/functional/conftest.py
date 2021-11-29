@@ -102,7 +102,7 @@ async def dashboard(
                 "email": None,
             },
             {
-                "login": github_types.GitHubLogin("mergify-test3"),
+                "login": github_types.GitHubLogin("mergify-test4"),
                 "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
                 "name": None,
                 "email": None,

@@ -1281,7 +1281,7 @@ DO NOT EDIT
                     "name": "user",
                     "conditions": [
                         f"base={self.main_branch_name}",
-                        "review-requested=mergify-test3",
+                        "review-requested=mergify-test4",
                     ],
                     "actions": {"comment": {"message": "review-requested user"}},
                 },
@@ -1298,7 +1298,7 @@ DO NOT EDIT
         await self.setup_repo(yaml.dump(rules))
 
         p1, _ = await self.create_pr()
-        await self.create_review_request(p1["number"], reviewers=["mergify-test3"])
+        await self.create_review_request(p1["number"], reviewers=["mergify-test4"])
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
