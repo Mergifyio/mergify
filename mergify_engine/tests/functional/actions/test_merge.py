@@ -373,13 +373,13 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test3")
+        p, _ = await self.create_pr(message="mergify-test4")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
         p = await self.get_pull(p["number"])
         self.assertEqual(True, p["merged"])
-        self.assertEqual("mergify-test3", p["merged_by"]["login"])
+        self.assertEqual("mergify-test4", p["merged_by"]["login"])
 
     async def test_merge_branch_protection_linear_history(self):
         rules = {
@@ -571,7 +571,7 @@ superRP!
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test3")
+        p, _ = await self.create_pr(message="mergify-test4")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -581,7 +581,7 @@ superRP!
         assert (
             f"""test_merge_template: pull request n1 from fork (#{p2['number']})
 
-mergify-test3
+mergify-test4
 superRP!"""
             == p3["commit"]["message"]
         )
