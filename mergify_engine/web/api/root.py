@@ -56,7 +56,7 @@ app = fastapi.FastAPI(
     contact={
         "name": "Mergify",
         "url": "https://mergify.com",
-        "email": "support@mergify.io",
+        "email": "support@mergify.com",
     },
     openapi_url=None,
     redoc_url=None,

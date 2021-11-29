@@ -181,7 +181,7 @@ Schema = voluptuous.Schema(
         ): voluptuous.Coerce(int),
         voluptuous.Required("CACHE_TOKEN_SECRET"): str,
         voluptuous.Required("CONTEXT", default="mergify"): str,
-        voluptuous.Required("GIT_EMAIL", default="noreply@mergify.io"): str,
+        voluptuous.Required("GIT_EMAIL", default="noreply@mergify.com"): str,
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
             float
         ),

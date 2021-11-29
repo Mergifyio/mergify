@@ -28,8 +28,8 @@ Any question?
 -------------
 
 We're always happy to help with questions you might have.
-Contact `our support <mailto:support@mergify.io>`_ or our `sales team
-<mailto:sales@mergify.io>`_.
+Contact `our support <mailto:support@mergify.com>`_ or our `sales team
+<mailto:sales@mergify.com>`_.
 
 
 .. toctree::
