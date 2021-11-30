@@ -21,7 +21,7 @@ jobs:
           python-version: 3.9
 
       - name: Setup Node 🔧
-        uses: actions/setup-node@v2.4.1
+        uses: actions/setup-node@v2.5.0
         with:
           node-version: 16
 
