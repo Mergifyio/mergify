@@ -25,6 +25,7 @@ import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import jinja2_utils
 from mergify_engine import rules
 from mergify_engine.rules import conditions
 
@@ -150,8 +151,8 @@ class Action(abc.ABC):
         wanted = set()
         for user in set(users):
             try:
-                user = await ctxt.pull_request.render_template(user)
-            except context.RenderTemplateFailure:
+                user = await jinja2_utils.render_template(ctxt.pull_request, user)
+            except jinja2_utils.RenderTemplateFailure:
                 # NOTE: this should never happen since
                 # the template is validated when parsing the config 🤷
                 continue

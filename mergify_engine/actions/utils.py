@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine import jinja2_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.rules import types
@@ -66,8 +67,10 @@ async def render_bot_account(
         required_permissions = ["admin", "write", "maintain"]
 
     try:
-        bot_account = await ctxt.pull_request.render_template(bot_account_template)
-    except context.RenderTemplateFailure as rmf:
+        bot_account = await jinja2_utils.render_template(
+            ctxt.pull_request, bot_account_template
+        )
+    except jinja2_utils.RenderTemplateFailure as rmf:
         raise RenderBotAccountFailure(
             check_api.Conclusion.FAILURE,
             f"Invalid {option_name} template",

@@ -16,15 +16,11 @@
 import dataclasses
 import typing
 
-import jinja2.exceptions
-import jinja2.sandbox
 import voluptuous
 
 from mergify_engine import context
 from mergify_engine import github_types
-
-
-_JINJA_ENV = jinja2.sandbox.SandboxedEnvironment(undefined=jinja2.StrictUndefined)
+from mergify_engine import jinja2_utils
 
 
 @dataclasses.dataclass
@@ -59,21 +55,6 @@ class DummyPullRequest(context.PullRequest):
     # This is only used to check Jinja2 syntax validity and must be sync
     def __getattr__(self, name: str) -> typing.Any:
         return self.context._get_consolidated_data(name.replace("_", "-"))
-
-    def render_template(self, template: str, extra_variables: typing.Optional[typing.Dict[str, str]] = None) -> str:  # type: ignore[override]
-        """Render a template interpolating variables based on pull request attributes."""
-        env = jinja2.sandbox.SandboxedEnvironment(
-            undefined=jinja2.StrictUndefined,
-        )
-        with self._template_exceptions_mapping():
-            used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
-            infos = {}
-            for k in used_variables:
-                if extra_variables and k in extra_variables:
-                    infos[k] = extra_variables[k]
-                else:
-                    infos[k] = getattr(self, k)
-            return env.from_string(template).render(**infos)
 
 
 _DUMMY_PR = DummyPullRequest(
@@ -186,8 +167,8 @@ def Jinja2(
         raise voluptuous.Invalid("Template must be a string")
     try:
         # TODO: optimize this by returning, storing and using the parsed Jinja2 AST
-        _DUMMY_PR.render_template(value, extra_variables)
-    except context.RenderTemplateFailure as rtf:
+        jinja2_utils.render_template(_DUMMY_PR, value, extra_variables)
+    except jinja2_utils.RenderTemplateFailure as rtf:
         if rtf.lineno is None:
             path = None
         else:

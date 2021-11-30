@@ -25,6 +25,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
+from mergify_engine import jinja2_utils
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import utils as action_utils
@@ -321,11 +322,12 @@ class CopyAction(actions.Action):
         self, ctxt: context.Context
     ) -> typing.Optional[check_api.Result]:
         try:
-            await ctxt.pull_request.render_template(
+            await jinja2_utils.render_template(
+                ctxt.pull_request,
                 self.config["title"],
                 extra_variables={"destination_branch": "whatever"},
             )
-        except context.RenderTemplateFailure as rmf:
+        except jinja2_utils.RenderTemplateFailure as rmf:
             # can't occur, template have been checked earlier
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
@@ -334,14 +336,15 @@ class CopyAction(actions.Action):
             )
 
         try:
-            await ctxt.pull_request.render_template(
+            await jinja2_utils.render_template(
+                ctxt.pull_request,
                 self.config["body"],
                 extra_variables={
                     "destination_branch": "whatever",
                     "cherry_pick_error": "whatever",
                 },
             )
-        except context.RenderTemplateFailure as rmf:
+        except jinja2_utils.RenderTemplateFailure as rmf:
             # can't occur, template have been checked earlier
             return check_api.Result(
                 check_api.Conclusion.FAILURE,

@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import jinja2_utils
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import squash_pull
@@ -76,8 +77,10 @@ class SquashAction(actions.Action):
             )
 
         try:
-            commit_title_and_message = await ctxt.pull_request.get_commit_message()
-        except context.RenderTemplateFailure as rmf:
+            commit_title_and_message = await jinja2_utils.get_commit_message(
+                ctxt.pull_request
+            )
+        except jinja2_utils.RenderTemplateFailure as rmf:
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
                 "Invalid commit message",

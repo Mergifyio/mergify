@@ -15,10 +15,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import base64
-import contextlib
 import dataclasses
 import datetime
-import functools
 import itertools
 import json
 import logging
@@ -29,12 +27,6 @@ from urllib import parse
 
 import daiquiri
 import first
-import jinja2.exceptions
-import jinja2.meta
-import jinja2.runtime
-import jinja2.sandbox
-import jinja2.utils
-import markdownify
 import tenacity
 
 from mergify_engine import check_api
@@ -51,9 +43,6 @@ from mergify_engine.dashboard import user_tokens
 
 
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
-
-MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
-MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
@@ -1560,15 +1549,6 @@ class Context(object):
         )
 
 
-@dataclasses.dataclass
-class RenderTemplateFailure(Exception):
-    message: str
-    lineno: typing.Optional[int] = None
-
-    def __str__(self) -> str:
-        return self.message
-
-
 class BasePullRequest:
     pass
 
@@ -1635,127 +1615,6 @@ class PullRequest(BasePullRequest):
         for k in self:
             d[k] = await getattr(self, k)
         return d
-
-    async def render_template(
-        self,
-        template: str,
-        extra_variables: typing.Optional[
-            typing.Dict[str, typing.Union[str, bool]]
-        ] = None,
-        allow_get_section: bool = True,
-    ) -> str:
-        """Render a template interpolating variables based on pull request attributes."""
-        env = jinja2.sandbox.SandboxedEnvironment(
-            undefined=jinja2.StrictUndefined, enable_async=True
-        )
-        env.filters["markdownify"] = lambda s: markdownify.markdownify(s)
-        if allow_get_section:
-            env.filters["get_section"] = functools.partial(
-                self._filter_get_section, self
-            )
-
-        with self._template_exceptions_mapping():
-            used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
-            infos = {}
-            for k in used_variables:
-                if extra_variables and k in extra_variables:
-                    infos[k] = extra_variables[k]
-                else:
-                    infos[k] = await getattr(self, k)
-            return await env.from_string(template).render_async(**infos)
-
-    @staticmethod
-    async def _filter_get_section(
-        pull: "PullRequest", v: str, section: str, default: typing.Optional[str] = None
-    ) -> str:
-        if not isinstance(section, str):
-            raise TypeError("level must be a string")
-
-        section_escaped = re.escape(section)
-        level = MARKDOWN_TITLE_RE.match(section)
-
-        if level is None:
-            raise TypeError("section level not found")
-
-        level_str = level[0].strip()
-
-        level_re = re.compile(fr"^{level_str} +", re.I)
-        section_re = re.compile(fr"^{section_escaped}\s*$", re.I)
-
-        found = False
-        section_lines = []
-        for line in v.split("\n"):
-            if section_re.match(line):
-                found = True
-            elif found and level_re.match(line):
-                break
-            elif found:
-                section_lines.append(line.strip())
-
-        if found:
-            text = ("\n".join(section_lines)).strip()
-        elif default is None:
-            raise TypeError("section not found")
-        else:
-            text = default
-
-        # We don't allow get_section to avoid never-ending recursion
-        return await pull.render_template(text, allow_get_section=False)
-
-    @staticmethod
-    @contextlib.contextmanager
-    def _template_exceptions_mapping() -> typing.Iterator[None]:
-        try:
-            yield
-        except jinja2.exceptions.TemplateSyntaxError as tse:
-            raise RenderTemplateFailure(tse.message or "", tse.lineno)
-        except jinja2.exceptions.TemplateError as te:
-            raise RenderTemplateFailure(te.message or "")
-        except PullRequestAttributeError as e:
-            raise RenderTemplateFailure(f"Unknown pull request attribute: {e.name}")
-
-    async def get_commit_message(
-        self,
-        mode: typing.Literal["default", "title+body", "template"] = "default",
-        template: typing.Optional[str] = None,
-    ) -> typing.Optional[typing.Tuple[str, str]]:
-
-        if mode == "title+body":
-            body = typing.cast(str, await self.body)
-            # Include PR number to mimic default GitHub format
-            return (
-                f"{(await self.title)} (#{(await self.number)})",
-                body,
-            )
-
-        if template is None:
-            # No template from configuration, looks at template from body
-            body = typing.cast(str, await self.body)
-            if not body:
-                return None
-            found = False
-            message_lines = []
-
-            for line in body.split("\n"):
-                if MARKDOWN_COMMIT_MESSAGE_RE.match(line):
-                    found = True
-                elif found and MARKDOWN_TITLE_RE.match(line):
-                    break
-                elif found:
-                    message_lines.append(line)
-                if found:
-                    self.context.log.info("Commit message template found in body")
-                    template = "\n".join(line.strip() for line in message_lines)
-
-        if template is None:
-            return None
-
-        commit_message = await self.render_template(template.strip())
-        if not commit_message:
-            return None
-
-        template_title, _, template_message = commit_message.partition("\n")
-        return (template_title, template_message.lstrip())
 
 
 @dataclasses.dataclass

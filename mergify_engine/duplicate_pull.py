@@ -24,6 +24,7 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import gitter
+from mergify_engine import jinja2_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard.user_tokens import UserTokensUser
 
@@ -361,22 +362,24 @@ async def duplicate(
         )
 
     try:
-        title = await ctxt.pull_request.render_template(
+        title = await jinja2_utils.render_template(
+            ctxt.pull_request,
             title_template,
             extra_variables={"destination_branch": branch_name},
         )
-    except context.RenderTemplateFailure as rmf:
+    except jinja2_utils.RenderTemplateFailure as rmf:
         raise DuplicateFailed(f"Invalid title message: {rmf}")
 
     try:
-        body = await ctxt.pull_request.render_template(
+        body = await jinja2_utils.render_template(
+            ctxt.pull_request,
             body_template,
             extra_variables={
                 "destination_branch": branch_name,
                 "cherry_pick_error": cherry_pick_error,
             },
         )
-    except context.RenderTemplateFailure as rmf:
+    except jinja2_utils.RenderTemplateFailure as rmf:
         raise DuplicateFailed(f"Invalid title message: {rmf}")
 
     try:

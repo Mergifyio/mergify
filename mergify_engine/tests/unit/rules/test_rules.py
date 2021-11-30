@@ -267,6 +267,47 @@ def test_jinja_with_list_attribute():
     ]
 
 
+def test_jinja_filters():
+    rules.UserConfigurationSchema(
+        rules.YamlSchema(
+            """queue_rules:
+  - name: default
+    conditions: []
+
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=main
+    actions:
+      queue:
+        name: default
+        commit_message_template: |
+          Merge PR #{{ number }} - {{ title }}
+          {{ body | get_section("## Commit Message", "") }}
+"""
+        )
+    )
+    rules.UserConfigurationSchema(
+        rules.YamlSchema(
+            """queue_rules:
+  - name: default
+    conditions: []
+
+pull_request_rules:
+  - name: ahah
+    conditions:
+    - base=main
+    actions:
+      queue:
+        name: default
+        commit_message_template: |
+          Merge PR #{{ number }} - {{ title }}
+          {{ body | get_section("## Commit Message") }}
+"""
+        )
+    )
+
+
 def test_jinja_with_wrong_syntax():
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(

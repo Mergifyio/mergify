@@ -21,6 +21,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import jinja2_utils
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import utils as action_utils
@@ -61,8 +62,10 @@ class CommentAction(actions.Action):
             return check_api.Result(e.status, e.title, e.reason)
 
         try:
-            message = await ctxt.pull_request.render_template(self.config["message"])
-        except context.RenderTemplateFailure as rmf:
+            message = await jinja2_utils.render_template(
+                ctxt.pull_request, self.config["message"]
+            )
+        except jinja2_utils.RenderTemplateFailure as rmf:
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
                 "Invalid comment message",

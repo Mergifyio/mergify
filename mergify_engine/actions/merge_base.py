@@ -27,6 +27,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine import jinja2_utils
 from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
@@ -441,11 +442,12 @@ class MergeBaseAction(actions.Action, abc.ABC):
         data = {}
 
         try:
-            commit_title_and_message = await ctxt.pull_request.get_commit_message(
+            commit_title_and_message = await jinja2_utils.get_commit_message(
+                ctxt.pull_request,
                 self.config["commit_message"],
                 self.config["commit_message_template"],
             )
-        except context.RenderTemplateFailure as rmf:
+        except jinja2_utils.RenderTemplateFailure as rmf:
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
                 "Invalid commit message",
