@@ -90,6 +90,14 @@ pull_request_rules:
         commit_message: default
         name: lowprio
 
+  - name: dependabot conflict fixer
+    conditions:
+      - author=dependabot[bot]
+      - conflict
+    actions:
+      comment:
+        message: "@dependabot recreate"
+
   - name: dismiss reviews except for core devs
     conditions:
       - author!=@devs
