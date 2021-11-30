@@ -234,7 +234,6 @@ async def test_run_command_without_rerun_and_without_user(
 ) -> None:
 
     client = mock.MagicMock()
-    client.auth.installation.__getitem__.return_value = 123
 
     ctxt = await _create_context(redis_cache, client)
 
