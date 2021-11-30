@@ -65,6 +65,10 @@ class DummyPullRequest(context.PullRequest):
         env = jinja2.sandbox.SandboxedEnvironment(
             undefined=jinja2.StrictUndefined,
         )
+        #
+        env.filters["markdownify"] = lambda s: s
+        env.filters["get_section"] = self.dummy_get_section
+
         with self._template_exceptions_mapping():
             used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))
             infos = {}
@@ -74,6 +78,12 @@ class DummyPullRequest(context.PullRequest):
                 else:
                     infos[k] = getattr(self, k)
             return env.from_string(template).render(**infos)
+
+    @staticmethod
+    def dummy_get_section(
+        v: str, section: str, default: typing.Optional[str] = None
+    ) -> str:
+        return v
 
 
 _DUMMY_PR = DummyPullRequest(
