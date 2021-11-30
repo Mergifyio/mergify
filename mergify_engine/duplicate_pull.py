@@ -259,7 +259,7 @@ async def duplicate(
         await git.init()
 
         if bot_account_user is None:
-            token = ctxt.client.auth.get_access_token()
+            token = await ctxt.client.get_access_token()
             await git.configure()
             username = "x-access-token"
             password = token
