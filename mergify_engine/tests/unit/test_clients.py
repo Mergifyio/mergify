@@ -71,9 +71,10 @@ async def test_client_installation_token_with_owner_id(
         ) as client:
             ret = await client.get(httpserver.url_for("/"))
             assert ret.json()["work"]
-            assert client.auth.installation is not None
-            assert client.auth.installation["account"]["login"] == "testing"
-            assert client.auth.installation["account"]["id"] == 12345
+            assert isinstance(client.auth, github.GithubAppInstallationAuth)
+            assert client.auth._installation is not None
+            assert client.auth._installation["account"]["login"] == "testing"
+            assert client.auth._installation["account"]["id"] == 12345
 
     assert len(httpserver.log) == 3
 
