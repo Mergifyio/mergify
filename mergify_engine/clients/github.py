@@ -135,7 +135,7 @@ class GithubAppInstallationAuth(httpx.Auth):
     def auth_flow(
         self, request: httpx.Request
     ) -> typing.Generator[httpx.Request, httpx.Response, None]:
-        token = self._get_access_token()
+        token = self.get_access_token()
         if token:
             request.headers["Authorization"] = f"token {token}"
             response = yield request
@@ -200,7 +200,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         return self._cached_token.token
 
-    def _get_access_token(self) -> typing.Optional[str]:
+    def get_access_token(self) -> typing.Optional[str]:
         now = datetime.datetime.utcnow()
         if not self._cached_token:
             return None
@@ -215,14 +215,6 @@ class GithubAppInstallationAuth(httpx.Auth):
             return None
         else:
             return self._cached_token.token
-
-    def get_access_token(self) -> str:
-        """Legacy method for backport/copy actions"""
-        token = self._get_access_token()
-        if token:
-            return token
-        else:
-            raise RuntimeError("get_access_token() call on an unused client")
 
 
 async def get_installation_from_account_id(
@@ -538,6 +530,19 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
                 requests_ratio=self._requests_ratio,
             )
         self._requests = []
+
+    async def get_access_token(self) -> str:
+        token = self.auth.get_access_token()
+        if token:
+            return token
+
+        # Token has expired, get a new one
+        await self.get("/")
+        token = self.auth.get_access_token()
+        if token:
+            return token
+
+        raise RuntimeError("get_access_token() call on an unused client")
 
 
 def aget_client(
