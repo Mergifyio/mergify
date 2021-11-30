@@ -4,7 +4,10 @@ defaults:
       name: default
       method: squash
       update_method: rebase
-      commit_message: title+body
+      commit_message_template: |
+        {{ title }} (#{{ number }})
+
+        {{ body }}
     squash:
       commit_message: first-commit
 
@@ -87,7 +90,7 @@ pull_request_rules:
     actions:
       queue:
         method: rebase
-        commit_message: default
+        commit_message_template: null
         name: lowprio
 
   - name: dismiss reviews except for core devs
