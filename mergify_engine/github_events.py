@@ -439,8 +439,8 @@ async def push_to_worker(
         event_type=event_type,
         event_id=event_id,
         sender=event["sender"]["login"],
-        gh_owner=owner_login,
-        gh_repo=repo_name,
+        gh_owner_id=owner_id,
+        gh_repo_id=repo_id,
         event=slim_event,
     )
 

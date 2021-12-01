@@ -240,8 +240,8 @@ async def send_pull_refresh(
 ) -> None:
     LOG.info(
         "sending pull refresh",
-        gh_owner=repository["owner"]["login"],
-        gh_repo=repository["name"],
+        gh_owner_id=repository["owner"]["id"],
+        gh_repo_id=repository["id"],
         gh_private=repository["private"],
         gh_pull=pull_request_number,
         action=action,
@@ -268,8 +268,8 @@ async def send_repository_refresh(
 
     LOG.info(
         "sending repository refresh",
-        gh_owner=repository["owner"]["login"],
-        gh_repo=repository["name"],
+        gh_owner_id=repository["owner"]["id"],
+        gh_repo_id=repository["id"],
         gh_private=repository["private"],
         action=action,
         source=source,
@@ -291,8 +291,8 @@ async def send_branch_refresh(
 ) -> None:
     LOG.info(
         "sending repository branch refresh",
-        gh_owner=repository["owner"]["login"],
-        gh_repo=repository["name"],
+        gh_owner_id=repository["owner"]["id"],
+        gh_repo_id=repository["id"],
         gh_private=repository["private"],
         gh_ref=ref,
         action=action,

@@ -62,7 +62,7 @@ PR = {
     "head": {"ref": "fork", "sha": "shasha", "repo": GH_REPO},
     "base": {
         "ref": "main",
-        "user": {"login": "user"},
+        "user": {"id": 1234, "login": "user"},
         "repo": GH_REPO,
         "sha": "miaou",
     },

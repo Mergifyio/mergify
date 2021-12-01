@@ -140,7 +140,7 @@ class GithubAppInstallationAuth(httpx.Auth):
                 if "This installation has been suspended" in error_message:
                     LOG.debug(
                         "Mergify installation suspended",
-                        gh_owner=self._owner_login,
+                        gh_owner_id=self._owner_id,
                         error_message=error_message,
                     )
                     raise exceptions.MergifyNotInstalled()
@@ -181,7 +181,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         )
         LOG.debug(
             "New token acquired",
-            gh_owner=self._owner_login,
+            gh_owner_id=self._owner_id,
             expire_at=self._cached_token.expiration,
         )
         return self._cached_token.token
@@ -193,7 +193,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         elif self._cached_token.expiration <= now:
             LOG.debug(
                 "Token expired",
-                gh_owner=self._owner_login,
+                gh_owner_id=self._owner_id,
                 expire_at=self._cached_token.expiration,
             )
             self._cached_token.invalidate()
@@ -511,7 +511,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
                 LOGGING_REQUESTS_THRESHOLD_ABSOLUTE,
                 nb_requests / self._requests_ratio,
                 nb_requests,
-                gh_owner=http.extract_organization_login(self),
+                gh_owner_id=http.extract_organization_id(self),
                 requests=self._requests,
                 requests_ratio=self._requests_ratio,
             )
