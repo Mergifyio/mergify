@@ -1,0 +1,8 @@
+local summary_shas = redis.call("KEYS", "summary-sha~*~*~*")
+for idx, summary_sha in ipairs(summary_shas) do
+    for owner_id, repo_id, pull_number in string.gmatch(summary_sha, "summary%-sha~([^~]+)~([^~]+)~(.+)") do
+        local data = redis.call("GET", summary_sha)
+        redis.call("HSET", "summary-sha~" .. owner_id, repo_id .. "~" .. pull_number, data)
+        redis.call("DEL", summary_sha)
+    end
+end

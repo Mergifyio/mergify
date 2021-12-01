@@ -30,15 +30,27 @@ MIGRATION_STAMPS_KEY = "migration-stamps"
 
 async def run(redis_cache: utils.RedisCache) -> None:
     # Convert old migration stamp key to new system
-    if await redis_cache.exists(LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY):
-        await redis_cache.set(MIGRATION_STAMPS_KEY, 1)
-        await redis_cache.delete(LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY)
+    await _convert_legacy_stamp_version(redis_cache)
+    await _run_scripts(redis_cache, "cache")
 
-    await _run_scripts("cache", redis_cache)
+
+async def _stamp_version(
+    redis: typing.Union[utils.RedisCache, utils.RedisStream], version: int
+) -> None:
+    await redis.set(MIGRATION_STAMPS_KEY, version)
+
+
+async def _convert_legacy_stamp_version(redis_cache: utils.RedisCache) -> None:
+    if await redis_cache.exists(LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY):
+        _stamp_version(redis_cache, 1)
+        await redis_cache.delete(LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY)
 
 
 async def _run_scripts(
-    dirname: str, redis: typing.Union[utils.RedisCache, utils.RedisStream]
+    redis: typing.Union[utils.RedisCache, utils.RedisStream],
+    dirname: str,
+    *,
+    stop_at_version: typing.Optional[int] = None,
 ) -> None:
     current_version = await redis.get(MIGRATION_STAMPS_KEY)
     if current_version is None:
@@ -59,8 +71,11 @@ async def _run_scripts(
         if version <= current_version:
             continue
 
+        if stop_at_version is not None and version > stop_at_version:
+            return
+
         raw = pkg_resources.resource_string(__name__, f"{dirname}/{script}").decode()
         redis_script = redis_utils.register_script(raw)
         await redis_utils.run_script(redis, redis_script, ())
         current_version = version
-        await redis.set(MIGRATION_STAMPS_KEY, current_version)
+        await _stamp_version(redis, current_version)

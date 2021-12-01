@@ -794,11 +794,13 @@ class Context(object):
             raise
 
     @staticmethod
-    def redis_last_summary_head_sha_key(pull: github_types.GitHubPullRequest) -> str:
+    def redis_last_summary_head_sha_keys(
+        pull: github_types.GitHubPullRequest,
+    ) -> typing.Tuple[str, str]:
         owner = pull["base"]["repo"]["owner"]["id"]
         repo = pull["base"]["repo"]["id"]
         pull_number = pull["number"]
-        return f"summary-sha~{owner}~{repo}~{pull_number}"
+        return f"summary-sha~{owner}", f"{repo}~{pull_number}"
 
     @staticmethod
     def redis_last_summary_pulls_key(
@@ -816,7 +818,7 @@ class Context(object):
     ) -> typing.Optional[github_types.SHAType]:
         return typing.cast(
             typing.Optional[github_types.SHAType],
-            await redis_cache.get(cls.redis_last_summary_head_sha_key(pull)),
+            await redis_cache.hget(*cls.redis_last_summary_head_sha_keys(pull)),
         )
 
     @classmethod
@@ -828,7 +830,7 @@ class Context(object):
         pull: github_types.GitHubPullRequest,
     ) -> bool:
         sha_exists = bool(
-            await redis_cache.exists(
+            await redis_cache.hexists(
                 cls.redis_last_summary_pulls_key(owner_id, repo_id, pull["head"]["sha"])
             )
         )
@@ -848,7 +850,7 @@ class Context(object):
 
     async def clear_cached_last_summary_head_sha(self) -> None:
         pipe = await self.redis.pipeline()
-        await pipe.delete(self.redis_last_summary_head_sha_key(self.pull))
+        await pipe.hdel(*self.redis_last_summary_head_sha_keys(self.pull))
         await pipe.delete(
             self.redis_last_summary_pulls_key(
                 self.repository.installation.owner_id,
@@ -867,8 +869,8 @@ class Context(object):
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
         pipe = await self.redis.pipeline()
-        await self.redis.set(
-            self.redis_last_summary_head_sha_key(self.pull),
+        await self.redis.hset(
+            *self.redis_last_summary_head_sha_keys(self.pull),
             sha,
             ex=SUMMARY_SHA_EXPIRATION,
         )
