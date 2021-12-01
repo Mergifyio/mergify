@@ -1248,51 +1248,6 @@ async def test_worker_stuck_shutdown(
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
-async def test_worker_migrate_train(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_stream,
-    redis_cache,
-    logger_checker,
-):
-    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
-    get_subscription.side_effect = fake_get_subscription
-
-    assert not await redis_cache.exists("MERGE_TRAIN_MIGRATION_DONE")
-    expected_trains = {}
-    for owner_id in (123456, 424242, 789789):
-        expected_trains.setdefault(owner_id, {})
-        for i in range(1, 3):
-            for ref in ("main", "stable"):
-                repo_id = owner_id + i
-                expected_trains[owner_id][f"{repo_id}~{ref}"] = "some-data"
-                await redis_cache.set(
-                    f"merge-train~{owner_id}~{repo_id}~{ref}", "some-data"
-                )
-
-    await run_worker()
-
-    assert await redis_cache.exists("MERGE_TRAIN_MIGRATION_DONE")
-
-    old_trains = sorted(await redis_cache.keys("merge-train~*"))
-    assert old_trains == []
-    trains = sorted(await redis_cache.keys("merge-trains~*"))
-    assert trains == [
-        "merge-trains~123456",
-        "merge-trains~424242",
-        "merge-trains~789789",
-    ]
-
-    for train in trains:
-        owner_id = int(train[13:])
-        assert await redis_cache.hgetall(train) == expected_trains[owner_id]
-
-
-@pytest.mark.asyncio
-@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
-@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
-@mock.patch("mergify_engine.worker.run_engine")
 async def test_dedicated_worker_scaleup_scaledown(
     run_engine,
     get_installation_from_account_id,

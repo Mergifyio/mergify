@@ -69,6 +69,7 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
+from mergify_engine import migrations
 from mergify_engine import service
 from mergify_engine import signals
 from mergify_engine import utils
@@ -1042,10 +1043,7 @@ class Worker:
         self._redis_stream = utils.create_yaaredis_for_stream()
         self._redis_cache = utils.create_yaaredis_for_cache()
 
-        MERGE_TRAIN_MIGRATION_DONE_KEY = "MERGE_TRAIN_MIGRATION_DONE"
-        if not await self._redis_cache.exists(MERGE_TRAIN_MIGRATION_DONE_KEY):
-            await worker_lua.migrate_trains(self._redis_cache)
-            await self._redis_cache.set(MERGE_TRAIN_MIGRATION_DONE_KEY, "done")
+        await migrations.run(self._redis_cache)
 
         if "stream" in self.enabled_services:
             worker_ids = self.get_shared_worker_ids()
