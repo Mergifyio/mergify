@@ -119,9 +119,9 @@ async def test_pull_behind(commits_tree_generator, redis_cache):
             "merged_by": None,
             "base": {
                 "ref": "#foo",
-                "repo": {"name": "foobar", "private": False},
+                "repo": {"name": "foobar", "private": False, "id": 1234},
                 "sha": "miaou",
-                "user": {"login": "jd"},
+                "user": {"login": "jd", "id": 1234},
             },
         },
         {},
