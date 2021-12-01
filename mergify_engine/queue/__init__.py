@@ -139,12 +139,14 @@ class QueueBase(abc.ABC):
             pulls.remove(except_pull_request)
 
         with utils.yaaredis_for_stream() as redis_stream:
+            pipe = await redis_stream.pipeline()
             for pull_number in pulls:
                 await utils.send_pull_refresh(
                     self.repository.installation.redis,
-                    redis_stream,
+                    pipe,
                     repository,
                     pull_request_number=pull_number,
                     action="internal",
                     source=source,
                 )
+            await pipe.execute()
