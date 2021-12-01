@@ -24,6 +24,7 @@ from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import github_app
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.engine import actions_runner
@@ -247,7 +248,10 @@ async def run(
         else:
             ctxt.sources.append(source)
 
-    if ctxt.client.auth.permissions_need_to_be_updated:
+    permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
+        ctxt.repository.installation.installation
+    )
+    if permissions_need_to_be_updated:
         return check_api.Result(
             check_api.Conclusion.FAILURE,
             title="Required GitHub permissions are missing.",

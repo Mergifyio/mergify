@@ -74,15 +74,6 @@ class GithubTokenAuth(httpx.Auth):
     def __init__(self, token: str) -> None:
         self._token = token
 
-        # TODO(sileht): We don't known and we don't care, this should be dropped
-        self.permissions_need_to_be_updated = False
-
-    @property
-    def installation(self):
-        raise InstallationInaccessible(
-            f"{self.__class__.__name__} must not be used for installation dependent code"
-        )
-
     @contextlib.contextmanager
     def response_body_read(self):
         self.requires_response_body = True
@@ -108,21 +99,16 @@ class GithubAppInstallationAuth(httpx.Auth):
     installation: github_types.GitHubInstallation
 
     def __init__(self, installation: github_types.GitHubInstallation) -> None:
-        self.installation = installation
-        self._cached_token = CachedToken.get(self.installation["id"])
-
-        # TODO(sileht): This has nothing to do here, get rid of this
-        self.permissions_need_to_be_updated = github_app.permissions_need_to_be_updated(
-            self.installation
-        )
+        self._installation = installation
+        self._cached_token = CachedToken.get(self._installation["id"])
 
     @property
     def _owner_id(self):
-        return self.installation["account"]["id"]
+        return self._installation["account"]["id"]
 
     @property
     def _owner_login(self):
-        return self.installation["account"]["login"]
+        return self._installation["account"]["login"]
 
     @contextlib.contextmanager
     def response_body_read(self):
@@ -166,12 +152,12 @@ class GithubAppInstallationAuth(httpx.Auth):
         yield request
 
     def build_access_token_request(self, force: bool = False) -> httpx.Request:
-        if self.installation is None:
+        if self._installation is None:
             raise RuntimeError("No installation")
 
         return self.build_github_app_request(
             "POST",
-            f"{config.GITHUB_API_URL}/app/installations/{self.installation['id']}/access_tokens",
+            f"{config.GITHUB_API_URL}/app/installations/{self._installation['id']}/access_tokens",
             force=force,
         )
 
@@ -185,11 +171,11 @@ class GithubAppInstallationAuth(httpx.Auth):
     def _set_access_token(
         self, data: github_types.GitHubInstallationAccessToken
     ) -> str:
-        if self.installation is None:
+        if self._installation is None:
             raise RuntimeError("Cannot set access token, no installation")
 
         self._cached_token = CachedToken(
-            self.installation["id"],
+            self._installation["id"],
             data["token"],
             datetime.datetime.fromisoformat(data["expires_at"][:-1]),  # Remove the Z
         )

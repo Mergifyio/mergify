@@ -214,7 +214,7 @@ async def report(
     # Do a dumb request just to authenticate
     await client.get("/")
 
-    print(f"* INSTALLATION ID: {client.auth.installation['id']}")
+    print(f"* INSTALLATION ID: {installation_json['id']}")
 
     if repo is None:
         slug = None
