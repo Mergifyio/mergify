@@ -463,10 +463,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
     async def request(self, method: str, url: str, *args: typing.Any, **kwargs: typing.Any) -> typing.Optional[httpx.Response]:  # type: ignore[override]
         reply = None
         try:
-            with statsd.timed(  # type: ignore[no-untyped-call]
-                "http.client.request.time", tags=[f"hostname:{self.base_url.host}"]
-            ):
-                reply = await super().request(method, url, *args, **kwargs)
+            reply = await super().request(method, url, *args, **kwargs)
         except http.HTTPClientSideError as e:
             if e.status_code == 403:
                 _check_rate_limit(e.response)
