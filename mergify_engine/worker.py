@@ -695,6 +695,7 @@ class StreamProcessor:
         if source["event_type"] == "push":
             score = str(date.utcnow().timestamp() * 10)
 
+        pipe = await self.redis_stream.pipeline()
         for pull_number in pull_numbers:
             if pull_number is None:
                 # NOTE(sileht): even it looks not possible, this is a safeguard to ensure
@@ -702,7 +703,7 @@ class StreamProcessor:
                 # None, this method got called again and again.
                 raise RuntimeError("Got an empty pull number")
             await push(
-                self.redis_stream,
+                pipe,
                 installation.owner_id,
                 installation.owner_login,
                 repo_id,
@@ -712,6 +713,7 @@ class StreamProcessor:
                 source["data"],
                 score,
             )
+        await pipe.execute()
         return len(pull_numbers)
 
     async def _consume_pull(

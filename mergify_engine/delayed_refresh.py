@@ -74,7 +74,13 @@ async def send(
     redis_cache: utils.RedisCache,
 ) -> None:
     score = date.utcnow().timestamp()
-    for subkey in await redis_cache.zrangebyscore(DELAYED_REFRESH_KEY, "-inf", score):
+    keys = await redis_cache.zrangebyscore(DELAYED_REFRESH_KEY, "-inf", score)
+    if not keys:
+        return
+
+    pipe = await redis_stream.pipeline()
+    keys_to_delete = set()
+    for subkey in keys:
         (
             owner_id_str,
             owner_login,
@@ -97,7 +103,7 @@ async def send(
         )
 
         await worker.push(
-            redis_stream,
+            pipe,
             owner_id,
             owner_login,
             repository_id,
@@ -110,5 +116,7 @@ async def send(
                 "source": "delayed-refresh",
             },  # type: ignore[typeddict-item]
         )
+        keys_to_delete.add(subkey)
 
-        await redis_cache.zrem(DELAYED_REFRESH_KEY, subkey)
+    await pipe.execute()
+    await redis_cache.zrem(DELAYED_REFRESH_KEY, *keys_to_delete)
