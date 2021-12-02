@@ -14,12 +14,15 @@
 # under the License.
 import asyncio
 import contextlib
+import dataclasses
+import functools
 import hashlib
 import hmac
 import math
 import os
 import socket
 import ssl
+import types
 import typing
 import uuid
 
@@ -314,3 +317,49 @@ def split_list(
     while remaining:
         yield remaining[:size]
         remaining = remaining[size:]
+
+
+@dataclasses.dataclass
+class AsyncCacheWrapper(typing.Generic[_T]):
+    __wrapped__: typing.Callable[..., typing.Awaitable[_T]]
+
+    _cache: typing.Dict[typing.Hashable, _T] = dataclasses.field(
+        default_factory=dict, init=False
+    )
+    _misses: int = dataclasses.field(init=False, default=0)
+    _hits: int = dataclasses.field(init=False, default=0)
+    _sentinel: _T = dataclasses.field(default_factory=lambda: typing.cast(_T, object))
+
+    async def __call__(self, *args: typing.Hashable, **kwargs: typing.Hashable) -> _T:
+        key = functools._make_key(args, kwargs, typed=True)
+        result = self._cache.get(key, self._sentinel)
+        if result is not self._sentinel:
+            self._hits += 1
+            return result
+
+        self._misses += 1
+        result = await self.__wrapped__(*args, **kwargs)
+        self._cache[key] = result
+        return result
+
+    def cache_info(self) -> functools._CacheInfo:
+        return functools._CacheInfo(self._hits, self._misses, None, len(self._cache))  # type: ignore[arg-type]
+
+    def cache_clear(self) -> None:
+        self._cache.clear()
+        self._hits = 0
+        self._misses = 0
+
+    # NOTE(sileht): black magic to ensure __wrapper__ is bound the the original
+    # object and not this class
+    def __get__(self, instance: typing.Any, cls: typing.Any) -> "AsyncCacheWrapper[_T]":
+        if instance is None:
+            return self
+        return typing.cast("AsyncCacheWrapper[_T]", types.MethodType(self, instance))
+
+
+def async_cache(
+    user_function: typing.Callable[..., typing.Awaitable[_T]]
+) -> AsyncCacheWrapper[_T]:
+    wrapper = AsyncCacheWrapper[_T](user_function)
+    return functools.update_wrapper(wrapper, user_function)
