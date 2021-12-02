@@ -3,8 +3,6 @@ permissions: read-all
 
 on:
   pull_request_target:
-    branches-ignore:
-      - mergify/merge-queue/main/**
     types:
       - opened
       - edited
@@ -15,5 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v3.4.6
+        if: ${{ !startsWith(github.head_ref, "mergify/merge-queue/") }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
