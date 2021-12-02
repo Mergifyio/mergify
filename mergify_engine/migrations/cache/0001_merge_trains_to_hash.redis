@@ -1,0 +1,8 @@
+local trains = redis.call("KEYS", "merge-train~*~*~*")
+for idx, train in ipairs(trains) do
+    for owner_id, repo_id, ref in string.gmatch(train, "merge%-train~([^~]+)~([^~]+)~(.+)") do
+        local data = redis.call("GET", train)
+        redis.call("HSET", "merge-trains~" .. owner_id, repo_id .. "~" .. ref, data)
+        redis.call("DEL", train)
+    end
+end

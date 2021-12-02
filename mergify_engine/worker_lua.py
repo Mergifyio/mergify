@@ -13,63 +13,18 @@
 # under the License.
 
 import datetime
-import hashlib
 import typing
-import uuid
 
 import daiquiri
-import yaaredis.exceptions
 
 from mergify_engine import github_types
+from mergify_engine import redis_utils
 from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
 
-ScriptIdT = typing.NewType("ScriptIdT", uuid.UUID)
-
-SCRIPTS: typing.Dict[ScriptIdT, typing.Tuple[str, str]] = {}
-
-
-def register_script(script: str) -> ScriptIdT:
-    global SCRIPTS
-    # NOTE(sileht): We don't use sha, in case of something server side change the script sha
-    script_id = ScriptIdT(uuid.uuid4())
-    SCRIPTS[script_id] = (
-        hashlib.sha1(script.encode("utf8")).hexdigest(),  # nosec
-        script,
-    )
-    return script_id
-
-
-async def run_script(
-    redis: utils.RedisStream,
-    script_id: ScriptIdT,
-    keys: typing.Tuple[str, ...],
-    args: typing.Optional[typing.Tuple[typing.Union[str], ...]] = None,
-) -> typing.Any:
-    global SCRIPTS
-    sha, script = SCRIPTS[script_id]
-    if args is None:
-        args = keys
-    else:
-        args = keys + args
-    try:
-        return await redis.evalsha(sha, len(keys), *args)
-    except yaaredis.exceptions.NoScriptError:
-        newsha = await redis.script_load(script)
-        if newsha != sha:
-            LOG.error(
-                "wrong redis script sha cached",
-                script_id=script_id,
-                sha=sha,
-                newsha=newsha,
-            )
-            SCRIPTS[script_id] = (newsha, script)
-        return await redis.evalsha(newsha, len(keys), *args)
-
-
-PUSH_PR_SCRIPT = register_script(
+PUSH_PR_SCRIPT = redis_utils.register_script(
     """
 local bucket_key = KEYS[1]
 local bucket_sources_key = KEYS[2]
@@ -104,7 +59,7 @@ async def push_pull(
     source: str,
     score: str,
 ) -> None:
-    await run_script(
+    await redis_utils.run_script(
         redis,
         PUSH_PR_SCRIPT,
         (
@@ -119,7 +74,7 @@ async def push_pull(
     )
 
 
-REMOVE_PR_SCRIPT = register_script(
+REMOVE_PR_SCRIPT = redis_utils.register_script(
     """
 local bucket_key = KEYS[1]
 local bucket_sources_key = KEYS[2]
@@ -158,7 +113,7 @@ async def remove_pull(
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     message_ids: typing.Tuple[str, ...],
 ) -> None:
-    await run_script(
+    await redis_utils.run_script(
         redis,
         REMOVE_PR_SCRIPT,
         (
@@ -171,7 +126,7 @@ async def remove_pull(
 
 # TODO(sileht): limited to 7999 keys, should be OK for now, if we have an issue
 # just paginate the ZRANGE
-DROP_BUCKET_SCRIPT = register_script(
+DROP_BUCKET_SCRIPT = redis_utils.register_script(
     """
 local bucket_key = KEYS[1]
 local members = redis.call("ZRANGE", bucket_key, 0, -1)
@@ -188,12 +143,14 @@ async def drop_bucket(
     owner_id: github_types.GitHubAccountIdType,
     owner_login: github_types.GitHubLogin,
 ) -> None:
-    await run_script(redis, DROP_BUCKET_SCRIPT, (f"bucket~{owner_id}~{owner_login}",))
+    await redis_utils.run_script(
+        redis, DROP_BUCKET_SCRIPT, (f"bucket~{owner_id}~{owner_login}",)
+    )
 
 
 # NOTE(sileht): If the stream/buckets still have events, we update the score to
 # reschedule the pull later
-CLEAN_STREAM_SCRIPT = register_script(
+CLEAN_STREAM_SCRIPT = redis_utils.register_script(
     """
 local bucket_key = KEYS[1]
 local scheduled_at_timestamp = ARGV[1]
@@ -213,29 +170,9 @@ async def clean_org_bucket(
     owner_login: github_types.GitHubLogin,
     scheduled_at: datetime.datetime,
 ) -> None:
-    await run_script(
+    await redis_utils.run_script(
         redis,
         CLEAN_STREAM_SCRIPT,
         (f"bucket~{owner_id}~{owner_login}",),
         (str(scheduled_at.timestamp()),),
     )
-
-
-MIGRATE_TRAINS = register_script(
-    """
-local trains = redis.call("KEYS", "merge-train~*~*~*")
-for idx, train in ipairs(trains) do
-    for owner_id, repo_id, ref in string.gmatch(train, "merge%-train~([^~]+)~([^~]+)~(.+)") do
-        local data = redis.call("GET", train)
-        redis.call("HSET", "merge-trains~" .. owner_id, repo_id .. "~" .. ref, data)
-        redis.call("DEL", train)
-    end
-end
-"""
-)
-
-
-async def migrate_trains(
-    redis: utils.RedisCache,
-) -> None:
-    await run_script(redis, MIGRATE_TRAINS, ())
