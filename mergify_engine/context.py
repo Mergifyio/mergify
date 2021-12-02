@@ -311,6 +311,13 @@ class Repository(object):
                 )
             except http.HTTPNotFound:
                 continue
+            except http.HTTPForbidden as e:
+                if e.response.json().get("error", {}).get("code") == "too_large":
+                    self.log.warning(
+                        "configuration file too big, skipping it.", filename=filename
+                    )
+                    continue
+                raise
 
             yield MergifyConfigFile(
                 type=content["type"],
