@@ -61,6 +61,11 @@ class SpeculativeCheckPullRequest:
             "description": "The number of the pull request used by the speculative check"
         }
     )
+    started_at: datetime.datetime = dataclasses.field(
+        metadata={
+            "description": "The timestamp when the speculative check has started for this pull request"
+        }
+    )
 
 
 @pydantic.dataclasses.dataclass
@@ -151,6 +156,7 @@ class Queues:
                                         "speculative_check_pull_request": {
                                             "in_place": True,
                                             "number": 5678,
+                                            "started_at": "2021-10-14T14:19:12+00:00",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -170,6 +176,7 @@ class Queues:
                                         "speculative_check_pull_request": {
                                             "in_place": False,
                                             "number": 7899,
+                                            "started_at": "2021-10-14T14:19:12+00:00",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -228,7 +235,9 @@ async def repository_queues(
                     speculative_check_pull_request = None
                 elif car.creation_state == "updated":
                     speculative_check_pull_request = SpeculativeCheckPullRequest(
-                        in_place=True, number=embarked_pull.user_pull_request_number
+                        in_place=True,
+                        number=embarked_pull.user_pull_request_number,
+                        started_at=car.creation_date,
                     )
                 elif car.creation_state == "created":
                     if car.queue_pull_request_number is None:
@@ -236,7 +245,9 @@ async def repository_queues(
                             "car state is created, but queue_pull_request_number is None"
                         )
                     speculative_check_pull_request = SpeculativeCheckPullRequest(
-                        in_place=False, number=car.queue_pull_request_number
+                        in_place=False,
+                        number=car.queue_pull_request_number,
+                        started_at=car.creation_date,
                     )
                 elif car.creation_state == "failed":
                     speculative_check_pull_request = None
