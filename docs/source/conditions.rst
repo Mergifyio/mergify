@@ -201,7 +201,9 @@ Here's the list of pull request attribute that can be used in conditions:
      - The list of commit messages of the pull request.
    * - ``queue-position``
      - integer
-     - The position of the pull request in its queue if queued. The value is set to ``-1`` if the pull request is not queued.
+     - The position of the pull request in its queue if queued. The first pull
+       request in the queue has position ``0``. The value is set to ``-1`` if
+       the pull request is not queued.
    * - ``commits-behind``
      - list of string
      - The list of commits sha between the head of the base branch and the base
