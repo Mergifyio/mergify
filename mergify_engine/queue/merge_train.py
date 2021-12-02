@@ -123,6 +123,7 @@ class TrainCar:
     still_queued_embarked_pulls: typing.List[EmbarkedPull]
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     initial_current_base_sha: github_types.SHAType
+    creation_date: datetime.datetime = dataclasses.field(default_factory=date.utcnow)
     creation_state: TrainCarState = "pending"
     checks_conclusion: check_api.Conclusion = check_api.Conclusion.PENDING
     queue_pull_request_number: typing.Optional[
@@ -139,6 +140,7 @@ class TrainCar:
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
         initial_current_base_sha: github_types.SHAType
         checks_conclusion: check_api.Conclusion
+        creation_date: datetime.datetime
         creation_state: TrainCarState
         queue_pull_request_number: typing.Optional[github_types.GitHubPullRequestNumber]
         # mymy can't parse recursive definition, yet
@@ -151,6 +153,7 @@ class TrainCar:
             still_queued_embarked_pulls=self.still_queued_embarked_pulls,
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
+            creation_date=self.creation_date,
             creation_state=self.creation_state,
             checks_conclusion=self.checks_conclusion,
             queue_pull_request_number=self.queue_pull_request_number,
@@ -195,12 +198,18 @@ class TrainCar:
         else:
             failure_history = []
 
+        if "creation_date" in data:
+            creation_date = data["creation_date"]
+        else:
+            creation_date = date.utcnow()
+
         car = cls(
             train,
             initial_embarked_pulls=initial_embarked_pulls,
             still_queued_embarked_pulls=still_queued_embarked_pulls,
             parent_pull_request_numbers=data["parent_pull_request_numbers"],
             initial_current_base_sha=data["initial_current_base_sha"],
+            creation_date=creation_date,
             creation_state=creation_state,
             checks_conclusion=data.get(
                 "checks_conclusion", check_api.Conclusion.PENDING
