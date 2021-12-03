@@ -822,9 +822,14 @@ class Worker:
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
     enabled_services: typing.Set[
-        typing.Literal["stream", "stream-monitoring", "delayed-refresh"]
+        typing.Literal["stream", "stream-monitoring", "delayed-refresh", "signals"]
     ] = dataclasses.field(
-        default_factory=lambda: {"stream", "stream-monitoring", "delayed-refresh"}
+        default_factory=lambda: {
+            "stream",
+            "stream-monitoring",
+            "delayed-refresh",
+            "signals",
+        }
     )
     monitoring_idle_time: float = 60
     delayed_refresh_idle_time: float = 60
@@ -844,6 +849,9 @@ class Worker:
         init=False, default_factory=asyncio.Event
     )
 
+    _signals_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
+        init=False, default_factory=list
+    )
     _shared_worker_tasks: typing.List[asyncio.Task[None]] = dataclasses.field(
         init=False, default_factory=list
     )
@@ -1073,6 +1081,11 @@ class Worker:
             )
             LOG.info("dedicated worker spawner started")
 
+        if "signals" in self.enabled_services:
+            LOG.info("signal flush tasks starting")
+            self._signals_tasks = signals.start()
+            LOG.info("signal flush tasks started")
+
         if "delayed-refresh" in self.enabled_services:
             LOG.info("delayed refresh starting")
             self._delayed_refresh_task = asyncio.create_task(
@@ -1167,11 +1180,17 @@ class Worker:
 
     async def _shutdown(self) -> None:
         LOG.info("shutdown start")
+
+        LOG.info("shutting down signal tasks")
+        await signals.stop()
+        LOG.info("shut down signal tasks")
+
         tasks = []
         if self._dedicated_workers_spawner_task is not None:
             tasks.append(self._dedicated_workers_spawner_task)
         tasks.extend(self._shared_worker_tasks)
         tasks.extend(self._dedicated_worker_tasks.values())
+        tasks.extend(self._signals_tasks)
         if self._delayed_refresh_task is not None:
             tasks.append(self._delayed_refresh_task)
         if self._stream_monitoring_task is not None:

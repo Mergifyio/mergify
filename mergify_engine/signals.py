@@ -13,6 +13,7 @@
 # under the License.
 
 import abc
+import asyncio
 import importlib
 import pkgutil
 import typing
@@ -47,10 +48,6 @@ EventName = typing.Literal[
 ]
 
 SignalMetadata = typing.Dict[str, typing.Union[str, int, float, bool]]
-SignalT = typing.Callable[
-    [context.Context, EventName, typing.Optional[SignalMetadata]],
-    typing.Coroutine[None, None, None],
-]
 
 
 class SignalBase(abc.ABC):
@@ -63,9 +60,14 @@ class SignalBase(abc.ABC):
     ) -> None:
         pass
 
+    async def start(self) -> None:
+        pass
 
-global SIGNALS
-SIGNALS: typing.Dict[str, SignalT] = {}
+    async def stop(self) -> None:
+        pass
+
+
+SIGNALS: typing.Dict[str, SignalBase] = {}
 
 
 def setup() -> None:
@@ -83,6 +85,21 @@ def setup() -> None:
             SIGNALS[mod.name] = importlib.import_module(mod.name).Signal()  # type: ignore
         except ImportError:
             LOG.error("failed to load signal: %s", mod.name, exc_info=True)
+
+
+def start() -> typing.List[asyncio.Task[None]]:
+    return [
+        asyncio.create_task(
+            sig.start(),
+            name=f"signals {name}",
+        )
+        for name, sig in SIGNALS.items()
+    ]
+
+
+async def stop() -> None:
+    for sig in SIGNALS.values():
+        await sig.stop()
 
 
 async def send(

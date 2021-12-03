@@ -17,6 +17,7 @@ import dataclasses
 import datetime
 import json
 import time
+import typing
 from unittest import mock
 
 from freezegun import freeze_time
@@ -28,6 +29,7 @@ from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import logs
+from mergify_engine import signals
 from mergify_engine import worker
 from mergify_engine import worker_lua
 from mergify_engine.clients import github_app
@@ -64,7 +66,7 @@ def fake_get_installation_from_account_id(
     }
 
 
-async def run_worker(test_timeout=10, **kwargs):
+async def run_worker(test_timeout: int = 10, **kwargs: typing.Any) -> None:
     w = worker.Worker(
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
@@ -1371,3 +1373,36 @@ async def test_dedicated_worker_scaleup_scaledown(
 
     w.stop()
     await w.wait_shutdown_complete()
+
+
+@pytest.mark.asyncio
+async def test_signals() -> None:
+    class TestSignal(signals.SignalBase):
+        def __init__(self) -> None:
+            self.started = False
+            self.stopped = False
+            self._stop = asyncio.Event()
+
+        async def __call__(
+            self,
+            ctxt: context.Context,
+            event: signals.EventName,
+            metadata: typing.Optional[signals.SignalMetadata],
+        ) -> None:
+            pass
+
+        async def start(self) -> None:
+            self.started = True
+            while not self._stop:
+                pass
+
+        async def stop(self) -> None:
+            self._stop.set()
+            self.stopped = True
+
+    sig = signals.SIGNALS["test"] = TestSignal()
+
+    await run_worker()
+
+    assert sig.started
+    assert sig.stopped
