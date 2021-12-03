@@ -88,7 +88,9 @@ async def render_bot_account(
     if required_permissions:
         try:
             user = await ctxt.repository.installation.get_user(bot_account)
-            permission = await ctxt.repository.get_user_permission(user)
+            permission = await ctxt.repository.get_user_permission(
+                user["id"], user["login"]
+            )
         except http.HTTPNotFound:
             raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,
