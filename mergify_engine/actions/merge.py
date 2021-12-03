@@ -15,6 +15,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import enum
 import typing
 
 import daiquiri
@@ -35,6 +36,37 @@ from mergify_engine.rules import types
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+# NOTE(sileht): Sentinel object (eg: `marker = object()`) can't be expressed
+# with typing yet use the proposed workaround instead:
+#   https://github.com/python/typing/issues/689
+#   https://www.python.org/dev/peps/pep-0661/
+class _UnsetMarker(enum.Enum):
+    _MARKER = 0
+
+
+UnsetMarker: typing.Final = _UnsetMarker._MARKER
+
+DEPRECATED_STRICT_MODE = """The configuration uses the deprecated `strict` mode of the merge action.
+A brownout is planned for the whole December 6th, 2021 day.
+This option will be removed on January 10th, 2022.
+For more information: https://blog.mergify.com/strict-mode-deprecation/
+
+`%s` is invalid"""
+
+
+def DeprecatedOption(
+    message: str,
+    default: typing.Any,
+) -> typing.Callable[[typing.Any], typing.Any]:
+    def validator(v: typing.Any) -> typing.Any:
+        if v is UnsetMarker:
+            return default
+        else:
+            raise voluptuous.Invalid(message % v)
+
+    return validator
 
 
 class MergeAction(merge_base.MergeBaseAction):
@@ -77,6 +109,18 @@ class MergeAction(merge_base.MergeBaseAction):
         voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
     }
 
+    validator_strict_mode_deprecated = {
+        voluptuous.Required("strict", default=UnsetMarker): DeprecatedOption(
+            DEPRECATED_STRICT_MODE, False
+        ),
+        voluptuous.Required("strict_method", default=UnsetMarker): DeprecatedOption(
+            DEPRECATED_STRICT_MODE, "merge"
+        ),
+        voluptuous.Required(
+            "update_bot_account", default=UnsetMarker
+        ): DeprecatedOption(DEPRECATED_STRICT_MODE, None),
+    }
+
     @classmethod
     def get_config_schema(
         cls, partial_validation: bool
@@ -84,6 +128,8 @@ class MergeAction(merge_base.MergeBaseAction):
         schema = cls.validator_default.copy()
         if config.ALLOW_MERGE_STRICT_MODE:
             schema.update(cls.validator_strict_mode)
+        else:
+            schema.update(cls.validator_strict_mode_deprecated)
         if config.ALLOW_COMMIT_MESSAGE_OPTION:
             schema.update(cls.validator_commit_message_mode)
         return schema

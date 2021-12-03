@@ -489,6 +489,32 @@ class TestMergeAction(base.FunctionalTestBase):
         assert len(await q.get_pulls()) == 0
 
     @mock.patch.object(config, "ALLOW_MERGE_STRICT_MODE", False)
+    async def test_no_strict_mode_brownout(self):
+
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=high",
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"merge": {"priority": "high"}},
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, _ = await self.create_pr()
+        await self.run_engine()
+
+        checks = await context.Context(self.repository_ctxt, p).pull_engine_check_runs
+        assert len(checks) == 1
+        assert "success" == checks[0]["conclusion"]
+        assert "A brownout is planned" not in checks[0]["output"]["summary"]
+
+    @mock.patch.object(config, "ALLOW_MERGE_STRICT_MODE", False)
     async def test_strict_mode_brownout(self):
 
         rules = {
@@ -515,10 +541,13 @@ class TestMergeAction(base.FunctionalTestBase):
         assert len(checks) == 1
         assert "failure" == checks[0]["conclusion"]
         assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
-        assert (
-            "extra keys not allowed @ pull_request_rules → item 0 → actions → merge → strict"
-            == checks[0]["output"]["summary"]
-        )
+        expected_error = """The configuration uses the deprecated `strict` mode of the merge action.
+A brownout is planned for the whole December 6th, 2021 day.
+This option will be removed on January 10th, 2022.
+For more information: https://blog.mergify.com/strict-mode-deprecation/
+
+`smart+ordered` is invalid for dictionary value @ pull_request_rules → item 0 → actions → merge → strict"""
+        assert expected_error == checks[0]["output"]["summary"]
 
     @mock.patch.object(config, "ALLOW_COMMIT_MESSAGE_OPTION", False)
     async def test_commit_message_brownout(self):
