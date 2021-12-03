@@ -51,8 +51,11 @@ pull_request_rules:
       - base=main
       - author=@devs
       - check-success=semantic-pull-request
-      - body~=(?m)^Fixes MERGIFY-ENGINE-
       - label=hotfix
+      - or:
+          # We authorize hotfix to go through if they fix a sentry
+          - body~=(?m)^Fixes MERGIFY-ENGINE-
+          - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
       - "#commits=1"
       - label!=work-in-progress
