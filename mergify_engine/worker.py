@@ -167,14 +167,10 @@ async def push(
     with tracer.trace(
         "push event",
         span_type="worker",
-        resource=f"{owner_id}/{repo_id}/{pull_number}",
+        resource=f"{owner_login}/{repo_name}/{pull_number}",
     ) as span:
         span.set_tags(
-            {
-                "gh_owner_id": owner_id,
-                "gh_repo_id": repo_id,
-                "gh_pull": pull_number,
-            }
+            {"gh_owner": owner_login, "gh_repo": repo_name, "gh_pull": pull_number}
         )
         now = date.utcnow()
         event = msgpack.packb(
@@ -204,8 +200,8 @@ async def push(
         )
         LOG.debug(
             "pushed to worker",
-            gh_owner_id=owner_id,
-            gh_repo_id=repo_id,
+            gh_owner=owner_login,
+            gh_repo=repo_name,
             gh_pull=pull_number,
             event_type=event_type,
         )
@@ -220,8 +216,8 @@ async def run_engine(
 ) -> None:
     logger = daiquiri.getLogger(
         __name__,
-        gh_owner_id=installation.owner_id,
-        gh_repo_id=repo_id,
+        gh_repo=repo_name,
+        gh_owner=installation.owner_login,
         gh_pull=pull_number,
     )
     logger.debug("engine in thread start")
@@ -402,7 +398,7 @@ class StreamProcessor:
         owner_id: github_types.GitHubAccountIdType,
         owner_login: github_types.GitHubLogin,
     ) -> None:
-        LOG.debug("consuming org bucket", gh_owner_id=owner_id)
+        LOG.debug("consuming org bucket", gh_owner=owner_login)
 
         try:
             async with self._translate_exception_to_retries(org_bucket_name):
@@ -439,7 +435,7 @@ class StreamProcessor:
             )
         except OrgBucketUnused:
             LOG.info(
-                "unused org bucket, dropping it", gh_owner_id=owner_id, exc_info=True
+                "unused org bucket, dropping it", gh_owner=owner_login, exc_info=True
             )
             try:
                 await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
@@ -459,13 +455,13 @@ class StreamProcessor:
                 "failed to process org bucket, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
-                gh_owner_id=owner_id,
+                gh_owner=owner_login,
                 exc_info=True,
             )
             return
         except vcr_errors_CannotOverwriteExistingCassetteException:
             LOG.error(
-                "failed to process org bucket", gh_owner_id=owner_id, exc_info=True
+                "failed to process org bucket", gh_owner=owner_login, exc_info=True
             )
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
@@ -481,7 +477,7 @@ class StreamProcessor:
         except Exception:
             # Ignore it, it will retried later
             LOG.error(
-                "failed to process org bucket", gh_owner_id=owner_id, exc_info=True
+                "failed to process org bucket", gh_owner=owner_login, exc_info=True
             )
 
         LOG.debug("cleanup org bucket start", org_bucket_name=org_bucket_name)
@@ -537,7 +533,7 @@ class StreamProcessor:
             LOG.debug(
                 "org bucket contains %d pulls",
                 len(bucket_sources_keys),
-                gh_owner_id=installation.owner_id,
+                gh_owner=installation.owner_login,
             )
             for bucket_sources_key, _bucket_score in bucket_sources_keys:
                 (
@@ -562,8 +558,8 @@ class StreamProcessor:
 
             logger = daiquiri.getLogger(
                 __name__,
-                gh_owner_id=installation.owner_id,
-                gh_repo_id=repo_id,
+                gh_owner=installation.owner_login,
+                gh_repo=repo_name,
                 gh_pull=pull_number,
             )
 
@@ -646,9 +642,9 @@ class StreamProcessor:
                     with tracer.trace(
                         "pull processing",
                         span_type="worker",
-                        resource=f"{installation.owner_id}/{repo_id}/{pull_number}",
+                        resource=f"{installation.owner_login}/{repo_name}/{pull_number}",
                     ) as span:
-                        span.set_tags({"gh_repo_id": repo_id, "gh_pull": pull_number})
+                        span.set_tags({"gh_repo": repo_name, "gh_pull": pull_number})
                         await self._consume_pull(
                             bucket_key,
                             installation,
@@ -743,8 +739,8 @@ class StreamProcessor:
 
         logger = daiquiri.getLogger(
             __name__,
-            gh_owner_id=installation.owner_id,
-            gh_repo_id=repo_id,
+            gh_repo=repo_name,
+            gh_owner=installation.owner_login,
             gh_pull=pull_number,
         )
 
@@ -922,9 +918,9 @@ class Worker:
                 with tracer.trace(
                     "org bucket processing",
                     span_type="worker",
-                    resource=str(owner_id),
+                    resource=owner_login,
                 ) as span:
-                    span.set_tag("gh_owner_id", owner_id)
+                    span.set_tag("gh_owner", owner_login)
                     await stream_processor.consume(
                         org_bucket_name, owner_id, owner_login
                     )

@@ -55,7 +55,7 @@ async def marketplace_handler(
         event_type=event_type,
         event_id=event_id,
         sender=data["sender"]["login"],
-        gh_owner_id=data["marketplace_purchase"]["account"]["id"],
+        gh_owner=data["marketplace_purchase"]["account"]["login"],
     )
 
     await subscription.Subscription.delete_subscription(
@@ -83,7 +83,7 @@ async def marketplace_handler(
                 event_type=event_type,
                 event_id=event_id,
                 sender=data["sender"]["login"],
-                gh_owner_id=data["marketplace_purchase"]["account"]["id"],
+                gh_owner=data["marketplace_purchase"]["account"]["login"],
             )
 
     return responses.Response("Event queued", status_code=202)

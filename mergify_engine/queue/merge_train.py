@@ -952,7 +952,7 @@ class Train(queue.QueueBase):
             except http.HTTPNotFound:
                 LOG.warning(
                     "repository with active merge-queue is unaccessible, deleting merge-queue",
-                    gh_owner_id=installation.owner_id,
+                    gh_owner=installation.owner_login,
                     gh_repo_id=repo_id,
                 )
                 await installation.redis.hdel(trains_key, key)
@@ -1009,8 +1009,8 @@ class Train(queue.QueueBase):
     def log(self):
         return daiquiri.getLogger(
             __name__,
-            gh_owner_id=self.repository.installation.owner_id,
-            gh_repo_id=self.repository.repo["id"],
+            gh_owner=self.repository.installation.owner_login,
+            gh_repo=self.repository.repo["name"],
             gh_branch=self.ref,
             train_cars=[
                 [ep.user_pull_request_number for ep in c.still_queued_embarked_pulls]

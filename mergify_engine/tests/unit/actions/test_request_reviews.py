@@ -215,16 +215,15 @@ async def prepare_context(client, redis_cache, subscribed=True):
                 "sha": "sha",
                 "ref": "main",
                 "user": {
-                    "id": 1234,
-                    "login": "Mergifyio",
+                    "login": {
+                        "Mergifyio",
+                    },
                 },
                 "repo": {
-                    "id": 1234,
                     "full_name": "Mergifyio/demo",
                     "name": "demo",
                     "private": False,
                     "owner": {
-                        "id": 1234,
                         "login": "Mergifyio",
                     },
                 },
