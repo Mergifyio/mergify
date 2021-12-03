@@ -90,7 +90,7 @@ def permissions_need_to_be_updated(
         if installation["permissions"].get(perm_name) != perm_level:
             LOG.debug(
                 "The Mergify installation doesn't have the required permissions",
-                gh_owner_id=installation["account"]["id"],
+                gh_owner=installation["account"]["login"],
                 permissions=installation["permissions"],
             )
             # FIXME(sileht): Looks like ton of people have not all permissions

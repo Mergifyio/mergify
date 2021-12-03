@@ -96,8 +96,8 @@ async def send(
 
         LOG.info(
             "sending delayed pull request refresh",
-            gh_owner_id=owner_id,
-            gh_repo_id=repository_id,
+            gh_owner=owner_login,
+            gh_repo=repository_name,
             action="internal",
             source="delayed-refresh",
         )

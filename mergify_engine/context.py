@@ -258,8 +258,8 @@ class Repository(object):
     def __post_init__(self) -> None:
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
-            gh_owner_id=self.installation.owner_id,
-            gh_repo_id=self.repo["id"],
+            gh_owner=self.installation.owner_login,
+            gh_repo=self.repo["name"],
             gh_private=self.repo["private"],
         )
 
@@ -744,11 +744,13 @@ class Context(object):
 
         self.log = daiquiri.getLogger(
             self.__class__.__qualname__,
-            gh_owner_id=self.pull["base"]["user"]["id"]
+            gh_owner=self.pull["base"]["user"]["login"]
             if "base" in self.pull
-            else None,
-            gh_repo_id=(
-                self.pull["base"]["repo"]["id"] if "base" in self.pull else None
+            else "<unknown-yet>",
+            gh_repo=(
+                self.pull["base"]["repo"]["name"]
+                if "base" in self.pull
+                else "<unknown-yet>"
             ),
             gh_private=(
                 self.pull["base"]["repo"]["private"]

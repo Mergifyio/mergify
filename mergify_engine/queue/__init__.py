@@ -76,8 +76,8 @@ class QueueBase(abc.ABC):
     def log(self):
         return daiquiri.getLogger(
             __name__,
-            gh_owner_id=self.repository.installation.owner_id,
-            gh_repo_id=self.repository.repo["id"],
+            gh_owner=self.repository.installation.owner_login,
+            gh_repo=self.repository.repo["name"],
             gh_branch=self.ref,
         )
 
