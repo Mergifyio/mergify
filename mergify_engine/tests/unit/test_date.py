@@ -143,3 +143,58 @@ def test_time_compare():
 )
 def test_day_of_week_from_string(dow, expected_string):
     assert str(date.DayOfWeek.from_string(dow)) == expected_string
+
+
+@pytest.mark.parametrize(
+    "string,expected_value",
+    [
+        ("7 days ago", "2021-09-15T08:00:05"),
+        ("7 days 2:05 ago", "2021-09-15T05:55:05"),
+        ("2:05 ago", "2021-09-22T05:55:05"),
+    ],
+)
+def test_relative_datetime_from_string(string, expected_value):
+    with freeze_time("2021-09-22T08:00:05", tz_offset=0):
+        dt = date.RelativeDatetime.from_string(string)
+        assert dt.value == date.fromisoformat(expected_value)
+
+
+@pytest.mark.parametrize(
+    "time,expected_hour,expected_minute,expected_tzinfo",
+    [
+        ("10:00", 10, 0, datetime.timezone.utc),
+        ("11:22[Europe/Paris]", 11, 22, zoneinfo.ZoneInfo("Europe/Paris")),
+    ],
+)
+def test_time_from_string(time, expected_hour, expected_minute, expected_tzinfo):
+    t = date.Time.from_string(time)
+    assert t.hour == expected_hour
+    assert t.minute == expected_minute
+    assert t.tzinfo == expected_tzinfo
+
+
+@pytest.mark.parametrize(
+    "date_type,value,expected_message",
+    [
+        (date.Day, "foobar", "foobar is not a number"),
+        (date.Month, "foobar", "foobar is not a number"),
+        (date.Year, "foobar", "foobar is not a number"),
+        (date.DayOfWeek, "foobar", "foobar is not a number or literal day of the week"),
+        (date.Day, "64", "Day must be between 1 and 31"),
+        (date.Month, "34", "Month must be between 1 and 12"),
+        (date.Year, "1500", "Year must be between 2000 and 9999"),
+        (date.DayOfWeek, "9", "Day of the week must be between 1 and 7"),
+        (date.Time, "10:20[Invalid]", "Invalid timezone"),
+        (date.Time, "36:20", "Hour must be between 0 and 23"),
+        (date.Time, "16:120", "Minute must be between 0 and 59"),
+        (date.Time, "36", "Invalid time"),
+        (date.RelativeDatetime, "36 ago", "Invalid relative date"),
+        (date.RelativeDatetime, "36 days", "Invalid relative date"),
+        (date.RelativeDatetime, "10:20", "Invalid relative date"),
+    ],
+)
+def test_invalid_date_string(date_type, value, expected_message):
+    with pytest.raises(date.InvalidDate) as exc:
+        date_type.from_string(value)
+
+    assert exc.value.message == expected_message

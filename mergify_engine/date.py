@@ -16,11 +16,31 @@
 import dataclasses
 import datetime
 import functools
+import re
 import typing
 import zoneinfo
 
 
 DT_MAX = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+
+
+@dataclasses.dataclass
+class InvalidDate(Exception):
+    message: str
+
+
+TIMEZONES = {f"[{tz}]" for tz in zoneinfo.available_timezones()}
+
+
+def extract_timezone(
+    value: str,
+) -> typing.Tuple[str, typing.Union[datetime.timezone, zoneinfo.ZoneInfo]]:
+    if value[-1] == "]":
+        for timezone in TIMEZONES:
+            if value.endswith(timezone):
+                return value[: -len(timezone)], zoneinfo.ZoneInfo(timezone[1:-1])
+        raise InvalidDate("Invalid timezone")
+    return value, datetime.timezone.utc
 
 
 def utcnow() -> datetime.datetime:
@@ -34,26 +54,72 @@ class PartialDatetime:
     def __str__(self) -> str:
         return str(self.value)
 
+    @classmethod
+    def from_string(cls, value: str) -> "PartialDatetime":
+        try:
+            number = int(value)
+        except ValueError:
+            raise InvalidDate(f"{value} is not a number")
+        return cls(number)
+
+
+class TimedeltaRegexResultT(typing.TypedDict):
+    days: typing.Optional[str]
+    hours: typing.Optional[str]
+    minutes: typing.Optional[str]
+
 
 @dataclasses.dataclass(order=True)
 class RelativeDatetime:
     # NOTE(sileht): Like a datetime, but we known it has been computed from `utcnow() + timedelta()`
     value: datetime.datetime
 
+    # PostgreSQL's day-time interval format without seconds and microseconds, e.g. "3 days 04:05"
+    _TIMEDELTA_TO_NOW_RE: typing.ClassVar[typing.Pattern[str]] = re.compile(
+        r"^"
+        r"(?:(?P<days>\d+) (days? ?))?"
+        r"(?:"
+        r"(?P<hours>\d+):"
+        r"(?P<minutes>\d\d)"
+        r")? ago$"
+    )
+
+    @classmethod
+    def from_string(cls, value: str) -> "RelativeDatetime":
+        m = cls._TIMEDELTA_TO_NOW_RE.match(value)
+        if m is None:
+            raise InvalidDate("Invalid relative date")
+
+        kw = typing.cast(TimedeltaRegexResultT, m.groupdict())
+        return cls(
+            utcnow()
+            - datetime.timedelta(
+                days=int(kw["days"] or 0),
+                hours=int(kw["hours"] or 0),
+                minutes=int(kw["minutes"] or 0),
+            )
+        )
+
 
 @dataclasses.dataclass
 class Year(PartialDatetime):
-    pass
+    def __post_init__(self):
+        if self.value < 2000 or self.value > 9999:
+            raise InvalidDate("Year must be between 2000 and 9999")
 
 
 @dataclasses.dataclass
 class Month(PartialDatetime):
-    pass
+    def __post_init__(self):
+        if self.value < 1 or self.value > 12:
+            raise InvalidDate("Month must be between 1 and 12")
 
 
 @dataclasses.dataclass
 class Day(PartialDatetime):
-    pass
+    def __post_init__(self):
+        if self.value < 1 or self.value > 31:
+            raise InvalidDate("Day must be between 1 and 31")
 
 
 @functools.total_ordering
@@ -62,6 +128,29 @@ class Time:
     hour: int
     minute: int
     tzinfo: datetime.tzinfo
+
+    @classmethod
+    def from_string(cls, string: str) -> "Time":
+        value, tzinfo = extract_timezone(string)
+        hour_str, sep, minute_str = value.partition(":")
+        if sep != ":":
+            raise InvalidDate("Invalid time")
+        try:
+            hour = int(hour_str)
+        except ValueError:
+            raise InvalidDate(f"{hour_str} is not a number")
+        try:
+            minute = int(minute_str)
+        except ValueError:
+            raise InvalidDate(f"{minute_str} is not a number")
+
+        return cls(hour=hour, minute=minute, tzinfo=tzinfo)
+
+    def __post_init__(self):
+        if self.hour < 0 or self.hour >= 24:
+            raise InvalidDate("Hour must be between 0 and 23")
+        elif self.minute < 0 or self.minute >= 60:
+            raise InvalidDate("Minute must be between 0 and 59")
 
     def __str__(self) -> str:
         value = f"{self.hour:02d}:{self.minute:02d}"
@@ -126,7 +215,15 @@ class DayOfWeek(PartialDatetime):
             return cls(cls._LONG_DAY.index(string.lower()) + 1)
         except ValueError:
             pass
-        return cls(int(string))
+        try:
+            dow = int(string)
+        except ValueError:
+            raise InvalidDate(f"{string} is not a number or literal day of the week")
+        return cls(dow)
+
+    def __post_init__(self):
+        if self.value < 1 or self.value > 7:
+            raise InvalidDate("Day of the week must be between 1 and 7")
 
     def __str__(self) -> str:
         return self._SHORT_DAY[self.value - 1].capitalize()
@@ -141,6 +238,16 @@ def fromisoformat(s: str) -> datetime.datetime:
         return dt.replace(tzinfo=datetime.timezone.utc)
     else:
         return dt.astimezone(datetime.timezone.utc)
+
+
+def fromisoformat_with_zoneinfo(string: str) -> datetime.datetime:
+    value, tzinfo = extract_timezone(string)
+    try:
+        # TODO(sileht): astimezone doesn't look logic, but keep the
+        # same behavior as the old parse for now
+        return fromisoformat(value).astimezone(tzinfo)
+    except ValueError:
+        raise InvalidDate("Invalid timestamp")
 
 
 def fromtimestamp(timestamp: float) -> datetime.datetime:

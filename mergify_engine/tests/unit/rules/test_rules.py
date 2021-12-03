@@ -923,7 +923,7 @@ unacceptable character #x0004: special characters are not allowed
         ),
         (
             {"name": "invalid regexp", "conditions": ["head~=(lol"], "actions": {}},
-            r"Invalid condition 'head~=\(lol'. Invalid arguments: "
+            r"Invalid condition 'head~=\(lol'. Invalid regular expression: "
             r"missing \), "
             r"unterminated subpattern at position 0 @ ",
         ),
@@ -1818,9 +1818,9 @@ pull_request_rules:
 
     assert (
         str(e.value)
-        == """* Invalid condition 'author=dependabot[bot] - status-success=Travis CI - Pull Request'. Expected end of text, found '-'  (at char 23), (line:1, col:24) @ pull_request_rules → item 0 → conditions → item 0
+        == """* Invalid condition 'author=dependabot[bot] - status-success=Travis CI - Pull Request'. Invalid GitHub login @ pull_request_rules → item 0 → conditions → item 0
 ```
-Expected end of text, found '-'  (at char 23), (line:1, col:24)
+Invalid GitHub login
 ```
 * expected a dictionary for dictionary value @ pull_request_rules → item 0 → actions
 * extra keys not allowed @ pull_request_rules → item 0 → merge"""

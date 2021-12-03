@@ -57,13 +57,13 @@ class RuleCondition:
         self.condition = condition_raw
         try:
             if isinstance(condition_raw, str):
-                condition = parser.search.parseString(condition_raw, parseAll=True)[0]
+                condition = parser.parse(condition_raw)
             else:
                 condition = condition_raw
             self.partial_filter = filter.BinaryFilter(
                 typing.cast(filter.TreeT, condition)
             )
-        except (parser.pyparsing.ParseException, filter.InvalidQuery) as e:
+        except (parser.ConditionParsingError, filter.InvalidQuery) as e:
             raise voluptuous.Invalid(
                 message=f"Invalid condition '{condition_raw}'. {str(e)}",
                 error_message=str(e),
