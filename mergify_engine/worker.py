@@ -936,6 +936,7 @@ class Worker:
                     org_bucket_name,
                 )
 
+    @tracer.wrap("monitoring task", span_type="worker")
     async def monitoring_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
@@ -1025,6 +1026,7 @@ class Worker:
                 tags=[f"worker_id:{worker_id}"],
             )
 
+    @tracer.wrap("delayed_refresh_task", span_type="worker")
     async def delayed_refresh_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
@@ -1127,6 +1129,7 @@ class Worker:
 
         LOG.debug("%s task exited", task_name)
 
+    @tracer.wrap("dedicated_workers_spawner_task", span_type="worker")
     async def dedicated_workers_spawner_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
