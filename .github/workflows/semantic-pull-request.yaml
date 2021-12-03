@@ -13,6 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v3.4.6
-        if: ${{ !startsWith(github.head_ref, "mergify/merge-queue/") }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "testing merge queue filter"
+        run: |
+          echo "The head ref is: ${{ github.head_ref }}"
+          echo "The other head ref is: ${{ github.event.head.ref }}"
+
+      - name: "testing merge queue filter (github.head_ref)"
+        if: ${{ !startsWith(github.head_ref, "mergify/merge-queue/") }}
+        run: |
+          echo "I'm not a merge-queue PR (github.head_ref)'
+
+
+      - name: "testing merge queue filter (github.event.head.ref)"
+        if: ${{ !startsWith(github.event.head.ref, "mergify/merge-queue/") }}
+        run: |
+          echo "I'm not a merge-queue PR (github.event.head.ref)'
