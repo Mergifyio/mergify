@@ -85,9 +85,6 @@ class Installation:
         default=None, repr=False
     )
 
-    def __hash__(self) -> int:
-        return hash(self.installation["id"])
-
     @property
     def owner_id(self) -> github_types.GitHubAccountIdType:
         return self.installation["account"]["id"]
@@ -208,7 +205,6 @@ class Installation:
     ) -> None:
         await redis.delete(cls._team_members_cache_key_for_repo(user["id"]))
 
-    @utils.async_cache
     async def get_team_members(
         self, team_slug: github_types.GitHubTeamSlug
     ) -> typing.List[github_types.GitHubLogin]:
@@ -266,9 +262,6 @@ class Repository(object):
             gh_repo_id=self.repo["id"],
             gh_private=self.repo["private"],
         )
-
-    def __hash__(self) -> int:
-        return hash(self.repo["id"])
 
     @property
     def base_url(self) -> str:
@@ -472,32 +465,30 @@ class Repository(object):
             await pipeline.delete(key)
         await pipeline.execute()
 
-    @utils.async_cache
     async def get_user_permission(
         self,
-        user_id: github_types.GitHubAccountIdType,
-        user_login: github_types.GitHubLogin,
+        user: github_types.GitHubAccount,
     ) -> github_types.GitHubRepositoryPermission:
         key = self._users_permission_cache_key
         permission = typing.cast(
             typing.Optional[github_types.GitHubRepositoryPermission],
-            await self.installation.redis.hget(key, user_id),
+            await self.installation.redis.hget(key, user["id"]),
         )
         if permission is None:
             permission = typing.cast(
                 github_types.GitHubRepositoryCollaboratorPermission,
                 await self.installation.client.item(
-                    f"{self.base_url}/collaborators/{user_login}/permission"
+                    f"{self.base_url}/collaborators/{user['login']}/permission"
                 ),
             )["permission"]
             pipe = await self.installation.redis.pipeline()
-            await pipe.hset(key, user_id, permission)
+            await pipe.hset(key, user["id"], permission)
             await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
             await pipe.execute()
         return permission
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
-        permission = await self.get_user_permission(user["id"], user["login"])
+        permission = await self.get_user_permission(user)
         return permission in ("admin", "maintain", "write")
 
     TEAMS_PERMISSION_CACHE_KEY_PREFIX = "teams_permission"
@@ -560,7 +551,6 @@ class Repository(object):
             await pipeline.delete(key)
         await pipeline.execute()
 
-    @utils.async_cache
     async def team_has_read_permission(self, team: github_types.GitHubTeamSlug) -> bool:
         key = self._teams_permission_cache_key
         read_permission_raw = await self.installation.redis.hget(key, team)
