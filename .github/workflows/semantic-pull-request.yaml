@@ -22,12 +22,12 @@ jobs:
           echo "The other head ref is: ${{ github.event.head.ref }}"
 
       - name: "testing merge queue filter (github.head_ref)"
-        if: ${{ !startsWith(github.head_ref, "mergify/merge-queue/") }}
+        if: ${{ !startsWith(github.head_ref, 'mergify/merge-queue/') }}
         run: |
-          echo "I'm not a merge-queue PR (github.head_ref)'
+          echo "I'm not a merge-queue PR (github.head_ref)"
 
 
       - name: "testing merge queue filter (github.event.head.ref)"
-        if: ${{ !startsWith(github.event.head.ref, "mergify/merge-queue/") }}
+        if: ${{ !startsWith(github.event.head.ref, 'mergify/merge-queue/') }}
         run: |
-          echo "I'm not a merge-queue PR (github.event.head.ref)'
+          echo "I'm not a merge-queue PR (github.event.head.ref)"
