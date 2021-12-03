@@ -38,6 +38,7 @@ import jinja2.utils
 import markdownify
 import tenacity
 
+from mergify_engine import cache
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
@@ -84,6 +85,13 @@ class PullRequestAttributeError(AttributeError):
 
 
 @dataclasses.dataclass
+class InstallationCaches:
+    team_members: cache.Cache[
+        github_types.GitHubTeamSlug, typing.List[github_types.GitHubLogin]
+    ] = dataclasses.field(default_factory=cache.Cache)
+
+
+@dataclasses.dataclass
 class Installation:
     installation: github_types.GitHubInstallation
     subscription: subscription_mod.Subscription = dataclasses.field(repr=False)
@@ -95,6 +103,9 @@ class Installation:
     )
     _user_tokens: typing.Optional[user_tokens.UserTokens] = dataclasses.field(
         default=None, repr=False
+    )
+    _caches: InstallationCaches = dataclasses.field(
+        default_factory=InstallationCaches, repr=False
     )
 
     @property
@@ -220,27 +231,29 @@ class Installation:
     async def get_team_members(
         self, team_slug: github_types.GitHubTeamSlug
     ) -> typing.List[github_types.GitHubLogin]:
-
-        key = self._team_members_cache_key_for_repo(self.owner_id)
-        members_raw = await self.redis.hget(key, team_slug)
-        if members_raw is None:
-            members = [
-                github_types.GitHubLogin(member["login"])
-                async for member in self.client.items(
-                    f"/orgs/{self.owner_login}/teams/{team_slug}/members"
+        members = self._caches.team_members.get(team_slug)
+        if members is cache.Unset:
+            key = self._team_members_cache_key_for_repo(self.owner_id)
+            members_raw = await self.redis.hget(key, team_slug)
+            if members_raw is None:
+                members = [
+                    github_types.GitHubLogin(member["login"])
+                    async for member in self.client.items(
+                        f"/orgs/{self.owner_login}/teams/{team_slug}/members"
+                    )
+                ]
+                # TODO(sileht): move to msgpack when we remove redis-cache connection
+                # from decode_responses=True (eg: MRGFY-285)
+                pipe = await self.redis.pipeline()
+                await pipe.hset(key, team_slug, json.dumps(members))
+                await pipe.expire(key, self.TEAM_MEMBERS_EXPIRATION)
+                await pipe.execute()
+            else:
+                members = typing.cast(
+                    typing.List[github_types.GitHubLogin], json.loads(members_raw)
                 )
-            ]
-            # TODO(sileht): move to msgpack when we remove redis-cache connection
-            # from decode_responses=True (eg: MRGFY-285)
-            pipe = await self.redis.pipeline()
-            await pipe.hset(key, team_slug, json.dumps(members))
-            await pipe.expire(key, self.TEAM_MEMBERS_EXPIRATION)
-            await pipe.execute()
-            return members
-        else:
-            return typing.cast(
-                typing.List[github_types.GitHubLogin], json.loads(members_raw)
-            )
+            self._caches.team_members.set(team_slug, members)
+        return members
 
 
 @dataclasses.dataclass
@@ -260,6 +273,12 @@ class RepositoryCache:
     commits: typing.Dict[
         github_types.GitHubRefType, typing.List[github_types.GitHubBranchCommit]
     ] = dataclasses.field(default_factory=dict)
+    user_permissions: cache.Cache[
+        github_types.GitHubAccountIdType, github_types.GitHubRepositoryPermission
+    ] = dataclasses.field(default_factory=cache.Cache)
+    team_has_read_permission: cache.Cache[
+        github_types.GitHubTeamSlug, bool
+    ] = dataclasses.field(default_factory=cache.Cache)
 
 
 @dataclasses.dataclass
@@ -492,22 +511,27 @@ class Repository(object):
         self,
         user: github_types.GitHubAccount,
     ) -> github_types.GitHubRepositoryPermission:
-        key = self._users_permission_cache_key
-        permission = typing.cast(
-            typing.Optional[github_types.GitHubRepositoryPermission],
-            await self.installation.redis.hget(key, user["id"]),
-        )
-        if permission is None:
-            permission = typing.cast(
-                github_types.GitHubRepositoryCollaboratorPermission,
-                await self.installation.client.item(
-                    f"{self.base_url}/collaborators/{user['login']}/permission"
-                ),
-            )["permission"]
-            pipe = await self.installation.redis.pipeline()
-            await pipe.hset(key, user["id"], permission)
-            await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
-            await pipe.execute()
+        permission = self._cache.user_permissions.get(user["id"])
+        if permission is cache.Unset:
+            key = self._users_permission_cache_key
+            cached_permission = typing.cast(
+                typing.Optional[github_types.GitHubRepositoryPermission],
+                await self.installation.redis.hget(key, user["id"]),
+            )
+            if cached_permission is None:
+                permission = typing.cast(
+                    github_types.GitHubRepositoryCollaboratorPermission,
+                    await self.installation.client.item(
+                        f"{self.base_url}/collaborators/{user['login']}/permission"
+                    ),
+                )["permission"]
+                pipe = await self.installation.redis.pipeline()
+                await pipe.hset(key, user["id"], permission)
+                await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
+                await pipe.execute()
+            else:
+                permission = cached_permission
+            self._cache.user_permissions.set(user["id"], permission)
         return permission
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
@@ -575,26 +599,28 @@ class Repository(object):
         await pipeline.execute()
 
     async def team_has_read_permission(self, team: github_types.GitHubTeamSlug) -> bool:
-        key = self._teams_permission_cache_key
-        read_permission_raw = await self.installation.redis.hget(key, team)
-        if read_permission_raw is None:
-            try:
-                # note(sileht) read permissions are not part of the permissions
-                # list as the api endpoint returns 404 if permission read is missing
-                # so no need to check permission
-                await self.installation.client.get(
-                    f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.repo['name']}",
-                )
-                read_permission = True
-            except http.HTTPNotFound:
-                read_permission = False
-            pipe = await self.installation.redis.pipeline()
-            await pipe.hset(key, team, str(int(read_permission)))
-            await pipe.expire(key, self.TEAMS_PERMISSION_EXPIRATION)
-            await pipe.execute()
-        else:
-            read_permission = bool(int(read_permission_raw))
-
+        read_permission = self._cache.team_has_read_permission.get(team)
+        if read_permission is cache.Unset:
+            key = self._teams_permission_cache_key
+            read_permission_raw = await self.installation.redis.hget(key, team)
+            if read_permission_raw is None:
+                try:
+                    # note(sileht) read permissions are not part of the permissions
+                    # list as the api endpoint returns 404 if permission read is missing
+                    # so no need to check permission
+                    await self.installation.client.get(
+                        f"/orgs/{self.installation.owner_login}/teams/{team}/repos/{self.installation.owner_login}/{self.repo['name']}",
+                    )
+                    read_permission = True
+                except http.HTTPNotFound:
+                    read_permission = False
+                pipe = await self.installation.redis.pipeline()
+                await pipe.hset(key, team, str(int(read_permission)))
+                await pipe.expire(key, self.TEAMS_PERMISSION_EXPIRATION)
+                await pipe.execute()
+            else:
+                read_permission = bool(int(read_permission_raw))
+            self._cache.team_has_read_permission.set(team, read_permission)
         return read_permission
 
     async def _get_branch_protection_from_branch(
