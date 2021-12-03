@@ -12,8 +12,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import dataclasses
-
 import msgpack
 import pytest
 
@@ -204,34 +202,3 @@ async def test_refresh_with_pull_request_number(
     assert event["action"] == "admin"
     assert event["ref"] == "master"
     assert event["pull_request_number"] is None
-
-
-@pytest.mark.asyncio
-async def test_async_cache() -> None:
-    @dataclasses.dataclass(unsafe_hash=True)
-    class Me:
-        id: int
-        name: str = dataclasses.field(hash=False)
-
-        @utils.async_cache
-        async def who(self, prefix: str) -> str:
-            return f"{prefix} {self.name}"
-
-    m = Me(1, "sileht")
-    assert await m.who("hello") == "hello sileht"
-    assert await m.who("hello") == "hello sileht"
-    assert await m.who("bye") == "bye sileht"
-    assert await m.who("bye") == "bye sileht"
-
-    # changing the name unused by hashing function, should return cached data
-    m.name = "ghost"
-    assert await m.who("hello") == "hello sileht"
-    assert await m.who("bye") == "bye sileht"
-
-    assert await m.who("goodmorning") == "goodmorning ghost"
-
-    # changing the id used by hashing function, should return fresh data
-    m.id = 2
-    assert await m.who("hello") == "hello ghost"
-    assert await m.who("bye") == "bye ghost"
-    assert await m.who("goodmorning") == "goodmorning ghost"

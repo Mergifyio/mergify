@@ -127,11 +127,6 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 1
     assert not await repository.has_write_permission(user_2)
     assert client.called == 2
-    # From local cache
-    assert not await repository.has_write_permission(user_2)
-    assert client.called == 2
-    # From redis
-    repository.get_user_permission.cache_clear()
     assert not await repository.has_write_permission(user_2)
     assert client.called == 2
     assert not await repository.has_write_permission(user_3)
@@ -157,41 +152,27 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 0
     assert await repository.has_write_permission(user_2)
     assert client.called == 1
-    # From local cache
     assert await repository.has_write_permission(user_2)
     assert client.called == 1
-    # From redis
-    repository.get_user_permission.cache_clear()
-    assert await repository.has_write_permission(user_2)
-    assert client.called == 1
-
     assert not await repository.has_write_permission(user_1)
     assert client.called == 2
     await context.Repository.clear_user_permission_cache_for_repo(
         redis_cache, gh_owner, gh_repo
     )
-    repository.get_user_permission.cache_clear()
     assert not await repository.has_write_permission(user_1)
     assert client.called == 3
     assert not await repository.has_write_permission(user_3)
     assert client.called == 4
     await context.Repository.clear_user_permission_cache_for_org(redis_cache, gh_owner)
-    repository.get_user_permission.cache_clear()
     assert not await repository.has_write_permission(user_3)
     assert client.called == 5
     assert await repository.has_write_permission(user_2)
     assert client.called == 6
-    # From local cache
-    assert await repository.has_write_permission(user_2)
-    assert client.called == 6
-    # From redis
-    repository.get_user_permission.cache_clear()
     assert await repository.has_write_permission(user_2)
     assert client.called == 6
     await context.Repository.clear_user_permission_cache_for_user(
         redis_cache, gh_owner, gh_repo, user_2
     )
-    repository.get_user_permission.cache_clear()
     assert await repository.has_write_permission(user_2)
     assert client.called == 7
 
@@ -252,68 +233,30 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 1
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 2
-    # From local cache
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 2
-    # From redis
-    installation.get_team_members.cache_clear()
-    assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
-    assert client.called == 2
-
     assert (await installation.get_team_members(team_slug3)) == []
     assert client.called == 3
-    # From local cache
     assert (await installation.get_team_members(team_slug3)) == []
     assert client.called == 3
-    # From redis
-    installation.get_team_members.cache_clear()
-    assert (await installation.get_team_members(team_slug3)) == []
-    assert client.called == 3
-
     await installation.clear_team_members_cache_for_team(
         redis_cache, gh_owner, github_types.GitHubTeamSlug(team_slug2)
     )
-    installation.get_team_members.cache_clear()
-
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 4
-    # From local cache
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 4
-    # From redis
-    installation.get_team_members.cache_clear()
-    assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
-    assert client.called == 4
-
     await installation.clear_team_members_cache_for_org(redis_cache, gh_owner)
-    installation.get_team_members.cache_clear()
-
     assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
     assert client.called == 5
-    # From local cache
     assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
     assert client.called == 5
-    # From redis
-    installation.get_team_members.cache_clear()
-    assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
-    assert client.called == 5
-
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 6
-    # From local cache
-    assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
-    assert client.called == 6
-    # From redis
-    installation.get_team_members.cache_clear()
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 6
     assert (await installation.get_team_members(team_slug3)) == []
     assert client.called == 7
-    # From local cache
-    assert (await installation.get_team_members(team_slug3)) == []
-    assert client.called == 7
-    # From redis
-    installation.get_team_members.cache_clear()
     assert (await installation.get_team_members(team_slug3)) == []
     assert client.called == 7
 
@@ -426,11 +369,6 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 0
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 1
-    # From local cache
-    assert not await repository.team_has_read_permission(team_slug2)
-    assert client.called == 1
-    # From redis
-    repository.team_has_read_permission.cache_clear()
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 1
     assert await repository.team_has_read_permission(team_slug1)
@@ -438,29 +376,20 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     await context.Repository.clear_team_permission_cache_for_repo(
         redis_cache, gh_owner, gh_repo
     )
-    repository.team_has_read_permission.cache_clear()
     assert await repository.team_has_read_permission(team_slug1)
     assert client.called == 3
     assert not await repository.team_has_read_permission(team_slug3)
     assert client.called == 4
     await context.Repository.clear_team_permission_cache_for_org(redis_cache, gh_owner)
-    repository.team_has_read_permission.cache_clear()
     assert not await repository.team_has_read_permission(team_slug3)
     assert client.called == 5
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 6
-    # From local cache
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 6
-    # From redis
-    repository.team_has_read_permission.cache_clear()
-    assert not await repository.team_has_read_permission(team_slug2)
-    assert client.called == 6
-    repository.team_has_read_permission.cache_clear()
     await context.Repository.clear_team_permission_cache_for_team(
         redis_cache, gh_owner, team_slug2
     )
-    repository.team_has_read_permission.cache_clear()
     assert not await repository.team_has_read_permission(team_slug2)
     assert client.called == 7
 
