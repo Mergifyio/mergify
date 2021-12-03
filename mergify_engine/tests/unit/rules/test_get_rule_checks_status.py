@@ -554,6 +554,58 @@ async def test_rules_checks_status_regular():
 
 
 @pytest.mark.asyncio
+async def test_rules_checks_status_regex():
+    pull = FakeQueuePullRequest(
+        {
+            "number": 1,
+            "current-year": date.Year(2018),
+            "author": "me",
+            "base": "main",
+            "head": "feature-1",
+            "check-success": [],
+            "check-failure": [],
+            "check-pending": [],
+            "check": [],
+            "check-success-or-neutral-or-pending": [],
+        }
+    )
+    conds = ["check-success~=^ci-1$", "check-success~=^ci-2$"]
+
+    # Nothing reported
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+
+    # Pending reported
+    pull.attrs["check-pending"] = ["ci-1"]
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = ["ci-2"]
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+
+    # Failure reported
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-failure"] = ["ci-1"]
+    pull.attrs["check-success"] = ["ci-2"]
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
+
+    # Success reported
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = ["ci-1", "ci-2"]
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
+
+    # half reported success
+    pull.attrs["check-failure"] = []
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-success"] = ["ci-1"]
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
+
+    # half reported failure, fail early
+    pull.attrs["check-failure"] = ["ci-1"]
+    pull.attrs["check-pending"] = []
+    pull.attrs["check-success"] = []
+    await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
+
+
+@pytest.mark.asyncio
 @freeze_time("2021-09-22T08:00:05", tz_offset=0)
 async def test_rules_conditions_schedule():
     pulls = [
