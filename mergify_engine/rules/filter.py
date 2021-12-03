@@ -664,7 +664,7 @@ class IncompleteChecksFilter(Filter[IncompleteChecksResult]):
 
                 final_checks = set(self.all_checks) - set(self.pending_checks)
                 final_check = iterable_op(
-                    binary_op(ref_value, check)
+                    binary_op(check, ref_value)
                     for check in final_checks
                     for ref_value in ref_values
                 )
@@ -673,7 +673,7 @@ class IncompleteChecksFilter(Filter[IncompleteChecksResult]):
 
                 # Ensure the check we are waiting for is somewhere
                 at_least_one_check = any(
-                    binary_op(ref_value, check)
+                    binary_op(check, ref_value)
                     for check in self.all_checks
                     for ref_value in ref_values
                 )
@@ -683,7 +683,7 @@ class IncompleteChecksFilter(Filter[IncompleteChecksResult]):
                 if self.pending_checks:
                     # Ensure the check we are waiting for is not in pending list
                     pending_result = iterable_op(
-                        binary_op(ref_value, check)
+                        binary_op(check, ref_value)
                         for check in self.pending_checks
                         for ref_value in ref_values
                     )
