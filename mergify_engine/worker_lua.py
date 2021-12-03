@@ -16,6 +16,7 @@ import datetime
 import typing
 
 import daiquiri
+from ddtrace import tracer
 
 from mergify_engine import github_types
 from mergify_engine import redis_utils
@@ -48,6 +49,7 @@ redis.call("ZADD", "streams", "NX", scheduled_at_timestamp, bucket_key)
 )
 
 
+@tracer.wrap("stream_push_pull", span_type="worker")
 async def push_pull(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
@@ -104,6 +106,7 @@ end
 )
 
 
+@tracer.wrap("stream_remove_pull", span_type="worker")
 async def remove_pull(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
@@ -138,6 +141,7 @@ redis.call("DEL", bucket_key)
 )
 
 
+@tracer.wrap("stream_drop_bucket", span_type="worker")
 async def drop_bucket(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
@@ -164,6 +168,7 @@ end
 )
 
 
+@tracer.wrap("stream_clean_org_bucket", span_type="worker")
 async def clean_org_bucket(
     redis: utils.RedisStream,
     owner_id: github_types.GitHubAccountIdType,
