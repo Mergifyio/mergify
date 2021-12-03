@@ -936,7 +936,7 @@ class Worker:
                     org_bucket_name,
                 )
 
-    @tracer.wrap("monitoring task", span_type="worker")
+    @tracer.wrap("monitoring_task", span_type="worker")
     async def monitoring_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
