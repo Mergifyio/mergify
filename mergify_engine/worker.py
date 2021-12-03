@@ -925,10 +925,9 @@ class Worker:
                     resource=str(owner_id),
                 ) as span:
                     span.set_tag("gh_owner_id", owner_id)
-                    with statsd.timed("engine.stream.consume.time"):  # type: ignore[no-untyped-call]
-                        await stream_processor.consume(
-                            org_bucket_name, owner_id, owner_login
-                        )
+                    await stream_processor.consume(
+                        org_bucket_name, owner_id, owner_login
+                    )
             finally:
                 LOG.debug(
                     "worker %s release org bucket: %s",
