@@ -16,6 +16,7 @@
 from collections import abc
 import dataclasses
 import datetime
+import enum
 import inspect
 import operator
 import re
@@ -233,6 +234,20 @@ class Filter(typing.Generic[FilterResultT]):
             raise InvalidArguments(nodes)
         return self._handle_multiple_op(multiple_op, nodes)
 
+    def _eval_binary_op(
+        self,
+        op: BinaryOperatorT[FilterResultT],
+        attribute_name: str,
+        attribute_values: typing.List[typing.Any],
+        ref_values_expanded: typing.List[typing.Any],
+    ) -> FilterResultT:
+        binary_op, iterable_op, compile_fn = op
+        return iterable_op(
+            binary_op(attribute_value, ref_value)
+            for attribute_value in attribute_values
+            for ref_value in ref_values_expanded
+        )
+
     def _handle_binary_op(
         self,
         op: BinaryOperatorT[FilterResultT],
@@ -258,10 +273,8 @@ class Filter(typing.Generic[FilterResultT]):
                     typing.Awaitable[typing.Any], ref_values_expanded
                 )
 
-            return iterable_op(
-                binary_op(attribute_value, ref_value)
-                for attribute_value in attribute_values
-                for ref_value in ref_values_expanded
+            return self._eval_binary_op(
+                op, attribute_name, attribute_values, ref_values_expanded
             )
 
         return _op
@@ -491,3 +504,189 @@ def NearDatetimeFilter(
             "and": _minimal_datetime,
         },
     )
+
+
+# NOTE(sileht): Sentinel object (eg: `marker = object()`) can't be expressed
+# with typing yet use the proposed workaround instead:
+#   https://github.com/python/typing/issues/689
+#   https://www.python.org/dev/peps/pep-0661/
+class _IncompleteMarker(enum.Enum):
+    _MARKER = 0
+
+
+IncompleteCheck: typing.Final = _IncompleteMarker._MARKER
+
+
+IncompleteChecksResult = typing.Union[bool, _IncompleteMarker]
+
+
+def IncompleteChecksAll(
+    values: typing.Iterable[object],
+) -> IncompleteChecksResult:
+    values = typing.cast(typing.Iterable[IncompleteChecksResult], values)
+    found_unknown = False
+    for v in values:
+        if v is False:
+            return False
+        elif v is IncompleteCheck:
+            found_unknown = True
+    if found_unknown:
+        return IncompleteCheck
+    return True
+
+
+def IncompleteChecksAny(
+    values: typing.Iterable[object],
+) -> IncompleteChecksResult:
+    values = typing.cast(typing.Iterable[IncompleteChecksResult], values)
+    found_true = False
+    for v in values:
+        if v is IncompleteCheck:
+            return IncompleteCheck
+        elif v:
+            found_true = True
+    return found_true
+
+
+def IncompleteChecksNegate(value: IncompleteChecksResult) -> IncompleteChecksResult:
+    if value is IncompleteCheck:
+        return IncompleteCheck
+    else:
+        return not value
+
+
+def cast_ret_to_incomplete_check_result(
+    op: typing.Callable[[typing.Any, typing.Any], bool]
+) -> typing.Callable[[typing.Any, typing.Any], IncompleteChecksResult]:
+    return typing.cast(
+        typing.Callable[[typing.Any, typing.Any], IncompleteChecksResult], op
+    )
+
+
+@dataclasses.dataclass(repr=False)
+class IncompleteChecksFilter(Filter[IncompleteChecksResult]):
+    tree: typing.Union[TreeT, CompiledTreeT[GetAttrObject, bool]]
+    unary_operators: typing.Dict[
+        str, UnaryOperatorT[IncompleteChecksResult]
+    ] = dataclasses.field(default_factory=lambda: {"-": IncompleteChecksNegate})
+    binary_operators: typing.Dict[
+        str, BinaryOperatorT[IncompleteChecksResult]
+    ] = dataclasses.field(
+        default_factory=lambda: {
+            "=": (
+                cast_ret_to_incomplete_check_result(operator.eq),
+                IncompleteChecksAny,
+                _identity,
+            ),
+            "<": (
+                cast_ret_to_incomplete_check_result(operator.lt),
+                IncompleteChecksAny,
+                _identity,
+            ),
+            ">": (
+                cast_ret_to_incomplete_check_result(operator.gt),
+                IncompleteChecksAny,
+                _identity,
+            ),
+            "<=": (
+                cast_ret_to_incomplete_check_result(operator.le),
+                IncompleteChecksAny,
+                _identity,
+            ),
+            ">=": (
+                cast_ret_to_incomplete_check_result(operator.ge),
+                IncompleteChecksAny,
+                _identity,
+            ),
+            "!=": (
+                cast_ret_to_incomplete_check_result(operator.ne),
+                IncompleteChecksAll,
+                _identity,
+            ),
+            "~=": (
+                cast_ret_to_incomplete_check_result(
+                    lambda a, b: a is not None and b.search(a)
+                ),
+                IncompleteChecksAny,
+                re.compile,
+            ),
+        }
+    )
+    multiple_operators: typing.Dict[
+        str, MultipleOperatorT[IncompleteChecksResult]
+    ] = dataclasses.field(
+        default_factory=lambda: {
+            "or": IncompleteChecksAny,
+            "and": IncompleteChecksAll,
+        }
+    )
+    pending_checks: typing.List[str] = dataclasses.field(default_factory=list)
+    all_checks: typing.List[str] = dataclasses.field(default_factory=list)
+
+    def _eval_binary_op(
+        self,
+        op: BinaryOperatorT[IncompleteChecksResult],
+        attribute_name: str,
+        attribute_values: typing.List[typing.Any],
+        ref_values_expanded: typing.List[typing.Any],
+    ) -> IncompleteChecksResult:
+        if not self.is_complete(op, attribute_name, ref_values_expanded):
+            return IncompleteCheck
+
+        binary_op, iterable_op, _ = op
+        return super()._eval_binary_op(
+            op, attribute_name, attribute_values, ref_values_expanded
+        )
+
+    def is_complete(
+        self,
+        op: BinaryOperatorT[FilterResultT],
+        attribute_name: str,
+        ref_values: typing.List[typing.Any],
+    ) -> bool:
+        binary_op, iterable_op, _ = op
+
+        if attribute_name.startswith(Filter.LENGTH_OPERATOR):
+            real_attr_name = attribute_name[1:]
+        else:
+            real_attr_name = attribute_name
+
+        if real_attr_name.startswith("check-") or real_attr_name.startswith("status-"):
+            if attribute_name.startswith(Filter.LENGTH_OPERATOR):
+                if len(self.pending_checks) != 0:
+                    return False
+            else:
+                if real_attr_name in (
+                    "check-pending",
+                    "check-success-or-neutral-or-pending",
+                ):
+                    return not bool(self.pending_checks)
+
+                final_checks = set(self.all_checks) - set(self.pending_checks)
+                final_check = iterable_op(
+                    binary_op(ref_value, check)
+                    for check in final_checks
+                    for ref_value in ref_values
+                )
+                if final_check:
+                    return True
+
+                # Ensure the check we are waiting for is somewhere
+                at_least_one_check = any(
+                    binary_op(ref_value, check)
+                    for check in self.all_checks
+                    for ref_value in ref_values
+                )
+                if not at_least_one_check:
+                    return False
+
+                if self.pending_checks:
+                    # Ensure the check we are waiting for is not in pending list
+                    pending_result = iterable_op(
+                        binary_op(ref_value, check)
+                        for check in self.pending_checks
+                        for ref_value in ref_values
+                    )
+                    if pending_result:
+                        return False
+        return True
