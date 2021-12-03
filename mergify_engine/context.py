@@ -319,7 +319,8 @@ class Repository(object):
             except http.HTTPNotFound:
                 continue
             except http.HTTPForbidden as e:
-                if e.response.json().get("error", {}).get("code") == "too_large":
+                codes = [e["code"] for e in e.response.json().get("errors", [])]
+                if "too_large" in codes:
                     self.log.warning(
                         "configuration file too big, skipping it.", filename=filename
                     )
