@@ -20,6 +20,7 @@ import daiquiri
 import fastapi
 
 from mergify_engine import config
+from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -78,6 +79,9 @@ async def get_installation(
     if application.account_scope is None:
         raise fastapi.HTTPException(status_code=403)
 
-    return await github.get_installation_from_account_id(
-        application.account_scope["id"]
-    )
+    try:
+        return await github.get_installation_from_account_id(
+            application.account_scope["id"]
+        )
+    except exceptions.MergifyNotInstalled:
+        raise fastapi.HTTPException(status_code=403)
