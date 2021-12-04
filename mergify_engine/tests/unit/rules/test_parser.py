@@ -212,7 +212,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             },
         ),
         (
-            "schedule=MON-friday",
+            "schedule: MON-friday ",
             {
                 "@": (
                     "schedule",
@@ -341,8 +341,13 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
         ("queue-position>=0", {">=": ("queue-position", 0)}),
         ("queue-position=-1", {"=": ("queue-position", -1)}),
         ("assignee:sileht", {"=": ("assignee", "sileht")}),
+        ("assignee: sileht", {"=": ("assignee", "sileht")}),
+        ("assignee: sileht ", {"=": ("assignee", "sileht")}),
+        ("assignee : sileht ", {"=": ("assignee", "sileht")}),
         ("#assignee=3", {"=": ("#assignee", 3)}),
+        ("# assignee = 3", {"=": ("#assignee", 3)}),
         ("#assignee>1", {">": ("#assignee", 1)}),
+        (" # assignee > 1", {">": ("#assignee", 1)}),
         ("author=jd", {"=": ("author", "jd")}),
         ("author=mergify[bot]", {"=": ("author", "mergify[bot]")}),
         ("author=foo-bar", {"=": ("author", "foo-bar")}),
