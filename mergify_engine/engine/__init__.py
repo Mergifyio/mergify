@@ -127,20 +127,20 @@ async def _check_configuration_changes(
 
 async def _get_summary_from_sha(
     ctxt: context.Context, sha: github_types.SHAType
-) -> typing.Optional[github_types.GitHubCheckRun]:
+) -> typing.Optional[github_types.CachedGitHubCheckRun]:
     return first.first(
         await check_api.get_checks_for_ref(
             ctxt,
             sha,
             check_name=constants.SUMMARY_NAME,
         ),
-        key=lambda c: c["app"]["id"] == config.INTEGRATION_ID,
+        key=lambda c: c["app_id"] == config.INTEGRATION_ID,
     )
 
 
 async def _get_summary_from_synchronize_event(
     ctxt: context.Context,
-) -> typing.Optional[github_types.GitHubCheckRun]:
+) -> typing.Optional[github_types.CachedGitHubCheckRun]:
     synchronize_events = {
         typing.cast(github_types.GitHubEventPullRequest, s["data"])[
             "after"

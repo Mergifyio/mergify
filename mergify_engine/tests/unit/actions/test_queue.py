@@ -41,34 +41,150 @@ def fake_client():
         if url == "/repos/user/name/commits/azertyu/status":
             return
         elif url == "/repos/user/name/commits/azertyu/check-runs":
-            yield {
-                "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
-                "details_url": "https://example.com",
-                "status": "completed",
-                "conclusion": "failure",
-                "name": "failure",
-            }
-            yield {
-                "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
-                "details_url": "https://example.com",
-                "status": "completed",
-                "conclusion": "success",
-                "name": "success",
-            }
-            yield {
-                "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
-                "details_url": "https://example.com",
-                "status": "completed",
-                "conclusion": "neutral",
-                "name": "neutral",
-            }
-            yield {
-                "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
-                "details_url": "https://example.com",
-                "status": "in_progress",
-                "conclusion": None,
-                "name": "pending",
-            }
+            yield github_types.GitHubCheckRun(
+                {
+                    "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
+                    "details_url": "https://example.com",
+                    "status": "completed",
+                    "conclusion": "failure",
+                    "name": "failure",
+                    "id": 1234,
+                    "app": {
+                        "id": 1234,
+                        "name": "CI",
+                        "owner": {
+                            "type": "User",
+                            "id": 1234,
+                            "login": "goo",
+                            "avatar_url": "https://example.com",
+                        },
+                    },
+                    "external_id": None,
+                    "pull_requests": [],
+                    "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "started_at": "",
+                    "completed_at": "",
+                    "html_url": "https://example.com",
+                    "check_suite": {"id": 1234},
+                    "output": {
+                        "summary": "",
+                        "title": "It runs!",
+                        "text": "",
+                        "annotations": [],
+                        "annotations_count": 0,
+                        "annotations_url": "https://example.com",
+                    },
+                }
+            )
+            yield github_types.GitHubCheckRun(
+                {
+                    "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
+                    "details_url": "https://example.com",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "name": "success",
+                    "id": 1235,
+                    "app": {
+                        "id": 1234,
+                        "name": "CI",
+                        "owner": {
+                            "type": "User",
+                            "id": 1234,
+                            "login": "goo",
+                            "avatar_url": "https://example.com",
+                        },
+                    },
+                    "external_id": None,
+                    "pull_requests": [],
+                    "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "started_at": "",
+                    "completed_at": "",
+                    "html_url": "https://example.com",
+                    "check_suite": {"id": 1234},
+                    "output": {
+                        "summary": "",
+                        "title": "It runs!",
+                        "text": "",
+                        "annotations": [],
+                        "annotations_count": 0,
+                        "annotations_url": "https://example.com",
+                    },
+                }
+            )
+            yield github_types.GitHubCheckRun(
+                {
+                    "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
+                    "details_url": "https://example.com",
+                    "status": "completed",
+                    "conclusion": "neutral",
+                    "name": "neutral",
+                    "id": 1236,
+                    "app": {
+                        "id": 1234,
+                        "name": "CI",
+                        "owner": {
+                            "type": "User",
+                            "id": 1234,
+                            "login": "goo",
+                            "avatar_url": "https://example.com",
+                        },
+                    },
+                    "external_id": None,
+                    "pull_requests": [],
+                    "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "started_at": "",
+                    "completed_at": "",
+                    "html_url": "https://example.com",
+                    "check_suite": {"id": 1234},
+                    "output": {
+                        "summary": "",
+                        "title": "It runs!",
+                        "text": "",
+                        "annotations": [],
+                        "annotations_count": 0,
+                        "annotations_url": "https://example.com",
+                    },
+                }
+            )
+            yield github_types.GitHubCheckRun(
+                {
+                    "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
+                    "details_url": "https://example.com",
+                    "status": "in_progress",
+                    "conclusion": None,
+                    "name": "pending",
+                    "id": 1237,
+                    "app": {
+                        "id": 1234,
+                        "name": "CI",
+                        "owner": {
+                            "type": "User",
+                            "id": 1234,
+                            "login": "goo",
+                            "avatar_url": "https://example.com",
+                        },
+                    },
+                    "external_id": None,
+                    "pull_requests": [],
+                    "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                    "started_at": "",
+                    "completed_at": "",
+                    "html_url": "https://example.com",
+                    "check_suite": {"id": 1234},
+                    "output": {
+                        "summary": "",
+                        "title": "It runs!",
+                        "text": "",
+                        "annotations": [],
+                        "annotations_count": 0,
+                        "annotations_url": "https://example.com",
+                    },
+                }
+            )
         else:
             raise Exception(f"url not mocked: {url}")
 

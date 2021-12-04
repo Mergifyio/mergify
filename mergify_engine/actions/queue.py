@@ -290,7 +290,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
     async def _get_merge_queue_check(
         self, ctxt: context.Context
-    ) -> typing.Optional[github_types.GitHubCheckRun]:
+    ) -> typing.Optional[github_types.CachedGitHubCheckRun]:
         return first(
             await ctxt.pull_engine_check_runs,
             key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,

@@ -15,6 +15,7 @@
 # under the License.
 import logging
 import time
+import typing
 from unittest import mock
 
 import pytest
@@ -24,6 +25,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
 
@@ -1061,10 +1063,17 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
-        checks = await ctxt.pull_engine_check_runs
-        assert len(checks) == 1
-        check_suite_id = checks[0]["check_suite"]["id"]
+        check = typing.cast(
+            github_types.GitHubCheckRun,
+            await self.client_admin.items(
+                f"{self.url_origin}/commits/{p['head']['sha']}/check-runs",
+                api_version="antiope",
+                list_items="check_runs",
+                params={"name": "Summary"},
+            ).__anext__(),
+        )
+        assert check is not None
+        check_suite_id = check["check_suite"]["id"]
 
         check_suite = (
             await self.installation_ctxt.client.get(

@@ -689,7 +689,7 @@ class ContextCache(typing.TypedDict, total=False):
         typing.List[github_types.GitHubReview],
         typing.List[github_types.GitHubReview],
     ]
-    pull_check_runs: typing.List[github_types.GitHubCheckRun]
+    pull_check_runs: typing.List[github_types.CachedGitHubCheckRun]
     pull_statuses: typing.List[github_types.GitHubStatus]
     reviews: typing.List[github_types.GitHubReview]
     is_behind: bool
@@ -804,7 +804,7 @@ class Context(object):
 
     async def set_summary_check(
         self, result: check_api.Result
-    ) -> github_types.GitHubCheckRun:
+    ) -> github_types.CachedGitHubCheckRun:
         """Set the Mergify Summary check result."""
 
         previous_sha = await self.get_cached_last_summary_head_sha()
@@ -1201,14 +1201,16 @@ class Context(object):
             }
         )
 
-    async def update_pull_check_runs(self, check: github_types.GitHubCheckRun) -> None:
+    async def update_pull_check_runs(
+        self, check: github_types.CachedGitHubCheckRun
+    ) -> None:
         self._cache["pull_check_runs"] = [
             c for c in await self.pull_check_runs if c["name"] != check["name"]
         ]
         self._cache["pull_check_runs"].append(check)
 
     @property
-    async def pull_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
+    async def pull_check_runs(self) -> typing.List[github_types.CachedGitHubCheckRun]:
         if "pull_check_runs" in self._cache:
             return self._cache["pull_check_runs"]
 
@@ -1217,16 +1219,18 @@ class Context(object):
         return checks
 
     @property
-    async def pull_engine_check_runs(self) -> typing.List[github_types.GitHubCheckRun]:
+    async def pull_engine_check_runs(
+        self,
+    ) -> typing.List[github_types.CachedGitHubCheckRun]:
         return [
             c
             for c in await self.pull_check_runs
-            if c["app"]["id"] == config.INTEGRATION_ID
+            if c["app_id"] == config.INTEGRATION_ID
         ]
 
     async def get_engine_check_run(
         self, name: str
-    ) -> typing.Optional[github_types.GitHubCheckRun]:
+    ) -> typing.Optional[github_types.CachedGitHubCheckRun]:
         return first.first(
             await self.pull_engine_check_runs, key=lambda c: c["name"] == name
         )

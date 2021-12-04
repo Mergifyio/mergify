@@ -132,6 +132,43 @@ GH_PULL = github_types.GitHubPullRequest(
     },
 )
 
+CHECK_RUN = github_types.GitHubCheckRun(
+    {
+        "head_sha": github_types.SHAType("ce587453ced02b1526dfb4cb910479d431683101"),
+        "details_url": "https://example.com",
+        "status": "completed",
+        "conclusion": "neutral",
+        "name": "neutral",
+        "id": 1236,
+        "app": {
+            "id": 1234,
+            "name": "CI",
+            "owner": {
+                "type": "User",
+                "id": github_types.GitHubAccountIdType(1234),
+                "login": github_types.GitHubLogin("goo"),
+                "avatar_url": "https://example.com",
+            },
+        },
+        "external_id": "",
+        "pull_requests": [],
+        "before": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "after": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "started_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "completed_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "html_url": "https://example.com",
+        "check_suite": {"id": 1234},
+        "output": {
+            "summary": "",
+            "title": "It runs!",
+            "text": "",
+            "annotations": [],
+            "annotations_count": 0,
+            "annotations_url": "https://example.com",
+        },
+    }
+)
+
 BASE_URL = f"/repos/{GH_OWNER['login']}/{GH_REPO['name']}"
 
 
@@ -205,7 +242,7 @@ async def test_configuration_changed(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json({}, status=200)
+    ).respond_with_json(CHECK_RUN, status=200)
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -330,7 +367,7 @@ async def test_configuration_duplicated(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json({}, status=200)
+    ).respond_with_json(CHECK_RUN, status=200)
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -444,7 +481,7 @@ async def test_configuration_not_changed(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json({}, status=200)
+    ).respond_with_json(CHECK_RUN, status=200)
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -545,7 +582,7 @@ async def test_configuration_initial(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json({}, status=200)
+    ).respond_with_json(CHECK_RUN, status=200)
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
