@@ -156,7 +156,7 @@ def check_need_update(
         typing.cast(typing.Dict[str, typing.Any], previous_check),
         ("head_sha", "status", "conclusion", "details_url"),
     ):
-        if previous_check["output"] == expected_check["output"]:
+        if previous_check["output"] is None and expected_check["output"] is None:
             return False
         elif previous_check["output"] is not None and compare_dict(
             typing.cast(typing.Dict[str, typing.Any], expected_check["output"]),
