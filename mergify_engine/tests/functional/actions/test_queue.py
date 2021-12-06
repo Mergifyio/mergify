@@ -1875,10 +1875,14 @@ DO NOT EDIT
         )
 
         # refresh to add it back in queue
-        ctxt = await self.repository_ctxt.get_pull_request_context(p2["number"], p2)
-        check = first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        check = typing.cast(
+            github_types.GitHubCheckRun,
+            await self.client_admin.items(
+                f"{self.url_origin}/commits/{p2['head']['sha']}/check-runs",
+                api_version="antiope",
+                list_items="check_runs",
+                params={"name": constants.MERGE_QUEUE_SUMMARY_NAME},
+            ).__anext__(),
         )
         check_suite_id = check["check_suite"]["id"]
 

@@ -789,7 +789,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             )
             for check in checks:
                 # Don't copy Summary/Rule/Queue/... checks
-                if check["app"]["id"] == config.INTEGRATION_ID:
+                if check["app_id"] == config.INTEGRATION_ID:
                     continue
 
                 output_title = ""
@@ -803,8 +803,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 checks_copy_summary += (
                     "<tr>"
                     f'<td align="center" width="48" height="48"><img src="{check_icon_url}" width="16" height="16" /></td>'
-                    f'<td align="center" width="48" height="48"><img src="{check["app"]["owner"]["avatar_url"]}&s=40" width="16" height="16" /></td>'
-                    f'<td><b>{check["app"]["name"]}/{check["name"]}</b>{output_title}</td>'
+                    f'<td align="center" width="48" height="48"><img src="{check["app_avatar_url"]}&s=40" width="16" height="16" /></td>'
+                    f'<td><b>{check["app_name"]}/{check["name"]}</b>{output_title}</td>'
                     f'<td><a href="{check["html_url"]}">details</a></td>'
                     "</tr>"
                 )

@@ -262,7 +262,7 @@ async def get_summary_check_result(
     ctxt: context.Context,
     pull_request_rules: rules.PullRequestRules,
     match: rules.RulesEvaluator,
-    summary_check: typing.Optional[github_types.GitHubCheckRun],
+    summary_check: typing.Optional[github_types.CachedGitHubCheckRun],
     conclusions: typing.Dict[str, check_api.Conclusion],
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
 ) -> typing.Optional[check_api.Result]:
@@ -343,7 +343,7 @@ async def exec_action(
 
 def load_conclusions_line(
     ctxt: context.Context,
-    summary_check: typing.Optional[github_types.GitHubCheckRun],
+    summary_check: typing.Optional[github_types.CachedGitHubCheckRun],
 ) -> typing.Optional[str]:
     if summary_check is not None and summary_check["output"]["summary"] is not None:
         lines = summary_check["output"]["summary"].splitlines()
@@ -356,7 +356,8 @@ def load_conclusions_line(
 
 
 def load_conclusions(
-    ctxt: context.Context, summary_check: typing.Optional[github_types.GitHubCheckRun]
+    ctxt: context.Context,
+    summary_check: typing.Optional[github_types.CachedGitHubCheckRun],
 ) -> typing.Dict[str, check_api.Conclusion]:
     line = load_conclusions_line(ctxt, summary_check)
     if line:
@@ -390,7 +391,7 @@ def serialize_conclusions(conclusions: typing.Dict[str, check_api.Conclusion]) -
 def get_previous_conclusion(
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
     name: str,
-    checks: typing.Dict[str, github_types.GitHubCheckRun],
+    checks: typing.Dict[str, github_types.CachedGitHubCheckRun],
 ) -> check_api.Conclusion:
     if name in previous_conclusions:
         return previous_conclusions[name]
@@ -404,7 +405,7 @@ def get_previous_conclusion(
 async def run_actions(
     ctxt: context.Context,
     match: rules.RulesEvaluator,
-    checks: typing.Dict[str, github_types.GitHubCheckRun],
+    checks: typing.Dict[str, github_types.CachedGitHubCheckRun],
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
 ) -> typing.Dict[str, check_api.Conclusion]:
     """
@@ -576,7 +577,7 @@ async def run_actions(
 async def cleanup_pending_actions_with_no_associated_rules(
     ctxt: context.Context,
     match: rules.RulesEvaluator,
-    checks: typing.Dict[str, github_types.GitHubCheckRun],
+    checks: typing.Dict[str, github_types.CachedGitHubCheckRun],
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
 ) -> None:
     check_names = {

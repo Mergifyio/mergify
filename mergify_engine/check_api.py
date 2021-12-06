@@ -19,6 +19,7 @@ import datetime
 import enum
 import typing
 
+from mergify_engine import config
 from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import json
@@ -113,22 +114,53 @@ class Result:
     ended_at: typing.Optional[datetime.datetime] = None
 
 
+def to_check_run_light(
+    check: github_types.GitHubCheckRun,
+) -> github_types.CachedGitHubCheckRun:
+    if check["app"]["id"] != config.INTEGRATION_ID:
+        # NOTE(sileht): We only need the output for our own checks
+        check["output"]["text"] = None
+        check["output"]["summary"] = ""
+        check["output"]["annotations"] = []
+        check["output"]["annotations_url"] = ""
+
+    return github_types.CachedGitHubCheckRun(
+        {
+            "id": check["id"],
+            "app_id": check["app"]["id"],
+            "app_name": check["app"]["name"],
+            "app_avatar_url": check["app"]["owner"]["avatar_url"],
+            "external_id": check["external_id"],
+            "head_sha": check["head_sha"],
+            "name": check["name"],
+            "status": check["status"],
+            "output": check["output"],
+            "conclusion": check["conclusion"],
+            "completed_at": check["completed_at"],
+            "html_url": check["html_url"],
+        }
+    )
+
+
 async def get_checks_for_ref(
     ctxt: "context.Context",
     sha: github_types.SHAType,
     check_name: typing.Optional[str] = None,
-) -> typing.List[github_types.GitHubCheckRun]:
+) -> typing.List[github_types.CachedGitHubCheckRun]:
     if check_name is None:
         params = {}
     else:
         params = {"check_name": check_name}
-    checks: typing.List[github_types.GitHubCheckRun] = [
-        check
-        async for check in ctxt.client.items(
-            f"{ctxt.base_url}/commits/{sha}/check-runs",
-            api_version="antiope",
-            list_items="check_runs",
-            params=params,
+    checks = [
+        to_check_run_light(check)
+        async for check in typing.cast(
+            typing.AsyncGenerator[github_types.GitHubCheckRun, None],
+            ctxt.client.items(
+                f"{ctxt.base_url}/commits/{sha}/check-runs",
+                api_version="antiope",
+                list_items="check_runs",
+                params=params,
+            ),
         )
     ]
     return checks
@@ -148,7 +180,7 @@ def compare_dict(
 
 
 def check_need_update(
-    previous_check: github_types.GitHubCheckRun,
+    previous_check: github_types.CachedGitHubCheckRun,
     expected_check: GitHubCheckRunParameters,
 ) -> bool:
     if compare_dict(
@@ -173,7 +205,7 @@ async def set_check_run(
     name: str,
     result: Result,
     external_id: typing.Optional[str] = None,
-) -> github_types.GitHubCheckRun:
+) -> github_types.CachedGitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
     else:
@@ -238,30 +270,34 @@ async def set_check_run(
         # NOTE(sileht): First time we see it, or the previous one have been completed and
         # now go back to in_progress. Since GitHub doesn't allow to change status of
         # completed check-runs, we have to create a new one.
-        new_check = typing.cast(
-            github_types.GitHubCheckRun,
-            (
-                await ctxt.client.post(
-                    f"{ctxt.base_url}/check-runs",
-                    api_version="antiope",
-                    json=post_parameters,
-                )
-            ).json(),
+        new_check = to_check_run_light(
+            typing.cast(
+                github_types.GitHubCheckRun,
+                (
+                    await ctxt.client.post(
+                        f"{ctxt.base_url}/check-runs",
+                        api_version="antiope",
+                        json=post_parameters,
+                    )
+                ).json(),
+            )
         )
     else:
         post_parameters["details_url"] += f"?check_run_id={checks[0]['id']}"
 
         # Don't do useless update
         if check_need_update(checks[0], post_parameters):
-            new_check = typing.cast(
-                github_types.GitHubCheckRun,
-                (
-                    await ctxt.client.patch(
-                        f"{ctxt.base_url}/check-runs/{checks[0]['id']}",
-                        api_version="antiope",
-                        json=post_parameters,
-                    )
-                ).json(),
+            new_check = to_check_run_light(
+                typing.cast(
+                    github_types.GitHubCheckRun,
+                    (
+                        await ctxt.client.patch(
+                            f"{ctxt.base_url}/check-runs/{checks[0]['id']}",
+                            api_version="antiope",
+                            json=post_parameters,
+                        )
+                    ).json(),
+                )
             )
         else:
             new_check = checks[0]

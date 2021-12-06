@@ -439,6 +439,8 @@ class GitHubCheckRunOutput(typing.TypedDict):
     summary: str
     text: typing.Optional[str]
     annotations: typing.Optional[typing.List[str]]
+    annotations_count: int
+    annotations_url: str
 
 
 GitHubStatusState = typing.Literal[
@@ -460,6 +462,10 @@ class GitHubStatus(typing.TypedDict):
 GitHubCheckRunStatus = typing.Literal["queued", "in_progress", "completed"]
 
 
+class GitHubCheckRunCheckSuite(typing.TypedDict):
+    id: int
+
+
 class GitHubCheckRun(typing.TypedDict):
     id: int
     app: GitHubApp
@@ -468,6 +474,24 @@ class GitHubCheckRun(typing.TypedDict):
     head_sha: SHAType
     before: SHAType
     after: SHAType
+    name: str
+    status: GitHubCheckRunStatus
+    output: GitHubCheckRunOutput
+    conclusion: typing.Optional[GitHubCheckRunConclusion]
+    started_at: ISODateTimeType
+    completed_at: ISODateTimeType
+    html_url: str
+    details_url: str
+    check_suite: GitHubCheckRunCheckSuite
+
+
+class CachedGitHubCheckRun(typing.TypedDict):
+    id: int
+    app_id: int
+    app_name: str
+    app_avatar_url: str
+    external_id: str
+    head_sha: SHAType
     name: str
     status: GitHubCheckRunStatus
     output: GitHubCheckRunOutput

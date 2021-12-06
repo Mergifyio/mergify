@@ -66,7 +66,47 @@ async def test_summary_synchronization_cache(
         return
 
     async def post_check(*args, **kwargs):
-        return mock.Mock()
+        return mock.Mock(
+            status_code=200,
+            json=mock.Mock(
+                return_value=github_types.GitHubCheckRun(
+                    {
+                        "head_sha": "ce587453ced02b1526dfb4cb910479d431683101",
+                        "details_url": "https://example.com",
+                        "status": "completed",
+                        "conclusion": "neutral",
+                        "name": "neutral",
+                        "id": 1236,
+                        "app": {
+                            "id": 1234,
+                            "name": "CI",
+                            "owner": {
+                                "type": "User",
+                                "id": 1234,
+                                "login": "goo",
+                                "avatar_url": "https://example.com",
+                            },
+                        },
+                        "external_id": "",
+                        "pull_requests": [],
+                        "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                        "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
+                        "started_at": "",
+                        "completed_at": "",
+                        "html_url": "https://example.com",
+                        "check_suite": {"id": 1234},
+                        "output": {
+                            "summary": "",
+                            "title": "It runs!",
+                            "text": "",
+                            "annotations": [],
+                            "annotations_count": 0,
+                            "annotations_url": "https://example.com",
+                        },
+                    }
+                )
+            ),
+        )
 
     client = mock.AsyncMock()
     client.auth.get_access_token.return_value = "<token>"
