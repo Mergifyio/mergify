@@ -358,7 +358,6 @@ if config.SUBSCRIPTION_TOKEN is not None:
     class Application(ApplicationOnPremise):
         pass
 
-
 else:
 
     @dataclasses.dataclass

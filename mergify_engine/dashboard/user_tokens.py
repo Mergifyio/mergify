@@ -232,7 +232,6 @@ if config.SUBSCRIPTION_TOKEN is not None:
     class UserTokens(UserTokensOnPremise):
         pass
 
-
 else:
 
     @dataclasses.dataclass

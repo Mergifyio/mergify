@@ -87,7 +87,6 @@ except ImportError:
     class vcr_errors_CannotOverwriteExistingCassetteException(Exception):
         pass
 
-
 else:
     vcr_errors_CannotOverwriteExistingCassetteException: Exception = (  # type: ignore
         vcr.errors.CannotOverwriteExistingCassetteException
