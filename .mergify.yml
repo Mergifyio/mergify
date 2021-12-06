@@ -102,6 +102,7 @@ pull_request_rules:
       - conflict
     actions:
       comment:
+        bot_account: mergify-ci-bot
         message: "@dependabot recreate"
 
   - name: dismiss reviews except for core devs
