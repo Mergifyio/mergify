@@ -18,6 +18,7 @@ import base64
 import contextlib
 import dataclasses
 import datetime
+import enum
 import functools
 import itertools
 import json
@@ -54,6 +55,17 @@ SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
+
+
+# NOTE(sileht): Sentinel object (eg: `marker = object()`) can't be expressed
+# with typing yet use the proposed workaround instead:
+#   https://github.com/python/typing/issues/689
+#   https://www.python.org/dev/peps/pep-0661/
+class _NotCached(enum.Enum):
+    _MARKER = 0
+
+
+NotCached: typing.Final = _NotCached._MARKER
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
@@ -231,16 +243,23 @@ class Installation:
             )
 
 
-class RepositoryCache(typing.TypedDict, total=False):
-    mergify_config: typing.Optional[MergifyConfigFile]
-    branches: typing.Dict[github_types.GitHubRefType, github_types.GitHubBranch]
-    labels: typing.List[github_types.GitHubLabel]
+@dataclasses.dataclass
+class RepositoryCache:
+    mergify_config: typing.Union[
+        _NotCached, typing.Optional[MergifyConfigFile]
+    ] = dataclasses.field(default=NotCached)
+    branches: typing.Dict[
+        github_types.GitHubRefType, github_types.GitHubBranch
+    ] = dataclasses.field(default_factory=dict)
+    labels: typing.Union[
+        _NotCached, typing.List[github_types.GitHubLabel]
+    ] = dataclasses.field(default=NotCached)
     branch_protections: typing.Dict[
         github_types.GitHubRefType, typing.Optional[github_types.GitHubBranchProtection]
-    ]
+    ] = dataclasses.field(default_factory=dict)
     commits: typing.Dict[
         github_types.GitHubRefType, typing.List[github_types.GitHubBranchCommit]
-    ]
+    ] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -251,8 +270,9 @@ class Repository(object):
         dataclasses.field(default_factory=dict, repr=False)
     )
 
-    # FIXME(sileht): https://github.com/python/mypy/issues/5723
-    _cache: RepositoryCache = dataclasses.field(default_factory=RepositoryCache, repr=False)  # type: ignore
+    _cache: RepositoryCache = dataclasses.field(
+        default_factory=RepositoryCache, repr=False
+    )
     log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -331,8 +351,8 @@ class Repository(object):
             )
 
     async def get_mergify_config_file(self) -> typing.Optional[MergifyConfigFile]:
-        if "mergify_config" in self._cache:
-            return self._cache["mergify_config"]
+        if self._cache.mergify_config is not NotCached:
+            return self._cache.mergify_config
 
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.repo["name"]
@@ -345,11 +365,11 @@ class Repository(object):
                 await self.installation.redis.set(
                     config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
                 )
-            self._cache["mergify_config"] = config_file
+            self._cache.mergify_config = config_file
             return config_file
 
         await self.installation.redis.delete(config_location_cache)
-        self._cache["mergify_config"] = None
+        self._cache.mergify_config = None
         return None
 
     async def get_commits(
@@ -360,32 +380,35 @@ class Repository(object):
 
         This only returns the last 100 commits."""
 
-        commits = self._cache.setdefault("commits", {})
-        if branch_name not in commits:
-            commits[branch_name] = typing.cast(
+        commits = self._cache.commits.get(branch_name, NotCached)
+        if commits is NotCached:
+            commits = typing.cast(
                 typing.List[github_types.GitHubBranchCommit],
                 await self.installation.client.item(
                     f"{self.base_url}/commits",
                     params={"per_page": "100", "sha": branch_name},
                 ),
             )
+            self._cache.commits[branch_name] = commits
 
-        return commits[branch_name]
+        return commits
 
     async def get_branch(
         self,
         branch_name: github_types.GitHubRefType,
     ) -> github_types.GitHubBranch:
-        branches = self._cache.setdefault("branches", {})
-        if branch_name not in branches:
+        branch = self._cache.branches.get(branch_name, NotCached)
+        if branch is NotCached:
             escaped_branch_name = parse.quote(branch_name, safe="")
-            branches[branch_name] = typing.cast(
+            branch = typing.cast(
                 github_types.GitHubBranch,
                 await self.installation.client.item(
                     f"{self.base_url}/branches/{escaped_branch_name}"
                 ),
             )
-        return branches[branch_name]
+            self._cache.branches[branch_name] = branch
+
+        return branch
 
     async def get_pull_request_context(
         self,
@@ -597,11 +620,11 @@ class Repository(object):
         self,
         branch_name: github_types.GitHubRefType,
     ) -> typing.Optional[github_types.GitHubBranchProtection]:
-        branch_protections = self._cache.setdefault("branch_protections", {})
-        if branch_name not in branch_protections:
+        branch_protection = self._cache.branch_protections.get(branch_name, NotCached)
+        if branch_protection is NotCached:
             escaped_branch_name = parse.quote(branch_name, safe="")
             try:
-                branch_protections[branch_name] = typing.cast(
+                branch_protection = typing.cast(
                     github_types.GitHubBranchProtection,
                     await self.installation.client.item(
                         f"{self.base_url}/branches/{escaped_branch_name}/protection",
@@ -609,31 +632,33 @@ class Repository(object):
                     ),
                 )
             except http.HTTPNotFound:
-                branch_protections[branch_name] = None
+                branch_protection = None
             except http.HTTPForbidden as e:
                 if (
                     "or make this repository public to enable this feature."
                     in e.message
                 ):
-                    branch_protections[branch_name] = None
+                    branch_protection = None
                 elif "Resource not accessible by integration" in e.message:
-                    branch_protections[
+                    branch_protection = await self._get_branch_protection_from_branch(
                         branch_name
-                    ] = await self._get_branch_protection_from_branch(branch_name)
+                    )
                 else:
                     raise
-        return branch_protections[branch_name]
+
+            self._cache.branch_protections[branch_name] = branch_protection
+        return branch_protection
 
     async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
-        if "labels" not in self._cache:
-            self._cache["labels"] = [
+        if self._cache.labels is NotCached:
+            self._cache.labels = [
                 label
                 async for label in typing.cast(
                     typing.AsyncIterator[github_types.GitHubLabel],
                     self.installation.client.items(f"{self.base_url}/labels"),
                 )
             ]
-        return self._cache["labels"]
+        return self._cache.labels
 
     async def ensure_label_exists(self, label_name: str) -> None:
         labels = await self.get_labels()
@@ -655,7 +680,8 @@ class Repository(object):
                 return
             else:
                 label = typing.cast(github_types.GitHubLabel, resp.json())
-                self._cache["labels"].append(label)
+                if self._cache.labels is not NotCached:
+                    self._cache.labels.append(label)
 
 
 class ContextCache(typing.TypedDict, total=False):

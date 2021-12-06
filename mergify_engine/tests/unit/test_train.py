@@ -605,7 +605,7 @@ queue_rules:
     speculative_checks: 2
 """,
     ):
-        del repository._cache["mergify_config"]
+        repository._cache.mergify_config = context.NotCached
         await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
     assert [4, 5] == get_waiting_content(t)
@@ -637,7 +637,7 @@ queue_rules:
     speculative_checks: 1
 """,
     ):
-        del repository._cache["mergify_config"]
+        repository._cache.mergify_config = context.NotCached
         await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
@@ -671,7 +671,7 @@ queue_rules:
     speculative_checks: 5
 """,
     ):
-        del repository._cache["mergify_config"]
+        repository._cache.mergify_config = context.NotCached
         await t.refresh()
     assert [] == get_cars_content(t)
     assert [1, 2, 3] == get_waiting_content(t)

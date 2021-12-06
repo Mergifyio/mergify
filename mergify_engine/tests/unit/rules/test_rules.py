@@ -1490,7 +1490,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item_with_branch_protection_enabled
-    del ctxt.repository._cache["branch_protections"]
+    ctxt.repository._cache.branch_protections.clear()
     pull_request_rules = pull_request_rule_from_list(
         [
             {
