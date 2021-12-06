@@ -136,7 +136,7 @@ class MergeAction(merge_base.MergeBaseAction):
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
         if not config.ALLOW_MERGE_STRICT_MODE:
-            self.config["strict"] = False
+            self.config["strict"] = merge_base.StrictMergeParameter.false
             self.config["strict_method"] = "merge"
             self.config["update_bot_account"] = None
         if not config.ALLOW_COMMIT_MESSAGE_OPTION:
