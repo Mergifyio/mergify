@@ -264,7 +264,6 @@ if config.SUBSCRIPTION_TOKEN is not None:
     class Subscription(SubscriptionDashboardOnPremise):
         pass
 
-
 else:
 
     @dataclasses.dataclass
