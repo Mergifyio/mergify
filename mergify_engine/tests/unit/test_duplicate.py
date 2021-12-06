@@ -86,18 +86,20 @@ async def test_get_commits_to_cherry_pick_rebase(
         }
     )
 
-    c1 = github_types.GitHubBranchCommit(
+    c1 = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("c1f"),
             "parents": [],
-            "commit": {"message": "foobar"},
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
-    c2 = github_types.GitHubBranchCommit(
+    c2 = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("c2"),
-            "parents": [c1],
-            "commit": {"message": "foobar"},
+            "parents": [c1["sha"]],
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
     commits.return_value = [c1, c2]
@@ -215,14 +217,14 @@ async def test_get_commits_to_cherry_pick_rebase(
         {
             "sha": github_types.SHAType("rebased_c1"),
             "parents": [base_branch],
-            "commit": {"message": "hello c1"},
+            "commit": {"message": "hello c1", "verification": {"verified": False}},
         }
     )
     rebased_c2 = github_types.GitHubBranchCommit(
         {
             "sha": github_types.SHAType("rebased_c2"),
             "parents": [rebased_c1],
-            "commit": {"message": "hello c2"},
+            "commit": {"message": "hello c2", "verification": {"verified": False}},
         }
     )
 
@@ -235,9 +237,11 @@ async def test_get_commits_to_cherry_pick_rebase(
 
     client.item.side_effect = fake_get_github_commit_from_sha
 
-    assert await duplicate_pull._get_commits_to_cherrypick(ctxt, rebased_c2) == [
-        rebased_c1,
-        rebased_c2,
+    assert await duplicate_pull._get_commits_to_cherrypick(
+        ctxt, github_types.to_cached_github_branch_commit(rebased_c2)
+    ) == [
+        github_types.to_cached_github_branch_commit(rebased_c1),
+        github_types.to_cached_github_branch_commit(rebased_c2),
     ]
 
 
@@ -250,22 +254,24 @@ async def test_get_commits_to_cherry_pick_merge(
     commits: mock.PropertyMock,
     redis_cache: utils.RedisCache,
 ) -> None:
-    c1 = github_types.GitHubBranchCommit(
+    c1 = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("c1f"),
             "parents": [],
-            "commit": {"message": "foobar"},
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
-    c2 = github_types.GitHubBranchCommit(
+    c2 = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("c2"),
-            "parents": [c1],
-            "commit": {"message": "foobar"},
+            "parents": [c1["sha"]],
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
 
-    async def fake_commits() -> typing.List[github_types.GitHubBranchCommit]:
+    async def fake_commits() -> typing.List[github_types.CachedGitHubBranchCommit]:
         return [c1, c2]
 
     commits.return_value = fake_commits()
@@ -384,18 +390,20 @@ async def test_get_commits_to_cherry_pick_merge(
         },
     )
 
-    base_branch = github_types.GitHubBranchCommit(
+    base_branch = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("base_branch"),
             "parents": [],
-            "commit": {"message": "foobar"},
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
-    merge_commit = github_types.GitHubBranchCommit(
+    merge_commit = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("merge_commit"),
-            "parents": [base_branch, c2],
-            "commit": {"message": "foobar"},
+            "parents": [base_branch["sha"], c2["sha"]],
+            "commit_message": "foobar",
+            "commit_verification_verified": False,
         }
     )
 

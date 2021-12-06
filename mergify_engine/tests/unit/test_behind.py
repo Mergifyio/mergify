@@ -23,7 +23,13 @@ from mergify_engine import github_types
 
 
 def create_commit(sha=None):
-    return {"sha": sha, "parents": []}
+    return github_types.GitHubBranchCommit(
+        {
+            "sha": sha,
+            "parents": [],
+            "commit": {"message": "", "verification": {"verified": False}},
+        }
+    )
 
 
 @pytest.fixture(
