@@ -18,7 +18,6 @@ import base64
 import contextlib
 import dataclasses
 import datetime
-import enum
 import functools
 import itertools
 import json
@@ -56,17 +55,6 @@ SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
-
-
-# NOTE(sileht): Sentinel object (eg: `marker = object()`) can't be expressed
-# with typing yet use the proposed workaround instead:
-#   https://github.com/python/typing/issues/689
-#   https://www.python.org/dev/peps/pep-0661/
-class _NotCached(enum.Enum):
-    _MARKER = 0
-
-
-NotCached: typing.Final = _NotCached._MARKER
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
@@ -257,22 +245,22 @@ class Installation:
 
 
 @dataclasses.dataclass
-class RepositoryCache:
-    mergify_config: typing.Union[
-        _NotCached, typing.Optional[MergifyConfigFile]
-    ] = dataclasses.field(default=NotCached)
-    branches: typing.Dict[
+class RepositoryCaches:
+    mergify_config: cache.SingleCache[
+        typing.Optional[MergifyConfigFile]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    branches: cache.Cache[
         github_types.GitHubRefType, github_types.GitHubBranch
-    ] = dataclasses.field(default_factory=dict)
-    labels: typing.Union[
-        _NotCached, typing.List[github_types.GitHubLabel]
-    ] = dataclasses.field(default=NotCached)
-    branch_protections: typing.Dict[
+    ] = dataclasses.field(default_factory=cache.Cache)
+    labels: cache.SingleCache[
+        typing.List[github_types.GitHubLabel]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    branch_protections: cache.Cache[
         github_types.GitHubRefType, typing.Optional[github_types.GitHubBranchProtection]
-    ] = dataclasses.field(default_factory=dict)
-    commits: typing.Dict[
+    ] = dataclasses.field(default_factory=cache.Cache)
+    commits: cache.Cache[
         github_types.GitHubRefType, typing.List[github_types.GitHubBranchCommit]
-    ] = dataclasses.field(default_factory=dict)
+    ] = dataclasses.field(default_factory=cache.Cache)
     user_permissions: cache.Cache[
         github_types.GitHubAccountIdType, github_types.GitHubRepositoryPermission
     ] = dataclasses.field(default_factory=cache.Cache)
@@ -289,8 +277,8 @@ class Repository(object):
         dataclasses.field(default_factory=dict, repr=False)
     )
 
-    _cache: RepositoryCache = dataclasses.field(
-        default_factory=RepositoryCache, repr=False
+    _caches: RepositoryCaches = dataclasses.field(
+        default_factory=RepositoryCaches, repr=False
     )
     log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
 
@@ -370,8 +358,9 @@ class Repository(object):
             )
 
     async def get_mergify_config_file(self) -> typing.Optional[MergifyConfigFile]:
-        if self._cache.mergify_config is not NotCached:
-            return self._cache.mergify_config
+        mergify_config = self._caches.mergify_config.get()
+        if mergify_config is not cache.Unset:
+            return mergify_config
 
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.repo["name"]
@@ -384,11 +373,11 @@ class Repository(object):
                 await self.installation.redis.set(
                     config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
                 )
-            self._cache.mergify_config = config_file
+            self._caches.mergify_config.set(config_file)
             return config_file
 
         await self.installation.redis.delete(config_location_cache)
-        self._cache.mergify_config = None
+        self._caches.mergify_config.set(None)
         return None
 
     async def get_commits(
@@ -399,8 +388,8 @@ class Repository(object):
 
         This only returns the last 100 commits."""
 
-        commits = self._cache.commits.get(branch_name, NotCached)
-        if commits is NotCached:
+        commits = self._caches.commits.get(branch_name)
+        if commits is cache.Unset:
             commits = typing.cast(
                 typing.List[github_types.GitHubBranchCommit],
                 await self.installation.client.item(
@@ -408,7 +397,7 @@ class Repository(object):
                     params={"per_page": "100", "sha": branch_name},
                 ),
             )
-            self._cache.commits[branch_name] = commits
+            self._caches.commits.set(branch_name, commits)
 
         return commits
 
@@ -416,8 +405,8 @@ class Repository(object):
         self,
         branch_name: github_types.GitHubRefType,
     ) -> github_types.GitHubBranch:
-        branch = self._cache.branches.get(branch_name, NotCached)
-        if branch is NotCached:
+        branch = self._caches.branches.get(branch_name)
+        if branch is cache.Unset:
             escaped_branch_name = parse.quote(branch_name, safe="")
             branch = typing.cast(
                 github_types.GitHubBranch,
@@ -425,8 +414,7 @@ class Repository(object):
                     f"{self.base_url}/branches/{escaped_branch_name}"
                 ),
             )
-            self._cache.branches[branch_name] = branch
-
+            self._caches.branches.set(branch_name, branch)
         return branch
 
     async def get_pull_request_context(
@@ -511,7 +499,7 @@ class Repository(object):
         self,
         user: github_types.GitHubAccount,
     ) -> github_types.GitHubRepositoryPermission:
-        permission = self._cache.user_permissions.get(user["id"])
+        permission = self._caches.user_permissions.get(user["id"])
         if permission is cache.Unset:
             key = self._users_permission_cache_key
             cached_permission = typing.cast(
@@ -531,7 +519,7 @@ class Repository(object):
                 await pipe.execute()
             else:
                 permission = cached_permission
-            self._cache.user_permissions.set(user["id"], permission)
+            self._caches.user_permissions.set(user["id"], permission)
         return permission
 
     async def has_write_permission(self, user: github_types.GitHubAccount) -> bool:
@@ -599,7 +587,7 @@ class Repository(object):
         await pipeline.execute()
 
     async def team_has_read_permission(self, team: github_types.GitHubTeamSlug) -> bool:
-        read_permission = self._cache.team_has_read_permission.get(team)
+        read_permission = self._caches.team_has_read_permission.get(team)
         if read_permission is cache.Unset:
             key = self._teams_permission_cache_key
             read_permission_raw = await self.installation.redis.hget(key, team)
@@ -620,7 +608,7 @@ class Repository(object):
                 await pipe.execute()
             else:
                 read_permission = bool(int(read_permission_raw))
-            self._cache.team_has_read_permission.set(team, read_permission)
+            self._caches.team_has_read_permission.set(team, read_permission)
         return read_permission
 
     async def _get_branch_protection_from_branch(
@@ -646,8 +634,8 @@ class Repository(object):
         self,
         branch_name: github_types.GitHubRefType,
     ) -> typing.Optional[github_types.GitHubBranchProtection]:
-        branch_protection = self._cache.branch_protections.get(branch_name, NotCached)
-        if branch_protection is NotCached:
+        branch_protection = self._caches.branch_protections.get(branch_name)
+        if branch_protection is cache.Unset:
             escaped_branch_name = parse.quote(branch_name, safe="")
             try:
                 branch_protection = typing.cast(
@@ -672,19 +660,21 @@ class Repository(object):
                 else:
                     raise
 
-            self._cache.branch_protections[branch_name] = branch_protection
+            self._caches.branch_protections.set(branch_name, branch_protection)
         return branch_protection
 
     async def get_labels(self) -> typing.List[github_types.GitHubLabel]:
-        if self._cache.labels is NotCached:
-            self._cache.labels = [
+        labels = self._caches.labels.get()
+        if labels is cache.Unset:
+            labels = [
                 label
                 async for label in typing.cast(
                     typing.AsyncIterator[github_types.GitHubLabel],
                     self.installation.client.items(f"{self.base_url}/labels"),
                 )
             ]
-        return self._cache.labels
+            self._caches.labels.set(labels)
+        return labels
 
     async def ensure_label_exists(self, label_name: str) -> None:
         labels = await self.get_labels()
@@ -706,22 +696,40 @@ class Repository(object):
                 return
             else:
                 label = typing.cast(github_types.GitHubLabel, resp.json())
-                if self._cache.labels is not NotCached:
-                    self._cache.labels.append(label)
+                cached_labels = self._caches.labels.get()
+                if cached_labels is not cache.Unset:
+                    cached_labels.append(label)
 
 
-class ContextCache(typing.TypedDict, total=False):
-    consolidated_reviews: typing.Tuple[
-        typing.List[github_types.GitHubReview],
-        typing.List[github_types.GitHubReview],
-    ]
-    pull_check_runs: typing.List[github_types.CachedGitHubCheckRun]
-    pull_statuses: typing.List[github_types.GitHubStatus]
-    reviews: typing.List[github_types.GitHubReview]
-    is_behind: bool
-    files: typing.List[github_types.CachedGitHubFile]
-    commits: typing.List[github_types.CachedGitHubBranchCommit]
-    commits_behind: typing.List[github_types.SHAType]
+@dataclasses.dataclass
+class ContextCaches:
+    consolidated_reviews: cache.SingleCache[
+        typing.Tuple[
+            typing.List[github_types.GitHubReview],
+            typing.List[github_types.GitHubReview],
+        ],
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    pull_check_runs: cache.SingleCache[
+        typing.List[github_types.CachedGitHubCheckRun]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    pull_statuses: cache.SingleCache[
+        typing.List[github_types.GitHubStatus]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    reviews: cache.SingleCache[
+        typing.List[github_types.GitHubReview]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    is_behind: cache.SingleCache[bool] = dataclasses.field(
+        default_factory=cache.SingleCache
+    )
+    files: cache.SingleCache[
+        typing.List[github_types.CachedGitHubFile]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    commits: cache.SingleCache[
+        typing.List[github_types.CachedGitHubBranchCommit]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    commits_behind: cache.SingleCache[
+        typing.List[github_types.SHAType]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
 
 
 ContextAttributeType = typing.Union[
@@ -748,8 +756,9 @@ class Context(object):
     pull_request: "PullRequest" = dataclasses.field(init=False, repr=False)
     log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
 
-    # FIXME(sileht): https://github.com/python/mypy/issues/5723
-    _cache: ContextCache = dataclasses.field(default_factory=ContextCache)  # type: ignore
+    _caches: ContextCaches = dataclasses.field(
+        default_factory=ContextCaches, repr=False
+    )
 
     @property
     def redis(self) -> utils.RedisCache:
@@ -955,38 +964,40 @@ class Context(object):
     ) -> typing.Tuple[
         typing.List[github_types.GitHubReview], typing.List[github_types.GitHubReview]
     ]:
-        if "consolidated_reviews" in self._cache:
-            return self._cache["consolidated_reviews"]
-
-        # Ignore reviews that are not from someone with admin/write permissions
-        # And only keep the last review for each user.
-        comments: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
-        approvals: typing.Dict[github_types.GitHubLogin, github_types.GitHubReview] = {}
-        valid_user_ids = {
-            r["user"]["id"]
-            for r in await self.reviews
-            if (
-                r["user"] is not None
-                and (
-                    r["user"]["type"] == "Bot"
-                    or await self.repository.has_write_permission(r["user"])
+        consolidated_reviews = self._caches.consolidated_reviews.get()
+        if consolidated_reviews is cache.Unset:
+            # Ignore reviews that are not from someone with admin/write permissions
+            # And only keep the last review for each user.
+            comments: typing.Dict[
+                github_types.GitHubLogin, github_types.GitHubReview
+            ] = {}
+            approvals: typing.Dict[
+                github_types.GitHubLogin, github_types.GitHubReview
+            ] = {}
+            valid_user_ids = {
+                r["user"]["id"]
+                for r in await self.reviews
+                if (
+                    r["user"] is not None
+                    and (
+                        r["user"]["type"] == "Bot"
+                        or await self.repository.has_write_permission(r["user"])
+                    )
                 )
-            )
-        }
+            }
 
-        for review in await self.reviews:
-            if not review["user"] or review["user"]["id"] not in valid_user_ids:
-                continue
-            # Only keep latest review of an user
-            if review["state"] == "COMMENTED":
-                comments[review["user"]["login"]] = review
-            else:
-                approvals[review["user"]["login"]] = review
+            for review in await self.reviews:
+                if not review["user"] or review["user"]["id"] not in valid_user_ids:
+                    continue
+                # Only keep latest review of an user
+                if review["state"] == "COMMENTED":
+                    comments[review["user"]["login"]] = review
+                else:
+                    approvals[review["user"]["login"]] = review
 
-        self._cache["consolidated_reviews"] = list(comments.values()), list(
-            approvals.values()
-        )
-        return self._cache["consolidated_reviews"]
+            consolidated_reviews = list(comments.values()), list(approvals.values())
+            self._caches.consolidated_reviews.set(consolidated_reviews)
+        return consolidated_reviews
 
     async def _get_consolidated_data(self, name: str) -> ContextAttributeType:
 
@@ -1227,18 +1238,18 @@ class Context(object):
     async def update_pull_check_runs(
         self, check: github_types.CachedGitHubCheckRun
     ) -> None:
-        self._cache["pull_check_runs"] = [
+        pull_check_runs = [
             c for c in await self.pull_check_runs if c["name"] != check["name"]
         ]
-        self._cache["pull_check_runs"].append(check)
+        pull_check_runs.append(check)
+        self._caches.pull_check_runs.set(pull_check_runs)
 
     @property
     async def pull_check_runs(self) -> typing.List[github_types.CachedGitHubCheckRun]:
-        if "pull_check_runs" in self._cache:
-            return self._cache["pull_check_runs"]
-
-        checks = await check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
-        self._cache["pull_check_runs"] = checks
+        checks = self._caches.pull_check_runs.get()
+        if checks is cache.Unset:
+            checks = await check_api.get_checks_for_ref(self, self.pull["head"]["sha"])
+            self._caches.pull_check_runs.set(checks)
         return checks
 
     @property
@@ -1260,20 +1271,19 @@ class Context(object):
 
     @property
     async def pull_statuses(self) -> typing.List[github_types.GitHubStatus]:
-        if "pull_statuses" in self._cache:
-            return self._cache["pull_statuses"]
-
-        statuses = [
-            s
-            async for s in typing.cast(
-                typing.AsyncIterable[github_types.GitHubStatus],
-                self.client.items(
-                    f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
-                    list_items="statuses",
-                ),
-            )
-        ]
-        self._cache["pull_statuses"] = statuses
+        statuses = self._caches.pull_statuses.get()
+        if statuses is cache.Unset:
+            statuses = [
+                s
+                async for s in typing.cast(
+                    typing.AsyncIterable[github_types.GitHubStatus],
+                    self.client.items(
+                        f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
+                        list_items="statuses",
+                    ),
+                )
+            ]
+            self._caches.pull_statuses.set(statuses)
         return statuses
 
     @property
@@ -1376,11 +1386,7 @@ class Context(object):
         self.pull = await self.client.item(
             f"{self.base_url}/pulls/{self.pull['number']}"
         )
-
-        try:
-            del self._cache["pull_check_runs"]
-        except KeyError:
-            pass
+        self._caches.pull_check_runs.delete()
 
     async def _get_external_parents(self) -> typing.Set[github_types.SHAType]:
         known_commits_sha = [commit["sha"] for commit in await self.commits]
@@ -1393,31 +1399,34 @@ class Context(object):
 
     @property
     async def commits_behind(self) -> typing.List[github_types.SHAType]:
-        if "commits_behind" not in self._cache:
+        commits_behind = self._caches.commits_behind.get()
+        if commits_behind is cache.Unset:
             if self.pull["merged"]:
-                self._cache["commits_behind"] = []
+                commits_behind = typing.cast(typing.List[github_types.SHAType], [])
             else:
                 try:
                     commits = await self.repository.get_commits(
                         self.pull["base"]["ref"]
                     )
                 except http.HTTPNotFound:
-                    self._cache["commits_behind"] = [
+                    commits_behind = [
                         github_types.SHAType("<base-branch-deleted>")
                     ] * 100
                 else:
                     external_parents_sha = await self._get_external_parents()
-                    self._cache["commits_behind"] = list(
+                    commits_behind = list(
                         itertools.takewhile(
                             lambda sha: sha not in external_parents_sha,
                             (c["sha"] for c in commits),
                         )
                     )
-        return self._cache["commits_behind"]
+            self._caches.commits_behind.set(commits_behind)
+        return commits_behind
 
     @property
     async def is_behind(self) -> bool:
-        if "is_behind" not in self._cache:
+        is_behind = self._caches.is_behind.get()
+        if is_behind is cache.Unset:
             branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
             branch = typing.cast(
                 github_types.GitHubBranch,
@@ -1426,10 +1435,9 @@ class Context(object):
                 ),
             )
             external_parents_sha = await self._get_external_parents()
-            self._cache["is_behind"] = (
-                branch["commit"]["sha"] not in external_parents_sha
-            )
-        return self._cache["is_behind"]
+            is_behind = branch["commit"]["sha"] not in external_parents_sha
+            self._caches.is_behind.set(is_behind)
+        return is_behind
 
     def is_merge_queue_pr(self) -> bool:
         return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
@@ -1492,49 +1500,50 @@ class Context(object):
 
     @property
     async def reviews(self) -> typing.List[github_types.GitHubReview]:
-        if "reviews" in self._cache:
-            return self._cache["reviews"]
-
-        reviews = [
-            review
-            async for review in typing.cast(
-                typing.AsyncIterable[github_types.GitHubReview],
-                self.client.items(
-                    f"{self.base_url}/pulls/{self.pull['number']}/reviews"
-                ),
-            )
-        ]
-        self._cache["reviews"] = reviews
+        reviews = self._caches.reviews.get()
+        if reviews is cache.Unset:
+            reviews = [
+                review
+                async for review in typing.cast(
+                    typing.AsyncIterable[github_types.GitHubReview],
+                    self.client.items(
+                        f"{self.base_url}/pulls/{self.pull['number']}/reviews"
+                    ),
+                )
+            ]
+            self._caches.reviews.set(reviews)
         return reviews
 
     @property
     async def commits(self) -> typing.List[github_types.CachedGitHubBranchCommit]:
-        if "commits" in self._cache:
-            return self._cache["commits"]
-        commits = [
-            github_types.to_cached_github_branch_commit(commit)
-            async for commit in typing.cast(
-                typing.AsyncIterable[github_types.GitHubBranchCommit],
-                self.client.items(
-                    f"{self.base_url}/pulls/{self.pull['number']}/commits"
-                ),
-            )
-        ]
-        self._cache["commits"] = commits
+        commits = self._caches.commits.get()
+        if commits is cache.Unset:
+            commits = [
+                github_types.to_cached_github_branch_commit(commit)
+                async for commit in typing.cast(
+                    typing.AsyncIterable[github_types.GitHubBranchCommit],
+                    self.client.items(
+                        f"{self.base_url}/pulls/{self.pull['number']}/commits"
+                    ),
+                )
+            ]
+            self._caches.commits.set(commits)
         return commits
 
     @property
     async def files(self) -> typing.List[github_types.CachedGitHubFile]:
-        if "files" in self._cache:
-            return self._cache["files"]
-        files = [
-            github_types.CachedGitHubFile({"filename": file["filename"]})
-            async for file in typing.cast(
-                typing.AsyncIterable[github_types.GitHubFile],
-                self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files"),
-            )
-        ]
-        self._cache["files"] = files
+        files = self._caches.files.get()
+        if files is cache.Unset:
+            files = [
+                github_types.CachedGitHubFile({"filename": file["filename"]})
+                async for file in typing.cast(
+                    typing.AsyncIterable[github_types.GitHubFile],
+                    self.client.items(
+                        f"{self.base_url}/pulls/{self.pull['number']}/files"
+                    ),
+                )
+            ]
+            self._caches.files.set(files)
         return files
 
     @property

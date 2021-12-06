@@ -690,7 +690,7 @@ async def test_get_mergify_config_location_from_cache(
             }
         ),
     ]
-    repository._cache = context.RepositoryCache()
+    repository._caches = context.RepositoryCaches()
     await repository.get_mergify_config_file()
     assert client.item.call_count == 1
     client.item.assert_has_calls(
@@ -1387,8 +1387,8 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         }
     )
 
-    del ctxt._cache["reviews"]
-    del ctxt._cache["consolidated_reviews"]
+    ctxt._caches.reviews.delete()
+    ctxt._caches.consolidated_reviews.delete()
 
     # Team conditions with no review missing
     pull_request_rules = pull_request_rule_from_list(
@@ -1490,7 +1490,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         raise RuntimeError(f"not handled url {url}")
 
     client.item.side_effect = client_item_with_branch_protection_enabled
-    ctxt.repository._cache.branch_protections.clear()
+    ctxt.repository._caches.branch_protections.clear()
     pull_request_rules = pull_request_rule_from_list(
         [
             {

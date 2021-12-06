@@ -183,20 +183,22 @@ async def test_merge_commit_message(body, title, message, mode):
     client = mock.MagicMock()
     installation = context.Installation(GH_INSTALLATION, {}, client, None)
     repository = context.Repository(installation, GH_REPO, 123)
-    repository._cache.branch_protections["main"] = None
+    repository._caches.branch_protections["main"] = None
     ctxt = await context.Context.create(repository=repository, pull=pull)
-    ctxt._cache["pull_statuses"] = [
-        github_types.GitHubStatus(
-            {
-                "target_url": "http://example.com",
-                "context": "my CI",
-                "state": "success",
-                "description": "foobar",
-                "avatar_url": "",
-            }
-        )
-    ]
-    ctxt._cache["pull_check_runs"] = []
+    ctxt._caches.pull_statuses.set(
+        [
+            github_types.GitHubStatus(
+                {
+                    "target_url": "http://example.com",
+                    "context": "my CI",
+                    "state": "success",
+                    "description": "foobar",
+                    "avatar_url": "",
+                }
+            )
+        ]
+    )
+    ctxt._caches.pull_check_runs.set([])
     assert await ctxt.pull_request.get_commit_message(mode=mode) == (
         title,
         message,

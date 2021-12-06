@@ -46,3 +46,12 @@ def test_cache_dict_interface() -> None:
     assert c.get("foo") is cache.Unset
     assert c["foo"] is cache.Unset
     del c["notexist"]
+
+
+def test_single_cache() -> None:
+    c: cache.SingleCache[str] = cache.SingleCache()
+    assert c.get() is cache.Unset
+    c.set("foo")
+    assert c.get() == "foo"
+    c.delete()
+    assert c.get() is cache.Unset

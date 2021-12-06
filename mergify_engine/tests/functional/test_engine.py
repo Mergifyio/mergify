@@ -657,7 +657,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
 
         # delete check run cache
-        del ctxt._cache["pull_check_runs"]
+        ctxt._caches.pull_check_runs.delete()
         checks = [
             c
             for c in await ctxt.pull_engine_check_runs
@@ -1182,7 +1182,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.run_engine()
 
-        del ctxt._cache["pull_check_runs"]
+        ctxt._caches.pull_check_runs.delete()
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
         assert summary is not None
         assert completed_at != summary["completed_at"]
@@ -1419,7 +1419,7 @@ DO NOT EDIT
                 check_api.Conclusion.CANCELLED, title="CANCELLED", summary="CANCELLED"
             ),
         )
-        ctxt._cache = {}
+        ctxt._caches = context.ContextCaches()
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert checks[0]["status"] == "completed"
@@ -1435,7 +1435,7 @@ DO NOT EDIT
                 check_api.Conclusion.PENDING, title="PENDING", summary="PENDING"
             ),
         )
-        ctxt._cache = {}
+        ctxt._caches = context.ContextCaches()
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert checks[0]["status"] == "in_progress"
