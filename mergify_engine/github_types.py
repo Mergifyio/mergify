@@ -177,8 +177,20 @@ class GitHubContentFile(typing.TypedDict):
 
 
 class GitHubFile(typing.TypedDict):
+    sha: SHAType
     filename: str
     contents_url: str
+    status: typing.Union[typing.Literal["added"], typing.Literal["removed"]]
+    additions: int
+    deletions: int
+    changes: int
+    blob_url: str
+    raw_url: str
+    patch: str
+
+
+class CachedGitHubFile(typing.TypedDict):
+    filename: str
 
 
 class GitHubIssueOrPullRequest(typing.TypedDict):

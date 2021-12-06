@@ -693,7 +693,7 @@ class ContextCache(typing.TypedDict, total=False):
     pull_statuses: typing.List[github_types.GitHubStatus]
     reviews: typing.List[github_types.GitHubReview]
     is_behind: bool
-    files: typing.List[github_types.GitHubFile]
+    files: typing.List[github_types.CachedGitHubFile]
     commits: typing.List[github_types.GitHubBranchCommit]
     commits_behind: typing.List[github_types.SHAType]
 
@@ -1501,11 +1501,11 @@ class Context(object):
         return commits
 
     @property
-    async def files(self) -> typing.List[github_types.GitHubFile]:
+    async def files(self) -> typing.List[github_types.CachedGitHubFile]:
         if "files" in self._cache:
             return self._cache["files"]
         files = [
-            file
+            github_types.CachedGitHubFile({"filename": file["filename"]})
             async for file in typing.cast(
                 typing.AsyncIterable[github_types.GitHubFile],
                 self.client.items(f"{self.base_url}/pulls/{self.pull['number']}/files"),
