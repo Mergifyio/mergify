@@ -17,7 +17,6 @@ import datetime
 import zoneinfo
 
 from freezegun import freeze_time
-import pyparsing
 import pytest
 
 from mergify_engine import date
@@ -174,6 +173,44 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
         ),
         ("current-day-of-week=sun", {"=": ("current-day-of-week", date.DayOfWeek(7))}),
         (
+            "schedule: MON-FRI 08:00-17:00",
+            {
+                "@": (
+                    "schedule",
+                    {
+                        "and": (
+                            {
+                                "and": (
+                                    {">=": ("current-day-of-week", date.DayOfWeek(1))},
+                                    {"<=": ("current-day-of-week", date.DayOfWeek(5))},
+                                )
+                            },
+                            {
+                                "and": (
+                                    {
+                                        ">=": (
+                                            "current-time",
+                                            date.Time(
+                                                8, 0, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                    {
+                                        "<=": (
+                                            "current-time",
+                                            date.Time(
+                                                17, 0, tzinfo=datetime.timezone.utc
+                                            ),
+                                        )
+                                    },
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
+        (
             "schedule=MON-friday 10:02-22:35",
             {
                 "@": (
@@ -242,6 +279,34 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
                                 "<=": (
                                     "current-time",
                                     date.Time(22, 35, tzinfo=datetime.timezone.utc),
+                                )
+                            },
+                        )
+                    },
+                )
+            },
+        ),
+        (
+            "schedule=10:02[PST8PDT]-22:35[Europe/Paris]",
+            {
+                "@": (
+                    "schedule",
+                    {
+                        "and": (
+                            {
+                                ">=": (
+                                    "current-time",
+                                    date.Time(
+                                        10, 2, tzinfo=zoneinfo.ZoneInfo("PST8PDT")
+                                    ),
+                                )
+                            },
+                            {
+                                "<=": (
+                                    "current-time",
+                                    date.Time(
+                                        22, 35, tzinfo=zoneinfo.ZoneInfo("Europe/Paris")
+                                    ),
                                 )
                             },
                         )
@@ -397,40 +462,63 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             'check-stale="my double quoted ci"',
             {"=": ("check-stale", "my double quoted ci")},
         ),
+        ("body=b", {"=": ("body", "b")}),
+        ("body=bb", {"=": ("body", "bb")}),
     ),
 )
 @freeze_time(now)
 def test_search(line, result):
-    assert result == tuple(parser.search.parseString(line, parseAll=True))[0]
+    assert result == parser.parse(line)
 
 
 @pytest.mark.parametrize(
-    "line",
+    "line, expected_error",
     (
-        "arf",
-        "-heyo",
-        "locked=1",
-        "#conflict",
-        "++head=main",
-        "foo=bar",
-        "#foo=bar",
-        "number=foo",
-        "author=%foobar",
-        "current-time<foobar",
-        "current-time=10:00",
-        "-current-time>=10:00",
-        "current-day-of-week=100",
-        "current-month=100",
-        "current-year=0",
-        "current-day=100",
-        "current-day>100",
-        "updated-at=7 days 18:00",
-        "updated-at>=100",
-        "current-timestamp>=100",
-        "current-time>=10:00[InvalidTZ]",
-        "schedule=MON-friday 10:02-22:35[InvalidTZ]",
+        ("arf", "Invalid attribute"),
+        ("-heyo", "Invalid attribute"),
+        ("locked=1", "Operators are invalid for Boolean attribute: `locked`"),
+        ("#conflict", "`#` modifier is invalid for attribute: `conflict`"),
+        ("++head=main", "Invalid attribute"),
+        ("foo=bar", "Invalid attribute"),
+        ("#foo=bar", "Invalid attribute"),
+        ("number=foo", "foo is not a number"),
+        ("author=%foobar", "Invalid GitHub login"),
+        ("current-time<foobar", "Invalid time"),
+        ("current-time=10:00", "Invalid operator"),
+        (
+            "-current-time>=10:00",
+            "`-` modifier is invalid for attribute: `current-time`",
+        ),
+        ("current-day-of-week=100", "Day of the week must be between 1 and 7"),
+        ("current-month=100", "Month must be between 1 and 12"),
+        ("current-year=0", "Year must be between 2000 and 9999"),
+        ("current-day=100", "Day must be between 1 and 31"),
+        ("current-day>100", "Day must be between 1 and 31"),
+        ("updated-at=7 days 18:00", "Invalid operator"),
+        ("updated-at>=100", "Invalid timestamp"),
+        ("current-timestamp>=100", "Invalid timestamp"),
+        ("current-time>=10:00[InvalidTZ]", "Invalid timezone"),
+        ("schedule=MON-friday 10:02-22:35[InvalidTZ]", "Invalid timezone"),
+        (
+            "-schedule=MON-friday 10:02-22:35",
+            "`-` modifier is invalid for attribute: `schedule`",
+        ),
+        ("foobar", "Invalid attribute"),
+        ("schedule=", "Invalid schedule"),
+        ("#schedule=bar", "`#` modifier is invalid for attribute: `schedule`"),
+        ("#title=bar", "bar is not a number"),
+        ('body="b', "Unbalanced quotes"),
+        ('body=b"', "Unbalanced quotes"),
+        ("body='b", "Unbalanced quotes"),
+        ("body=b'", "Unbalanced quotes"),
+        ("", "Condition empty"),
+        ("-", "Incomplete condition"),
+        ("#", "Incomplete condition"),
+        ("-#", "Incomplete condition"),
+        ("#-", "Invalid attribute"),
     ),
 )
-def test_invalid(line):
-    with pytest.raises(pyparsing.ParseException):
-        parser.search.parseString(line, parseAll=True)
+def test_invalid(line: str, expected_error: str) -> None:
+    with pytest.raises(parser.ConditionParsingError) as exc:
+        parser.parse(line)
+    assert exc.value.message == expected_error

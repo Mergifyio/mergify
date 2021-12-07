@@ -1,5 +1,4 @@
 # -*- encoding: utf-8 -*-
-# mypy: disallow-untyped-defs
 #
 # Copyright © 2018—2021 Mergify SAS
 #
@@ -14,171 +13,228 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import dataclasses
 import datetime
+import enum
 import re
 import typing
-import zoneinfo
-
-import pyparsing
 
 from mergify_engine import date
+from mergify_engine.rules import filter
 
 
-git_branch = pyparsing.CharsNotIn("~^: []\\")
-regexp = pyparsing.CharsNotIn("")
-positive_integer = pyparsing.Word(pyparsing.nums).setParseAction(
-    lambda toks: int(toks[0])
-)
-integer = pyparsing.Combine(
-    pyparsing.Optional(pyparsing.Literal("-")) + pyparsing.Word(pyparsing.nums)
-).setParseAction(lambda toks: int(toks[0]))
-github_login = pyparsing.Word(pyparsing.alphanums + "-[]")
-github_team = pyparsing.Combine(
-    pyparsing.Literal("@") + github_login + pyparsing.Literal("/") + github_login
-) | pyparsing.Combine(pyparsing.Literal("@") + github_login)
-text = (
-    pyparsing.QuotedString('"') | pyparsing.QuotedString("'") | pyparsing.CharsNotIn("")
-)
-milestone = pyparsing.CharsNotIn(" ")
+@dataclasses.dataclass
+class ConditionParsingError(Exception):
+    message: str
 
 
-_timezone = pyparsing.Optional(
-    (
-        pyparsing.Literal("[")
-        + pyparsing.oneOf(zoneinfo.available_timezones())
-        + pyparsing.Literal("]")
-    ).setParseAction(lambda toks: zoneinfo.ZoneInfo(key=toks[1])),
-    default=datetime.timezone.utc,
-)
-
-_match_time = (
-    pyparsing.Word(pyparsing.nums).addCondition(
-        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 24
-    )
-    + pyparsing.Literal(":")
-    + pyparsing.Word(pyparsing.nums).addCondition(
-        lambda tokens: int(tokens[0]) >= 0 and int(tokens[0]) < 60
-    )
-    + _timezone
-).setParseAction(
-    lambda toks: date.Time(hour=int(toks[0]), minute=int(toks[2]), tzinfo=toks[3])
-)
-
-_day = (
-    pyparsing.Word(pyparsing.nums)
-    .setParseAction(lambda tokens: date.Day(int(tokens[0])))
-    .addCondition(
-        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 31,
-        message="day must be between 1 and 31",
-    )
-)
-_month = (
-    pyparsing.Word(pyparsing.nums)
-    .setParseAction(lambda tokens: date.Month(int(tokens[0])))
-    .addCondition(
-        lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 12,
-        message="month must be between 1 and 12",
-    )
-)
-_year = (
-    pyparsing.Word(pyparsing.nums)
-    .setParseAction(lambda tokens: date.Year(int(tokens[0])))
-    .addCondition(
-        lambda tokens: tokens[0].value >= 2000 and tokens[0].value <= 9999,
-        message="year must be between 2000 and 9999",
-    )
-)
-_day_of_week_str = (
-    pyparsing.Word(pyparsing.nums)
-    | pyparsing.CaselessLiteral("monday")
-    | pyparsing.CaselessLiteral("tuesday")
-    | pyparsing.CaselessLiteral("wednesday")
-    | pyparsing.CaselessLiteral("thursday")
-    | pyparsing.CaselessLiteral("friday")
-    | pyparsing.CaselessLiteral("saturday")
-    | pyparsing.CaselessLiteral("sunday")
-    | pyparsing.CaselessLiteral("mon")
-    | pyparsing.CaselessLiteral("tue")
-    | pyparsing.CaselessLiteral("wed")
-    | pyparsing.CaselessLiteral("thu")
-    | pyparsing.CaselessLiteral("fri")
-    | pyparsing.CaselessLiteral("sat")
-    | pyparsing.CaselessLiteral("sun")
-)
-_day_of_week = _day_of_week_str.setParseAction(
-    lambda tokens: date.DayOfWeek.from_string(tokens[0])
-).addCondition(
-    lambda tokens: tokens[0].value >= 1 and tokens[0].value <= 7,
-    message="day-of-week must be between 1 and 7",
-)
-
-# PostgreSQL's day-time interval format without seconds and microseconds, e.g. "3 days 04:05"
-_TIMEDELTA_TO_NOW_RE = re.compile(
-    r"^"
-    r"(?:(?P<days>\d+) (days? ?))?"
-    r"(?:"
-    r"(?P<hours>\d+):"
-    r"(?P<minutes>\d\d)"
-    r")? ago$"
-)
+class Parser(enum.Enum):
+    TEXT = enum.auto()
+    WORD = enum.auto()
+    BRANCH = enum.auto()
+    LOGIN_AND_TEAMS = enum.auto()
+    POSITIVE_NUMBER = enum.auto()
+    NUMBER = enum.auto()
+    TIME = enum.auto()
+    DAY = enum.auto()
+    MONTH = enum.auto()
+    YEAR = enum.auto()
+    DOW = enum.auto()
+    SCHEDULE = enum.auto()
+    TIMESTAMP_OR_TIMEDELTA = enum.auto()
+    TIMESTAMP = enum.auto()
+    BOOL = enum.auto()
 
 
-class _TimedeltaRegex(typing.TypedDict):
-    days: typing.Optional[str]
-    hours: typing.Optional[str]
-    minutes: typing.Optional[str]
+CONDITION_PARSERS = {
+    "number": Parser.POSITIVE_NUMBER,
+    "head": Parser.BRANCH,
+    "base": Parser.BRANCH,
+    "author": Parser.LOGIN_AND_TEAMS,
+    "merged-by": Parser.LOGIN_AND_TEAMS,
+    "body": Parser.TEXT,
+    "body-raw": Parser.TEXT,
+    "assignee": Parser.LOGIN_AND_TEAMS,
+    "label": Parser.TEXT,
+    "title": Parser.TEXT,
+    "files": Parser.TEXT,
+    "commits-behind": Parser.TEXT,
+    "commits": Parser.TEXT,
+    "milestone": Parser.WORD,
+    "queue-position": Parser.NUMBER,
+    "review-requested": Parser.LOGIN_AND_TEAMS,
+    "approved-reviews-by": Parser.LOGIN_AND_TEAMS,
+    "dismissed-reviews-by": Parser.LOGIN_AND_TEAMS,
+    "changes-requested-reviews-by": Parser.LOGIN_AND_TEAMS,
+    "commented-reviews-by": Parser.LOGIN_AND_TEAMS,
+    "status-success": Parser.TEXT,
+    "status-failure": Parser.TEXT,
+    "status-neutral": Parser.TEXT,
+    "check-success": Parser.TEXT,
+    "check-success-or-neutral": Parser.TEXT,
+    "check-failure": Parser.TEXT,
+    "check-neutral": Parser.TEXT,
+    "check-skipped": Parser.TEXT,
+    "check-pending": Parser.TEXT,
+    "check-stale": Parser.TEXT,
+    "commits-unverified": Parser.TEXT,
+    "current-time": Parser.TIME,
+    "current-day": Parser.DAY,
+    "current-month": Parser.MONTH,
+    "current-year": Parser.YEAR,
+    "current-day-of-week": Parser.DOW,
+    "schedule": Parser.SCHEDULE,
+    "created-at": Parser.TIMESTAMP_OR_TIMEDELTA,
+    "updated-at": Parser.TIMESTAMP_OR_TIMEDELTA,
+    "closed-at": Parser.TIMESTAMP_OR_TIMEDELTA,
+    "merged-at": Parser.TIMESTAMP_OR_TIMEDELTA,
+    "current-timestamp": Parser.TIMESTAMP,
+    "locked": Parser.BOOL,
+    "merged": Parser.BOOL,
+    "closed": Parser.BOOL,
+    "conflict": Parser.BOOL,
+    "draft": Parser.BOOL,
+    "linear-history": Parser.BOOL,
+}
+# NOTE(sileht): From the longest string to the short one to ensure for
+# example that merged-at is selected before merged
+ATTRIBUTES = sorted(CONDITION_PARSERS, key=lambda v: (len(v), v), reverse=True)
 
 
-def _parse_timedelta_to_now(
-    tokens: typing.List[pyparsing.Token],
-) -> date.RelativeDatetime:
-    m = _TIMEDELTA_TO_NOW_RE.match(tokens[0])
-    if m is None:
-        raise pyparsing.ParseException("invalid relative timestamp")
-    kw = typing.cast(_TimedeltaRegex, m.groupdict())
-    return date.RelativeDatetime(
-        date.utcnow()
-        - datetime.timedelta(
-            days=int(kw["days"] or 0),
-            hours=int(kw["hours"] or 0),
-            minutes=int(kw["minutes"] or 0),
-        )
-    )
+# Negate, quantity (default: True, True)
+PARSER_MODIFIERS = {
+    Parser.BOOL: (True, False),
+    Parser.SCHEDULE: (False, False),
+    Parser.TIME: (False, False),
+    Parser.TIMESTAMP: (False, False),
+    Parser.TIMESTAMP_OR_TIMEDELTA: (False, False),
+    Parser.DOW: (False, False),
+    Parser.NUMBER: (True, False),
+    Parser.POSITIVE_NUMBER: (True, False),
+    Parser.DAY: (False, False),
+    Parser.MONTH: (False, False),
+    Parser.YEAR: (False, False),
+    Parser.DOW: (False, False),
+}
+
+NEGATION_OPERATORS = ("-", "¬")
+POSITIVE_OPERATORS = ("+",)
+RANGE_OPERATORS = (">=", "<=", "≥", "≤", "<", ">")
+EQUALITY_OPERATORS = ("==", "!=", "≠", "=", ":")
+OPERATOR_ALIASES = {
+    ":": "=",
+    "==": "=",
+    "≠": "!=",
+    "≥": ">=",
+    "≤": "<=",
+}
+REGEX_OPERATOR = "~="
+SIMPLE_OPERATORS = EQUALITY_OPERATORS + RANGE_OPERATORS
+ALL_OPERATORS = SIMPLE_OPERATORS + (REGEX_OPERATOR,)
 
 
-timedelta_to_now = text.copy().setParseAction(_parse_timedelta_to_now)
+SUPPORTED_OPERATORS = {
+    Parser.TEXT: ALL_OPERATORS,
+    Parser.WORD: ALL_OPERATORS,
+    Parser.BRANCH: ALL_OPERATORS,
+    Parser.LOGIN_AND_TEAMS: ALL_OPERATORS,
+    Parser.SCHEDULE: EQUALITY_OPERATORS,
+    Parser.TIME: RANGE_OPERATORS,
+    Parser.TIMESTAMP: RANGE_OPERATORS,
+    Parser.TIMESTAMP_OR_TIMEDELTA: RANGE_OPERATORS,
+    Parser.NUMBER: SIMPLE_OPERATORS,
+    Parser.POSITIVE_NUMBER: SIMPLE_OPERATORS,
+    Parser.DAY: SIMPLE_OPERATORS,
+    Parser.MONTH: SIMPLE_OPERATORS,
+    Parser.YEAR: SIMPLE_OPERATORS,
+    Parser.DOW: SIMPLE_OPERATORS,
+}
+
+INVALID_BRANCH_CHARS = "~^: []\\"
+
+ALPHASNUMS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+GITHUB_LOGIN_CHARS = ALPHASNUMS + "-[]"
+GITHUB_LOGIN_CHARS = GITHUB_LOGIN_CHARS + "@/"
 
 
-def _iso_datetime_with_timezone(
-    tokens: typing.List[pyparsing.Token],
-) -> datetime.datetime:
+def _to_dict(
+    negate: bool,
+    quantity: bool,
+    attribute: str,
+    operator: str,
+    value: typing.Any,
+) -> filter.TreeT:
+    if quantity:
+        attribute = f"#{attribute}"
+    d = typing.cast(filter.TreeT, {operator: (attribute, value)})
+    if negate:
+        return filter.TreeT({"-": d})
+    return d
+
+
+def _unquote(value: str) -> str:
+    if not value:
+        return value
+    elif (
+        (value[0] == "'" and value[-1] != "'")
+        or (value[0] == '"' and value[-1] != '"')
+        or (value[0] != "'" and value[-1] == "'")
+        or (value[0] != '"' and value[-1] == '"')
+    ):
+        raise ConditionParsingError("Unbalanced quotes")
+    elif (
+        (value[0] == '"' and value[-1] == '"')
+        or (value[0] == "'" and value[-1] == "'")
+        and len(value) >= 2
+    ):
+        value = value[1:-1]
+    return value
+
+
+def _extract_date(
+    date_type: typing.Type[date.PartialDatetime], value: str
+) -> date.PartialDatetime:
     try:
-        return date.fromisoformat(tokens[0]).astimezone(tokens[1])
-    except ValueError:
-        raise pyparsing.ParseException("invalid timestamp")
+        return date_type.from_string(value)
+    except date.InvalidDate as e:
+        raise ConditionParsingError(e.message)
 
 
-iso_datetime = (text.copy() + _timezone).setParseAction(_iso_datetime_with_timezone)
+def _extract_time(value: str) -> date.Time:
+    try:
+        return date.Time.from_string(value)
+    except date.InvalidDate as e:
+        raise ConditionParsingError(e.message)
 
-_day_of_week_range = (
-    _day_of_week + pyparsing.Literal("-") + _day_of_week
-).setParseAction(
-    lambda toks: {
+
+def _extract_dow_range(days: str) -> typing.Dict[str, typing.Any]:
+    dow1_str, sep, dow2_str = days.partition("-")
+    if sep != "-":
+        raise ConditionParsingError(
+            f"Invalid schedule: {days} -> {dow1_str} {sep} {dow2_str}"
+        )
+
+    dow1 = _extract_date(date.DayOfWeek, dow1_str)
+    dow2 = _extract_date(date.DayOfWeek, dow2_str)
+    return {
         "and": (
-            {">=": ("current-day-of-week", toks[0])},
-            {"<=": ("current-day-of-week", toks[2])},
+            {">=": ("current-day-of-week", dow1)},
+            {"<=": ("current-day-of-week", dow2)},
         )
     }
-)
 
 
-def _parse_time_range(toks: typing.List[pyparsing.Token]) -> typing.Any:
-    time1 = toks[0]
-    time2 = toks[2]
+def _extract_time_range(times: str) -> typing.Dict[str, typing.Any]:
+    time1_str, sep, time2_str = times.partition("-")
+    if sep != "-":
+        raise ConditionParsingError("Invalid schedule")
+    time1 = _extract_time(time1_str)
+    time2 = _extract_time(time2_str)
 
     # NOTE(sileht): In case of the format is `10:00-18:00[Europe/Paris]`,
     # we assume the first time is also [Europe/Paris]
-    if time1.tzinfo != time2.tzinfo and time2.tzinfo != datetime.timezone.utc:
+    if time1.tzinfo == datetime.timezone.utc and time1.tzinfo != time2.tzinfo:
         time1.tzinfo = time2.tzinfo
 
     return {
@@ -189,220 +245,205 @@ def _parse_time_range(toks: typing.List[pyparsing.Token]) -> typing.Any:
     }
 
 
-_time_range = (_match_time + pyparsing.Literal("-") + _match_time).setParseAction(
-    _parse_time_range
-)
-_schedule = (_day_of_week_range + pyparsing.White(" ") + _time_range).setParseAction(
-    lambda toks: {"and": (toks[0], toks[2])}
-)
-_schedule = _schedule | _time_range | _day_of_week_range
+def _skip_ws(v: str, lenght: int, position: int) -> int:
+    while position < lenght and v[position] == " ":
+        position += 1
+    return position
 
 
-def convert_equality_to_at(
-    tokens: typing.List[pyparsing.Token],
-) -> None:
-    not_ = tokens[1] == "!="
-    tokens[1] = "@"
-    if not_:
-        tokens.insert(0, True)
+def parse(v: str) -> typing.Any:
+    length = len(v)
+    position = _skip_ws(v, length, 0)
+    if position >= length:
+        raise ConditionParsingError("Condition empty")
 
+    # Search for modifiers
+    negate = False
+    quantity = False
+    if v[position] in NEGATION_OPERATORS:
+        negate = True
+        position += 1
+    elif v[position] in POSITIVE_OPERATORS:
+        position += 1
 
-regex_operators = pyparsing.Literal("~=")
+    position = _skip_ws(v, length, position)
+    if position >= length:
+        raise ConditionParsingError("Incomplete condition")
 
+    if v[position] == "#":
+        quantity = True
+        position = _skip_ws(v, length, position + 1)
+        if position >= length:
+            raise ConditionParsingError("Incomplete condition")
 
-equality_operators = (
-    pyparsing.Literal(":").setParseAction(pyparsing.replaceWith("="))
-    | pyparsing.Literal("=")
-    | pyparsing.Literal("==").setParseAction(pyparsing.replaceWith("="))
-    | pyparsing.Literal("!=")
-    | pyparsing.Literal("≠").setParseAction(pyparsing.replaceWith("!="))
-)
-
-range_operators = (
-    pyparsing.Literal(">=")
-    | pyparsing.Literal("≥").setParseAction(pyparsing.replaceWith(">="))
-    | pyparsing.Literal("<=")
-    | pyparsing.Literal("≤").setParseAction(pyparsing.replaceWith("<="))
-    | pyparsing.Literal("<")
-    | pyparsing.Literal(">")
-)
-simple_operators = equality_operators | range_operators
-
-
-def _match_boolean(literal: str) -> pyparsing.Token:
-    return (
-        literal
-        + pyparsing.Empty().setParseAction(pyparsing.replaceWith("="))
-        + pyparsing.Empty().setParseAction(pyparsing.replaceWith(True))
-    )
-
-
-match_positive_integer = simple_operators + positive_integer
-match_integer = simple_operators + integer
-
-
-def _match_with_operator(token: pyparsing.Token) -> pyparsing.Token:
-    return (simple_operators + token) | (regex_operators + regexp)
-
-
-def _token_to_dict(
-    s: str, loc: int, toks: typing.List[pyparsing.Token]
-) -> typing.Dict[str, typing.Any]:
-    if len(toks) == 1:
-        toks = toks[0]
-
-    if len(toks) == 3:
-        # datetime attributes
-        key_op = ""
-        not_ = False
-        key, op, value = toks
-        # NOTE(sileht): We can't just use a timedelta or a datetime at this
-        # point otherwise we will not be able compute the next time the
-        # condition will change, so we use the -relative attribute and
-        # date.RelativeDatetime
-        if isinstance(value, date.RelativeDatetime):
-            key += "-relative"
-
-    elif len(toks) == 5:
-        # quantifiable_attributes
-        not_, key_op, key, op, value = toks
-    elif len(toks) == 4:
-        # non_quantifiable_attributes
-        key_op = ""
-        not_, key, op, value = toks
+    # Get the attribute
+    for attribute in ATTRIBUTES:
+        if v[position:].startswith(attribute):
+            break
     else:
-        raise RuntimeError(f"unexpected search parser format: {len(toks)} ({toks})")
+        raise ConditionParsingError("Invalid attribute")
 
-    if key_op == "#":
-        value = int(value)
-    d = {op: (key_op + key, value)}
-    if not_:
-        return {"-": d}
-    return d
+    position = _skip_ws(v, length, position + len(attribute))
 
+    # Get the type of parser
+    parser = CONDITION_PARSERS[attribute]
 
-_match_login_or_teams = _match_with_operator(github_login) | (
-    simple_operators + github_team
-)
-
-head = "head" + _match_with_operator(git_branch)
-base = "base" + _match_with_operator(git_branch)
-author = "author" + _match_login_or_teams
-merged_by = "merged-by" + _match_login_or_teams
-body = "body" + _match_with_operator(text)
-body_raw = "body-raw" + _match_with_operator(text)
-assignee = "assignee" + _match_login_or_teams
-label = "label" + _match_with_operator(text)
-title = "title" + _match_with_operator(text)
-files = "files" + _match_with_operator(text)
-commits_behind = "commits-behind" + _match_with_operator(text)
-commits = "commits" + _match_with_operator(text)
-milestone = "milestone" + _match_with_operator(milestone)
-number = "number" + match_positive_integer
-queue_position = "queue-position" + match_integer
-review_requests = "review-requested" + _match_login_or_teams
-review_approved_by = "approved-reviews-by" + _match_login_or_teams
-review_dismissed_by = "dismissed-reviews-by" + _match_login_or_teams
-review_changes_requested_by = "changes-requested-reviews-by" + _match_login_or_teams
-review_commented_by = "commented-reviews-by" + _match_login_or_teams
-status_success = "status-success" + _match_with_operator(text)
-status_failure = "status-failure" + _match_with_operator(text)
-status_neutral = "status-neutral" + _match_with_operator(text)
-check_success = "check-success" + _match_with_operator(text)
-check_success_or_neutral = "check-success-or-neutral" + _match_with_operator(text)
-check_failure = "check-failure" + _match_with_operator(text)
-check_neutral = "check-neutral" + _match_with_operator(text)
-check_skipped = "check-skipped" + _match_with_operator(text)
-check_pending = "check-pending" + _match_with_operator(text)
-check_stale = "check-stale" + _match_with_operator(text)
-current_time = "current-time" + range_operators + _match_time
-current_day = "current-day" + _match_with_operator(_day)
-current_month = "current-month" + _match_with_operator(_month)
-current_year = "current-year" + _match_with_operator(_year)
-current_day_of_week = "current-day-of-week" + _match_with_operator(_day_of_week)
-schedule = ("schedule" + equality_operators + _schedule).setParseAction(
-    convert_equality_to_at
-)
-created_at = "created-at" + range_operators + (iso_datetime | timedelta_to_now)
-updated_at = "updated-at" + range_operators + (iso_datetime | timedelta_to_now)
-closed_at = "closed-at" + range_operators + (iso_datetime | timedelta_to_now)
-merged_at = "merged-at" + range_operators + (iso_datetime | timedelta_to_now)
-current_timestamp = "current-timestamp" + range_operators + iso_datetime
-commits_unverified = "commits-unverified" + _match_with_operator(text)
-
-quantifiable_attributes = (
-    head
-    | base
-    | author
-    | merged_by
-    | body
-    | body_raw
-    | assignee
-    | label
-    | title
-    | files
-    | milestone
-    | number
-    | commits
-    | review_requests
-    | review_approved_by
-    | review_dismissed_by
-    | review_changes_requested_by
-    | review_commented_by
-    | status_success
-    | status_neutral
-    | status_failure
-    | check_success
-    | check_neutral
-    | check_success_or_neutral
-    | check_failure
-    | check_skipped
-    | check_pending
-    | check_stale
-    | commits_behind
-    | queue_position
-    | commits_unverified
-)
-
-locked = _match_boolean("locked")
-merged = _match_boolean("merged")
-closed = _match_boolean("closed")
-conflict = _match_boolean("conflict")
-draft = _match_boolean("draft")
-linear_history = _match_boolean("linear-history")
-
-non_quantifiable_attributes = (
-    locked | closed | conflict | draft | merged | linear_history
-)
-
-datetime_attributes = (
-    current_time
-    | current_day_of_week
-    | current_month
-    | current_year
-    | current_day
-    | schedule
-    | updated_at
-    | created_at
-    | merged_at
-    | closed_at
-    | current_timestamp
-)
-
-search = (
-    datetime_attributes
-    | (
-        pyparsing.Optional(
-            (
-                pyparsing.Literal("-").setParseAction(pyparsing.replaceWith(True))
-                | pyparsing.Literal("¬").setParseAction(pyparsing.replaceWith(True))
-                | pyparsing.Literal("+").setParseAction(pyparsing.replaceWith(False))
-            ),
-            default=False,
+    # Check modifiers
+    negate_allowed, quantity_allowed = PARSER_MODIFIERS.get(parser, (True, True))
+    if negate and not negate_allowed:
+        raise ConditionParsingError(
+            f"`-` modifier is invalid for attribute: `{attribute}`"
         )
-        + (
-            (pyparsing.Optional("#", default="") + quantifiable_attributes)
-            | non_quantifiable_attributes
+    if quantity and not quantity_allowed:
+        raise ConditionParsingError(
+            f"`#` modifier is invalid for attribute: `{attribute}`"
         )
-    )
-).setParseAction(_token_to_dict)
+
+    # Bool doesn't have operators
+    if parser == Parser.BOOL:
+        if len(v[position:].strip()) > 0:
+            raise ConditionParsingError(
+                f"Operators are invalid for Boolean attribute: `{attribute}`"
+            )
+        return _to_dict(negate, False, attribute, "=", True)
+
+    # Extract operators
+    operators = SUPPORTED_OPERATORS[parser]
+    for op in operators:
+        if v[position:].startswith(op):
+            break
+    else:
+        raise ConditionParsingError("Invalid operator")
+    position += len(op)
+    value = v[position:].strip()
+    op = OPERATOR_ALIASES.get(op, op)
+
+    if parser == Parser.SCHEDULE:
+        value = _unquote(value)
+        if op == "!=":
+            negate = True
+        cond: typing.Dict[str, typing.Any]
+        days, has_times, times = value.partition(" ")
+        try:
+            dow_cond = _extract_dow_range(days)
+        except ConditionParsingError:
+            if has_times:
+                raise
+            cond = _extract_time_range(days)
+        else:
+            if has_times:
+                time_cond = _extract_time_range(times)
+                cond = {"and": (dow_cond, time_cond)}
+            else:
+                cond = dow_cond
+        return _to_dict(negate, False, attribute, "@", cond)
+
+    elif parser == Parser.TIME:
+        value = _unquote(value)
+        t = _extract_time(value)
+        return _to_dict(False, False, attribute, op, t)
+
+    elif parser in (Parser.TIMESTAMP, Parser.TIMESTAMP_OR_TIMEDELTA):
+        value = _unquote(value)
+        if parser == Parser.TIMESTAMP_OR_TIMEDELTA:
+            try:
+                rd = date.RelativeDatetime.from_string(value)
+            except date.InvalidDate:
+                pass
+            else:
+                return _to_dict(False, False, f"{attribute}-relative", op, rd)
+
+        try:
+            d = date.fromisoformat_with_zoneinfo(value)
+        except date.InvalidDate as e:
+            raise ConditionParsingError(e.message)
+        return _to_dict(False, False, attribute, op, d)
+
+    elif parser in (
+        Parser.NUMBER,
+        Parser.POSITIVE_NUMBER,
+    ):
+        try:
+            number = int(value)
+        except ValueError:
+            raise ConditionParsingError(f"{value} is not a number")
+
+        if parser == Parser.POSITIVE_NUMBER and number < 0:
+            raise ConditionParsingError("Value must be positive")
+        return _to_dict(negate, False, attribute, op, number)
+
+    elif parser in (
+        Parser.DAY,
+        Parser.MONTH,
+        Parser.YEAR,
+        Parser.DOW,
+    ):
+        pd: date.PartialDatetime
+        if parser == Parser.DOW:
+            pd = _extract_date(date.DayOfWeek, value)
+        elif parser == Parser.DAY:
+            pd = _extract_date(date.Day, value)
+        elif parser == Parser.MONTH:
+            pd = _extract_date(date.Month, value)
+        elif parser == Parser.YEAR:
+            pd = _extract_date(date.Year, value)
+        else:
+            raise RuntimeError("unhandled date parser")
+        return _to_dict(negate, False, attribute, op, pd)
+
+    elif parser in (
+        Parser.TEXT,
+        Parser.WORD,
+        Parser.BRANCH,
+        Parser.LOGIN_AND_TEAMS,
+    ):
+        if (
+            parser == Parser.LOGIN_AND_TEAMS
+            and value[0] == "@"
+            and op not in SIMPLE_OPERATORS
+        ):
+            raise ConditionParsingError(
+                "Regular expression are not supported for team slug"
+            )
+
+        if quantity:
+            try:
+                number = int(value)
+            except ValueError:
+                raise ConditionParsingError(f"{value} is not a number")
+            return _to_dict(negate, True, attribute, op, number)
+
+        if op == REGEX_OPERATOR:
+            try:
+                # TODO(sileht): we can keep the compiled version, so the
+                # Filter() doesn't have to (re)compile it.
+                re.compile(value)
+            except re.error as e:
+                raise ConditionParsingError(f"Invalid regular expression: {str(e)}")
+            return _to_dict(negate, quantity, attribute, op, value)
+
+        if parser == Parser.TEXT:
+            value = _unquote(value)
+        elif parser == Parser.WORD:
+            if " " in value:
+                raise ConditionParsingError(f"Invalid `{attribute}` format")
+        elif parser == Parser.BRANCH:
+            for char in INVALID_BRANCH_CHARS:
+                if char in value:
+                    raise ConditionParsingError("Invalid branch name")
+        elif parser == Parser.LOGIN_AND_TEAMS:
+            if value[0] == "@":
+                if value.count("@") > 1 or value.count("/") > 1:
+                    raise ConditionParsingError("Invalid team name")
+                valid_chars = GITHUB_LOGIN_CHARS
+            else:
+                valid_chars = GITHUB_LOGIN_CHARS
+            for char in value:
+                if char not in valid_chars:
+                    if value[0] == "@":
+                        raise ConditionParsingError("Invalid GitHub team name")
+                    else:
+                        raise ConditionParsingError("Invalid GitHub login")
+        return _to_dict(negate, quantity, attribute, op, value)
+    else:
+        raise RuntimeError(f"unhandled parser: {parser}")

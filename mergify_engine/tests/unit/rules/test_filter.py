@@ -248,7 +248,6 @@ async def test_dow_str() -> None:
     (
         date.Day,
         date.Month,
-        date.Year,
     ),
 )
 @freeze_time("2012-01-14")
@@ -256,8 +255,14 @@ async def test_partial_datetime_str(
     klass: typing.Type[date.PartialDatetime],
 ) -> None:
     assert "foo>=5" == str(filter.BinaryFilter({">=": ("foo", klass(5))}))
-    assert "foo<=11" == str(filter.BinaryFilter({"<=": ("foo", klass(11))}))
+    assert "foo<=4" == str(filter.BinaryFilter({"<=": ("foo", klass(4))}))
     assert "foo=3" == str(filter.BinaryFilter({"=": ("foo", klass(3))}))
+
+
+async def test_partial_datetime_year_str() -> None:
+    assert "foo>=2005" == str(filter.BinaryFilter({">=": ("foo", date.Year(2005))}))
+    assert "foo<=2004" == str(filter.BinaryFilter({"<=": ("foo", date.Year(2004))}))
+    assert "foo=2003" == str(filter.BinaryFilter({"=": ("foo", date.Year(2003))}))
 
 
 @pytest.mark.parametrize(
@@ -265,7 +270,7 @@ async def test_partial_datetime_str(
     (
         date.Day,
         date.Month,
-        date.Year,
+        lambda n: date.Year(2000 + n),
         date.DayOfWeek,
     ),
 )
@@ -653,7 +658,7 @@ def rdtime(day: int) -> date.RelativeDatetime:
 
 @freeze_time("2012-01-14T05:08:00")
 async def test_relative_datetime() -> None:
-    tree = parser.search.parseString("updated-at<2 days ago", parseAll=True)[0]
+    tree = parser.parse("updated-at<2 days ago")
     f = filter.BinaryFilter(tree)
     assert await f(FakePR({"updated-at-relative": rdtime(2)})), tree
     assert await f(FakePR({"updated-at-relative": rdtime(10)})), tree
@@ -669,7 +674,7 @@ async def test_relative_datetime() -> None:
     assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == dtime(16), tree
     assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == dtime(20), tree
 
-    tree = parser.search.parseString("updated-at<=2 days ago", parseAll=True)[0]
+    tree = parser.parse("updated-at<=2 days ago")
     f = filter.BinaryFilter(tree)
     assert await f(FakePR({"updated-at-relative": rdtime(2)})), tree
     assert await f(FakePR({"updated-at-relative": rdtime(10)})), tree
@@ -687,7 +692,7 @@ async def test_relative_datetime() -> None:
     assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == dtime(16), tree
     assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == dtime(20), tree
 
-    tree = parser.search.parseString("updated-at>2 days ago", parseAll=True)[0]
+    tree = parser.parse("updated-at>2 days ago")
     f = filter.BinaryFilter(tree)
     assert not (await f(FakePR({"updated-at-relative": rdtime(2)}))), tree
     assert not (await f(FakePR({"updated-at-relative": rdtime(10)}))), tree
@@ -703,7 +708,7 @@ async def test_relative_datetime() -> None:
     assert (await fd(FakePR({"updated-at-relative": rdtime(14)}))) == date.DT_MAX, tree
     assert (await fd(FakePR({"updated-at-relative": rdtime(18)}))) == date.DT_MAX, tree
 
-    tree = parser.search.parseString("updated-at>=2 days ago", parseAll=True)[0]
+    tree = parser.parse("updated-at>=2 days ago")
     f = filter.BinaryFilter(tree)
     assert not (await f(FakePR({"updated-at-relative": rdtime(2)}))), tree
     assert not (await f(FakePR({"updated-at-relative": rdtime(10)}))), tree
@@ -856,7 +861,7 @@ async def test_chain() -> None:
 
 async def test_parser_leaf() -> None:
     for string in ("head=foobar", "-base=main", "#files>3"):
-        tree = parser.search.parseString(string, parseAll=True)[0]
+        tree = parser.parse(string)
         assert string == str(filter.BinaryFilter(tree))
 
 
@@ -882,9 +887,7 @@ def get_scheduled_pr() -> FakePR:
 
 async def test_schedule_with_timezone() -> None:
     with freeze_time("2021-10-19T22:01:31.610725", tz_offset=0) as frozen_time:
-        tree = parser.search.parseString(
-            "schedule=Mon-Fri 09:00-17:30[Europe/Paris]", parseAll=True
-        )[0]
+        tree = parser.parse("schedule=Mon-Fri 09:00-17:30[Europe/Paris]")
         f = filter.NearDatetimeFilter(tree)
 
         today = frozen_time().replace(tzinfo=UTC)
