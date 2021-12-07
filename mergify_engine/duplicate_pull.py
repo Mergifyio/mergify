@@ -71,18 +71,19 @@ GIT_MESSAGE_TO_EXCEPTION = {
 
 @functools.total_ordering
 class CommitOrderingKey:
-    def __init__(self, obj: github_types.GitHubBranchCommit) -> None:
+    def __init__(self, obj: github_types.CachedGitHubBranchCommit) -> None:
         self.obj = obj
 
     @staticmethod
     def order_commit(
-        c1: github_types.GitHubBranchCommit, c2: github_types.GitHubBranchCommit
+        c1: github_types.CachedGitHubBranchCommit,
+        c2: github_types.CachedGitHubBranchCommit,
     ) -> int:
         if c1["sha"] == c2["sha"]:
             return 0
 
-        for p in c1["parents"]:
-            if c2["sha"] == p["sha"]:
+        for p_sha in c1["parents"]:
+            if c2["sha"] == p_sha:
                 return 1
 
         return -1
@@ -101,17 +102,18 @@ class CommitOrderingKey:
 
 
 def is_base_branch_merge_commit(
-    commit: github_types.GitHubBranchCommit, base_branch: github_types.GitHubRefType
+    commit: github_types.CachedGitHubBranchCommit,
+    base_branch: github_types.GitHubRefType,
 ) -> bool:
     return (
-        commit["commit"]["message"].startswith(f"Merge branch '{base_branch}'")
+        commit["commit_message"].startswith(f"Merge branch '{base_branch}'")
         and len(commit["parents"]) == 2
     )
 
 
 async def _get_commits_without_base_branch_merge(
     ctxt: context.Context,
-) -> typing.List[github_types.GitHubBranchCommit]:
+) -> typing.List[github_types.CachedGitHubBranchCommit]:
     base_branch = ctxt.pull["base"]["ref"]
     return list(
         filter(
@@ -122,13 +124,13 @@ async def _get_commits_without_base_branch_merge(
 
 
 async def _get_commits_to_cherrypick(
-    ctxt: context.Context, merge_commit: github_types.GitHubBranchCommit
-) -> typing.List[github_types.GitHubBranchCommit]:
+    ctxt: context.Context, merge_commit: github_types.CachedGitHubBranchCommit
+) -> typing.List[github_types.CachedGitHubBranchCommit]:
     if len(merge_commit["parents"]) == 1:
         # NOTE(sileht): We have a rebase+merge or squash+merge
         # We pick all commits until a sha is not linked with our PR
 
-        out_commits: typing.List[github_types.GitHubBranchCommit] = []
+        out_commits: typing.List[github_types.CachedGitHubBranchCommit] = []
         commit = merge_commit
         while True:
             if len(commit["parents"]) != 1:
@@ -137,12 +139,12 @@ async def _get_commits_to_cherrypick(
                 return []
 
             out_commits.insert(0, commit)
-            parent_commit = commit["parents"][0]
+            parent_commit_sha = commit["parents"][0]
 
             pull_numbers = [
                 p["number"]
                 async for p in ctxt.client.items(
-                    f"{ctxt.base_url}/commits/{parent_commit['sha']}/pulls",
+                    f"{ctxt.base_url}/commits/{parent_commit_sha}/pulls",
                     api_version="groot",
                 )
                 if (
@@ -156,7 +158,7 @@ async def _get_commits_to_cherrypick(
                 pull_numbers += [
                     p["number"]
                     async for p in ctxt.client.items(
-                        f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{parent_commit['sha']}/pulls",
+                        f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{parent_commit_sha}/pulls",
                         api_version="groot",
                     )
                     if (
@@ -175,11 +177,13 @@ async def _get_commits_to_cherrypick(
                 return out_commits
 
             # Prepare next iteration
-            commit = typing.cast(
-                github_types.GitHubBranchCommit,
-                await ctxt.client.item(
-                    f"{ctxt.base_url}/commits/{parent_commit['sha']}"
-                ),
+            commit = github_types.to_cached_github_branch_commit(
+                typing.cast(
+                    github_types.GitHubBranchCommit,
+                    await ctxt.client.item(
+                        f"{ctxt.base_url}/commits/{parent_commit_sha}"
+                    ),
+                )
             )
 
     elif len(merge_commit["parents"]) == 2:
@@ -278,8 +282,13 @@ async def duplicate(
         await git("fetch", "--quiet", "origin", branch_name)
         await git("checkout", "--quiet", "-b", bp_branch, f"origin/{branch_name}")
 
-        merge_commit = await ctxt.client.item(
-            f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
+        merge_commit = github_types.to_cached_github_branch_commit(
+            typing.cast(
+                github_types.GitHubBranchCommit,
+                await ctxt.client.item(
+                    f"{ctxt.base_url}/commits/{ctxt.pull['merge_commit_sha']}"
+                ),
+            )
         )
         for commit in await _get_commits_to_cherrypick(ctxt, merge_commit):
             # FIXME(sileht): Github does not allow to fetch only one commit

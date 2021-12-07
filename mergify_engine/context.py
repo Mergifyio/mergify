@@ -694,7 +694,7 @@ class ContextCache(typing.TypedDict, total=False):
     reviews: typing.List[github_types.GitHubReview]
     is_behind: bool
     files: typing.List[github_types.CachedGitHubFile]
-    commits: typing.List[github_types.GitHubBranchCommit]
+    commits: typing.List[github_types.CachedGitHubBranchCommit]
     commits_behind: typing.List[github_types.SHAType]
 
 
@@ -745,15 +745,12 @@ class Context(object):
         # TODO(sileht): remove me when context split if done
         return self.repository.base_url
 
-    async def retrieve_unverified_commits(
-        self: typing.Any,
-    ) -> typing.List[github_types.GitHubBranchCommit]:
-        unverified_commits: typing.List[github_types.GitHubBranchCommit]
-        unverified_commits = []
-        for commit in await self.commits:
-            if not commit["commit"]["verification"]["verified"]:
-                unverified_commits.append(commit["commit"]["message"])
-        return unverified_commits
+    async def retrieve_unverified_commits(self) -> typing.List[str]:
+        return [
+            commit["commit_message"]
+            for commit in await self.commits
+            if not commit["commit_verification_verified"]
+        ]
 
     @classmethod
     async def create(
@@ -1045,7 +1042,7 @@ class Context(object):
             return [f["filename"] for f in await self.files]
 
         elif name == "commits":
-            return [c["commit"]["message"] for c in await self.commits]
+            return [c["commit_message"] for c in await self.commits]
 
         elif name == "approved-reviews-by":
             _, approvals = await self.consolidated_reviews()
@@ -1363,9 +1360,9 @@ class Context(object):
         known_commits_sha = [commit["sha"] for commit in await self.commits]
         external_parents_sha = set()
         for commit in await self.commits:
-            for parent in commit["parents"]:
-                if parent["sha"] not in known_commits_sha:
-                    external_parents_sha.add(parent["sha"])
+            for parent_sha in commit["parents"]:
+                if parent_sha not in known_commits_sha:
+                    external_parents_sha.add(parent_sha)
         return external_parents_sha
 
     @property
@@ -1485,11 +1482,11 @@ class Context(object):
         return reviews
 
     @property
-    async def commits(self) -> typing.List[github_types.GitHubBranchCommit]:
+    async def commits(self) -> typing.List[github_types.CachedGitHubBranchCommit]:
         if "commits" in self._cache:
             return self._cache["commits"]
         commits = [
-            commit
+            github_types.to_cached_github_branch_commit(commit)
             async for commit in typing.cast(
                 typing.AsyncIterable[github_types.GitHubBranchCommit],
                 self.client.items(

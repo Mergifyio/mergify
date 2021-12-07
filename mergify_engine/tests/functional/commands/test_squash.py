@@ -155,8 +155,8 @@ Awesome body
         assert pr["commits"] == 1
 
         ctxt = await context.Context.create(self.repository_ctxt, pr, [])
-        assert (await ctxt.commits)[0]["commit"][
-            "message"
+        assert (await ctxt.commits)[0][
+            "commit_message"
         ] == "Awesome title\n\nAwesome body"
 
     async def test_squash_several_commits_with_two_merge_commits(self):

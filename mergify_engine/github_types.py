@@ -16,6 +16,8 @@
 import typing
 
 
+ISODateTimeType = typing.NewType("ISODateTimeType", str)
+
 GitHubLogin = typing.NewType("GitHubLogin", str)
 
 
@@ -108,14 +110,41 @@ class GitHubBranchCommitParent(typing.TypedDict):
     sha: SHAType
 
 
+class GitHubBranchCommitVerification(typing.TypedDict):
+    verified: bool
+
+
 class GitHubBranchCommitCommit(typing.TypedDict):
     message: str
+    verification: GitHubBranchCommitVerification
 
 
 class GitHubBranchCommit(typing.TypedDict):
     sha: SHAType
     parents: typing.List[GitHubBranchCommitParent]
     commit: GitHubBranchCommitCommit
+
+
+class CachedGitHubBranchCommit(typing.TypedDict):
+    sha: SHAType
+    parents: typing.List[SHAType]
+    commit_message: str
+    commit_verification_verified: bool
+
+
+def to_cached_github_branch_commit(
+    commit: GitHubBranchCommit,
+) -> CachedGitHubBranchCommit:
+    return CachedGitHubBranchCommit(
+        {
+            "sha": commit["sha"],
+            "commit_message": commit["commit"]["message"],
+            "commit_verification_verified": commit["commit"]["verification"][
+                "verified"
+            ],
+            "parents": [p["sha"] for p in commit["parents"]],
+        }
+    )
 
 
 class GitHubBranchProtectionRequiredStatusChecks(typing.TypedDict):
@@ -235,9 +264,6 @@ GitHubPullRequestMergeableState = typing.Literal[
 
 GitHubPullRequestId = typing.NewType("GitHubPullRequestId", int)
 GitHubPullRequestNumber = typing.NewType("GitHubPullRequestNumber", int)
-
-
-ISODateTimeType = typing.NewType("ISODateTimeType", str)
 
 
 class GitHubMilestone(typing.TypedDict):
