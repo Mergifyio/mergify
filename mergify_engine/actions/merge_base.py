@@ -19,8 +19,6 @@ import logging
 import re
 import typing
 
-import daiquiri
-
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
@@ -35,9 +33,8 @@ from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
+from mergify_engine.rules import filter
 
-
-LOG = daiquiri.getLogger(__name__)
 
 BRANCH_PROTECTION_FAQ_URL = (
     "https://docs.mergify.com/faq/#"
@@ -85,28 +82,11 @@ async def get_rule_checks_status(
     if rule.conditions.match:
         return check_api.Conclusion.SUCCESS
 
-    conditions_initial = rule.conditions.copy()
     conditions_without_checks = rule.conditions.copy()
-    conditions_with_all_checks = rule.conditions.copy()
-    conditions_with_check_not_failing = rule.conditions.copy()
-    for (
-        condition_initial,
-        condition_without_check,
-        condition_with_all_check,
-        condition_with_check_not_failing,
-    ) in zip(
-        conditions_initial.walk(),
-        conditions_without_checks.walk(),
-        conditions_with_all_checks.walk(),
-        conditions_with_check_not_failing.walk(),
-    ):
-        attr = condition_initial.get_attribute_name()
+    for condition_without_check in conditions_without_checks.walk():
+        attr = condition_without_check.get_attribute_name()
         if attr.startswith("check-") or attr.startswith("status-"):
             condition_without_check.update("number>0")
-            condition_with_check_not_failing.update_attribute_name(
-                "check-success-or-neutral-or-pending"
-            )
-            condition_with_all_check.update_attribute_name("check")
 
     # NOTE(sileht): Something unrelated to checks unmatch?
     await conditions_without_checks(pulls)
@@ -120,22 +100,30 @@ async def get_rule_checks_status(
         else:
             return check_api.Conclusion.PENDING
 
-    # NOTE(sileht): Have all checks reported their status?
-    await conditions_with_all_checks(pulls)
-    log.debug(
-        "did check report their status? %s",
-        conditions_with_all_checks.get_summary(),
-    )
-    if not conditions_with_all_checks.match:
-        return check_api.Conclusion.PENDING
+    tree = rule.conditions.extract_raw_filter_tree()
+    results: typing.Dict[int, filter.IncompleteChecksResult] = {}
+    for pull in pulls:
+        f = filter.IncompleteChecksFilter(
+            tree,
+            pending_checks=await getattr(pull, "check-pending"),
+            all_checks=await pull.check,  # type: ignore[attr-defined]
+        )
+        ret = await f(pull)
+        if ret is filter.IncompleteCheck:
+            log.debug("found an incomplete check")
+            return check_api.Conclusion.PENDING
 
-    # NOTE(sileht): Are remaining unmatch checks success or pending?
-    await conditions_with_check_not_failing(pulls)
-    log.debug(
-        "did checks report success-or-neutral-or-pending? %s",
-        conditions_with_check_not_failing.get_summary(),
-    )
-    if conditions_with_check_not_failing.match:
+        pr_number = await pull.number  # type: ignore[attr-defined]
+        results[pr_number] = ret
+
+    if all(results.values()):
+        # This can't occur!, we should have returned SUCCESS earlier.
+        log.error(
+            "filter.IncompleteChecksFilter unexpectly returned true",
+            tree=tree,
+            results=results,
+        )
+        # So don't merge broken stuff
         return check_api.Conclusion.PENDING
     else:
         return check_api.Conclusion.FAILURE
