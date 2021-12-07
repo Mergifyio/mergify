@@ -35,6 +35,7 @@ from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
+from mergify_engine.rules import filter
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -74,51 +75,59 @@ def strict_merge_parameter(v):
     raise ValueError(f"{v} is an unknown strict merge parameter")
 
 
-async def get_rule_checks_status(
+async def get_rule_checks_status_next(
     log: logging.LoggerAdapter,
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
-    *,
-    unmatched_conditions_return_failure: bool = True,
+) -> check_api.Conclusion:
+    tree = rule.conditions.extract_raw_filter_tree()
+    results: typing.Dict[int, filter.IncompleteChecksResult] = {}
+
+    for pull in pulls:
+        f = filter.IncompleteChecksFilter(
+            tree,
+            pending_checks=await getattr(pull, "check-pending"),
+            all_checks=await pull.check,  # type: ignore[attr-defined]
+        )
+        ret = await f(pull)
+        if ret is filter.IncompleteCheck:
+            log.debug("found an incomplete check")
+            return check_api.Conclusion.PENDING
+
+        pr_number = await pull.number  # type: ignore[attr-defined]
+        results[pr_number] = ret
+
+    if all(results.values()):
+        # This can't occur!, we should have returned SUCCESS earlier.
+        log.error(
+            "filter.IncompleteChecksFilter unexpectly returned true",
+            tree=tree,
+            results=results,
+        )
+        # So don't merge broken stuff
+        return check_api.Conclusion.PENDING
+    else:
+        return check_api.Conclusion.FAILURE
+
+
+async def get_rule_checks_status_legacy(
+    log: logging.LoggerAdapter,
+    pulls: typing.List[context.BasePullRequest],
+    rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
 ) -> check_api.Conclusion:
 
-    if rule.conditions.match:
-        return check_api.Conclusion.SUCCESS
-
-    conditions_initial = rule.conditions.copy()
-    conditions_without_checks = rule.conditions.copy()
     conditions_with_all_checks = rule.conditions.copy()
     conditions_with_check_not_failing = rule.conditions.copy()
-    for (
-        condition_initial,
-        condition_without_check,
-        condition_with_all_check,
-        condition_with_check_not_failing,
-    ) in zip(
-        conditions_initial.walk(),
-        conditions_without_checks.walk(),
+    for (condition_with_all_check, condition_with_check_not_failing,) in zip(
         conditions_with_all_checks.walk(),
         conditions_with_check_not_failing.walk(),
     ):
-        attr = condition_initial.get_attribute_name()
+        attr = condition_with_all_check.get_attribute_name()
         if attr.startswith("check-") or attr.startswith("status-"):
-            condition_without_check.update("number>0")
             condition_with_check_not_failing.update_attribute_name(
                 "check-success-or-neutral-or-pending"
             )
             condition_with_all_check.update_attribute_name("check")
-
-    # NOTE(sileht): Something unrelated to checks unmatch?
-    await conditions_without_checks(pulls)
-    log.debug(
-        "something unrelated to checks doesn't match? %s",
-        conditions_without_checks.get_summary(),
-    )
-    if not conditions_without_checks.match:
-        if unmatched_conditions_return_failure:
-            return check_api.Conclusion.FAILURE
-        else:
-            return check_api.Conclusion.PENDING
 
     # NOTE(sileht): Have all checks reported their status?
     await conditions_with_all_checks(pulls)
@@ -139,6 +148,58 @@ async def get_rule_checks_status(
         return check_api.Conclusion.PENDING
     else:
         return check_api.Conclusion.FAILURE
+
+
+async def get_rule_checks_status(
+    log: logging.LoggerAdapter,
+    pulls: typing.List[context.BasePullRequest],
+    rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
+    *,
+    unmatched_conditions_return_failure: bool = True,
+    use_new_rule_checks_status: bool = False,
+) -> check_api.Conclusion:
+
+    if rule.conditions.match:
+        return check_api.Conclusion.SUCCESS
+
+    conditions_without_checks = rule.conditions.copy()
+    for condition_without_check in conditions_without_checks.walk():
+        attr = condition_without_check.get_attribute_name()
+        if attr.startswith("check-") or attr.startswith("status-"):
+            condition_without_check.update("number>0")
+
+    # NOTE(sileht): Something unrelated to checks unmatch?
+    await conditions_without_checks(pulls)
+    log.debug(
+        "something unrelated to checks doesn't match? %s",
+        conditions_without_checks.get_summary(),
+    )
+    if not conditions_without_checks.match:
+        if unmatched_conditions_return_failure:
+            return check_api.Conclusion.FAILURE
+        else:
+            return check_api.Conclusion.PENDING
+
+    legacy_status = await get_rule_checks_status_legacy(log, pulls, rule)
+    new_status = await get_rule_checks_status_next(log, pulls, rule)
+
+    if legacy_status != new_status:
+        log.warning(
+            "get_rule_checks_status_next() returns different result than legacy one",
+            legacy_status=legacy_status,
+            new_status=new_status,
+            tree=rule.conditions.extract_raw_filter_tree(),
+            pending_checks={
+                await pull.number: await getattr(pull, "check-pending")  # type: ignore[attr-defined]
+                for pull in pulls
+            },
+            all_checks={await pull.number: await pull.check for pull in pulls},  # type: ignore[attr-defined]
+        )
+
+    if use_new_rule_checks_status:
+        return new_status
+    else:
+        return legacy_status
 
 
 class MergeBaseAction(actions.Action, abc.ABC):
