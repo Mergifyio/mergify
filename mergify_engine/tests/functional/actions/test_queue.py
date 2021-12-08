@@ -2719,6 +2719,114 @@ DO NOT EDIT
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_checks_and_branch(self):
+        rules = f"""
+queue_rules:
+  - name: default
+    conditions:
+      - "check-success=Summary"
+      - "check-success=ci/status"
+      - "check-success=ci/service-test"
+      - "check-success=ci/pipelines"
+      - "#approved-reviews-by>=1"
+      - "-label=flag:wait"
+
+pull_request_rules:
+  - name: merge
+    conditions:
+      - "-draft"
+      - "-closed"
+      - "-merged"
+      - "-conflict"
+      - "base={self.main_branch_name}"
+      - "label=flag:merge"
+    actions:
+      queue:
+        name: default
+        priority: medium
+        update_method: rebase
+        require_branch_protection: false
+"""
+        await self.setup_repo(rules)
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": [
+                    "ci/status",
+                    "ci/service-test",
+                    "ci/pipelines",
+                ],
+            },
+            "required_linear_history": False,
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        p, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p_other, _ = await self.create_pr()
+        await self.merge_pull(p_other["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p_other = await self.get_pull(p_other["number"])
+
+        await self.create_review(p["number"])
+        await self.add_label(p["number"], "flag:merge")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p_other)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p_other["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p["number"]],
+                    [],
+                    p_other["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        head_sha = p["head"]["sha"]
+        p = await self.get_pull(p["number"])
+        assert p["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        check = first(
+            await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: merge (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        await self.create_status(p, "ci/status", state="pending")
+        await self.run_engine()
+
+        await self.create_status(p, "ci/status")
+        await self.create_status(p, "ci/service-test")
+        await self.run_engine()
+
+        await self.create_status(p, "ci/pipelines")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+
 
 class TestTrainApiCalls(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
