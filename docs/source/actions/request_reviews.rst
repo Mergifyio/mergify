@@ -47,6 +47,13 @@ Options
       ``random_count`` is specified, ``users`` and ``teams`` can be a
       dictionary where the key is the login and the value is the weight to use.
       Weight must be between 1 and 65535 included.
+  * - ``bot_account``
+    - :ref:`data type template`
+    -
+    - |premium plan tag|
+      Mergify can impersonate a GitHub user to request a review on a pull request.
+      If no ``bot_account`` is set, Mergify will request the review itself.
+
 
 Examples
 --------
