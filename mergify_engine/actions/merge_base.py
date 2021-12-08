@@ -184,16 +184,20 @@ async def get_rule_checks_status(
     new_status = await get_rule_checks_status_next(log, pulls, rule)
 
     if legacy_status != new_status:
+        checks_attr = [
+            attr
+            for attr in context.QueuePullRequest.QUEUE_ATTRIBUTES
+            if attr.startswith("status-") or attr.startswith("checks-")
+        ]
         log.warning(
             "get_rule_checks_status_next() returns different result than legacy one",
             legacy_status=legacy_status,
             new_status=new_status,
             tree=rule.conditions.extract_raw_filter_tree(),
-            pending_checks={
-                await pull.number: await getattr(pull, "check-pending")  # type: ignore[attr-defined]
+            checks={
+                await pull.number: {attr: await getattr(pull, attr) for attr in checks_attr}  # type: ignore[attr-defined]
                 for pull in pulls
             },
-            all_checks={await pull.number: await pull.check for pull in pulls},  # type: ignore[attr-defined]
         )
 
     if use_new_rule_checks_status:
