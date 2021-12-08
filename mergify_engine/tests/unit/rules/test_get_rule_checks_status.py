@@ -51,9 +51,9 @@ class FakeQueuePullRequest:
             + self.attrs.get("check-skipped", [])  # type: ignore
         )
 
-        for key, value in list(self.attrs.items()):
-            if key.startswith("check"):
-                self.attrs[f"potential-{key}"] = value + self.attrs.get("check-pending", [])  # type: ignore
+        self.attrs["status-success"] = self.attrs.get("check-success", [])  # type: ignore
+        self.attrs["status-neutral"] = self.attrs.get("check-neutral", [])  # type: ignore
+        self.attrs["status-failure"] = self.attrs.get("check-failure", [])  # type: ignore
 
 
 @pytest.mark.asyncio
