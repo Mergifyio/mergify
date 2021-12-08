@@ -22,6 +22,7 @@ from urllib import parse
 
 import daiquiri
 import first
+import tenacity
 
 from mergify_engine import branch_updater
 from mergify_engine import check_api
@@ -57,6 +58,10 @@ CHECK_ASSERTS = {
     "neutral": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/square-grey-16.png",
     "stale": "https://raw.githubusercontent.com/Mergifyio/mergify-engine/master/assets/square-grey-16.png",
 }
+
+
+def is_base_branch_not_exists_exception(exc: BaseException) -> bool:
+    return isinstance(exc, http.HTTPNotFound) and "Base does not exist" in exc.message
 
 
 class UnexpectedChange:
@@ -407,16 +412,39 @@ class TrainCar:
             ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
         ]:
             try:
-                await self.train.repository.installation.client.post(
-                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
-                    json={
-                        "base": branch_name,
-                        "head": f"refs/pull/{pull_number}/head",
-                        "commit_message": f"Merge of #{pull_number}",
-                    },
-                )
+                # NOTE(sileht): From time to time, GitHub returns a 404 when we merge
+                # the pull request in branches because the branch doesn't exists yet
+                # even if the previous API call returns
+                async for attempt in tenacity.AsyncRetrying(
+                    wait=tenacity.wait_exponential(multiplier=0.1),
+                    stop=tenacity.stop_after_attempt(4),
+                    retry=tenacity.retry_if_exception(
+                        is_base_branch_not_exists_exception
+                    ),
+                ):
+                    with attempt:
+                        await self.train.repository.installation.client.post(
+                            f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
+                            json={
+                                "base": branch_name,
+                                "head": f"refs/pull/{pull_number}/head",
+                                "commit_message": f"Merge of #{pull_number}",
+                            },
+                        )
             except http.HTTPClientSideError as e:
-                if (
+                if is_base_branch_not_exists_exception(e):
+                    self.train.log.warning(
+                        "fail to create the queue pull request because base still doesn't exist, 1.5 seconds after its creation",
+                        embarked_pulls=[
+                            ep.user_pull_request_number
+                            for ep in self.still_queued_embarked_pulls
+                        ],
+                        error_message=e.message,
+                    )
+                    await self._delete_branch()
+                    raise TrainCarPullRequestCreationPostponed(self) from e
+
+                elif (
                     e.status_code == 403
                     and "Resource not accessible by integration" in e.message
                 ):
