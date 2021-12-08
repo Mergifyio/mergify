@@ -59,3 +59,17 @@ class Cache(typing.Generic[_K, _V]):
 
     def __delitem__(self, key: _K) -> None:
         self.delete(key)
+
+
+@dataclasses.dataclass
+class SingleCache(typing.Generic[_V]):
+    _cache: typing.Union[_V, UnsetType] = dataclasses.field(default=Unset)
+
+    def get(self) -> typing.Union[_V, UnsetType]:
+        return self._cache
+
+    def set(self, value: _V) -> None:
+        self._cache = value
+
+    def delete(self) -> None:
+        self._cache = Unset
