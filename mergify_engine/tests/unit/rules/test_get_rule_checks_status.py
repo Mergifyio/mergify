@@ -38,6 +38,11 @@ class FakeQueuePullRequest:
         return self.attrs[fancy_name]
 
     def sync_checks(self) -> None:
+        self.attrs["check-success-or-neutral"] = (
+            self.attrs.get("check-success", [])  # type: ignore
+            + self.attrs.get("check-neutral", [])  # type: ignore
+            + self.attrs.get("check-pending", [])  # type: ignore
+        )
         self.attrs["check-success-or-neutral-or-pending"] = (
             self.attrs.get("check-success", [])  # type: ignore
             + self.attrs.get("check-neutral", [])  # type: ignore
@@ -70,6 +75,8 @@ async def test_rules_conditions_update():
                 "check-success": ["tests"],
                 "check-pending": [],
                 "check-failure": ["jenkins/fake-tests"],
+                "check-skipped": [],
+                "check-stale": [],
             }
         ),
     ]
@@ -139,10 +146,11 @@ async def test_rules_checks_basic(logger_checker):
             "head": "feature-1",
             "label": [],
             "check-success": [],
+            "check-neutral": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = ["check-success=fake-ci", "label=foobar"]
@@ -191,8 +199,9 @@ async def test_rules_checks_with_and_or(logger_checker):
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = [
@@ -263,8 +272,9 @@ async def test_rules_checks_status_with_negative_conditions1(logger_checker):
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = [
@@ -313,8 +323,9 @@ async def test_rules_checks_status_with_negative_conditions2():
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = [
@@ -363,8 +374,9 @@ async def test_rules_checks_status_with_negative_conditions3(logger_checker):
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = [
@@ -413,8 +425,9 @@ async def test_rules_checks_status_with_or_conditions():
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = [
@@ -475,8 +488,9 @@ async def test_rules_checks_status_expected_failure():
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = ["check-failure=ci-1"]
@@ -515,8 +529,9 @@ async def test_rules_checks_status_regular():
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = ["check-success=ci-1", "check-success=ci-2"]
@@ -567,8 +582,9 @@ async def test_rules_checks_status_regex():
             "check-success": [],
             "check-failure": [],
             "check-pending": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
         }
     )
     conds = ["check-success~=^ci-1$", "check-success~=^ci-2$"]
@@ -667,8 +683,7 @@ async def test_rules_checks_status_depop(logger_checker):
             "check-pending": [],
             "check-neutral": [],
             "check-skipped": [],
-            "check": [],
-            "check-success-or-neutral-or-pending": [],
+            "check-stale": [],
             "approved-reviews-by": ["me"],
             "changes-requested-reviews-by": [],
             "label": ["mergeit"],
