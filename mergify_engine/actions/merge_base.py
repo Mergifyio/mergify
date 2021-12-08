@@ -187,7 +187,7 @@ async def get_rule_checks_status(
         checks_attr = [
             attr
             for attr in context.QueuePullRequest.QUEUE_ATTRIBUTES
-            if attr.startswith("status-") or attr.startswith("checks-")
+            if attr.startswith("status-") or attr.startswith("check-")
         ]
         log.warning(
             "get_rule_checks_status_next() returns different result than legacy one",
