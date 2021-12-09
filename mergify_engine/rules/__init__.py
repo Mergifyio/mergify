@@ -245,7 +245,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                     self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
                     categorized = True
 
-                if not categorized and base_conditions.is_faulty():
+                if not categorized and rule.conditions.is_faulty():
                     self.faulty_rules.append(typing.cast(T_EvaluatedRule, rule))
                     categorized = True
 
