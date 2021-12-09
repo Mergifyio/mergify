@@ -342,7 +342,8 @@ class Repository(object):
                 codes = [e["code"] for e in e.response.json().get("errors", [])]
                 if "too_large" in codes:
                     self.log.warning(
-                        "configuration file too big, skipping it.", filename=filename
+                        "configuration file too big, skipping it.",
+                        config_filename=filename,
                     )
                     continue
                 raise
