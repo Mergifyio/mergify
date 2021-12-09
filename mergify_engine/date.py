@@ -100,6 +100,10 @@ class RelativeDatetime:
             )
         )
 
+    def __post_init__(self):
+        if self.value.tzinfo is None:
+            raise InvalidDate("timezone is missing")
+
 
 @dataclasses.dataclass
 class Year(PartialDatetime):
