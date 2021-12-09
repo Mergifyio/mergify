@@ -195,11 +195,11 @@ passing.
 
 |premium plan tag|
 
-When ``smart`` :ref:`strict merge` is enabled and many pull requests are
+When using the :ref:`queue <queue action>` action and many pull requests are
 waiting to be merged, some of them might be more urgent. In that case, you
 could add a condition using a `label
-<https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels>`_ and
-configure the priority option of :ref:`merge action`:
+<https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels>`_
+and configure the priority option of the :ref:`queue <queue action>` action:
 
 .. code-block:: yaml
 
@@ -211,9 +211,8 @@ configure the priority option of :ref:`merge action`:
           - base=main
           - label=🚑 hotfix
         actions:
-          merge:
+          queue:
             method: merge
-            strict: smart
             priority: high
       - name: automatic merge of bot 🤖 (low priority)
         conditions:
@@ -222,9 +221,8 @@ configure the priority option of :ref:`merge action`:
           - "#approved-reviews-by>=2"
           - base=main
         actions:
-          merge:
+          queue:
             method: merge
-            strict: smart
             priority: low
       - name: automatic merge for main when reviewed and CI passes
         conditions:
@@ -232,9 +230,8 @@ configure the priority option of :ref:`merge action`:
           - "#approved-reviews-by>=2"
           - base=main
         actions:
-          merge:
+          queue:
             method: merge
-            strict: smart
             priority: medium
 
 As soon as the pull request has been approved by 2 contributors, the pull
