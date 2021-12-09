@@ -26,6 +26,7 @@ from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine.engine import actions_runner
 from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
 
@@ -703,18 +704,20 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-        assert (
-            """
-:bangbang: **Action Required** :bangbang:
-
-> **The configuration uses the deprecated `commit_message` mode of the merge action.**
-> A brownout is planned for the whole March 21th, 2022 day.
-> This option will be removed on April 25th, 2022.
-> For more information: https://docs.mergify.com/actions/merge/
-
-"""
-            in summary["output"]["summary"]
-        )
+        if config.is_saas():
+            assert (
+                actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(
+                    action_name="merge"
+                )
+                in summary["output"]["summary"]
+            )
+        else:
+            assert (
+                actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_GHES.format(
+                    action_name="merge"
+                )
+                in summary["output"]["summary"]
+            )
 
     async def test_merge_and_closes_issues(self):
         rules = {
