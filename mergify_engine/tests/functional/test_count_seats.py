@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import argparse
+import operator
 import time
 import typing
 from unittest import mock
@@ -168,20 +169,26 @@ class TestCountSeats(base.FunctionalTestBase):
                         assert users_retrieved.issubset(users_expected)
                         assert len(repo["collaborators"]["write_users"]) == len(members)
                     if repo["id"] == self.repository_ctxt.repo["id"]:
-                        assert repo["collaborators"]["active_users"] == [
-                            {
-                                "id": github_types.GitHubAccountIdType(
-                                    config.TESTING_MERGIFY_TEST_1_ID
-                                ),
-                                "login": github_types.GitHubLogin("mergify-test1"),
-                            },
-                            {
-                                "id": github_types.GitHubAccountIdType(
-                                    config.TESTING_MERGIFY_TEST_2_ID
-                                ),
-                                "login": github_types.GitHubLogin("mergify-test2"),
-                            },
-                        ]
+                        assert sorted(
+                            repo["collaborators"]["active_users"],
+                            key=operator.itemgetter("id"),
+                        ) == sorted(
+                            [
+                                {
+                                    "id": github_types.GitHubAccountIdType(
+                                        config.TESTING_MERGIFY_TEST_1_ID
+                                    ),
+                                    "login": github_types.GitHubLogin("mergify-test1"),
+                                },
+                                {
+                                    "id": github_types.GitHubAccountIdType(
+                                        config.TESTING_MERGIFY_TEST_2_ID
+                                    ),
+                                    "login": github_types.GitHubLogin("mergify-test2"),
+                                },
+                            ],
+                            key=operator.itemgetter("id"),
+                        )
                         assert len(repo["collaborators"]["active_users"]) == 2
 
     async def test_stored_user_in_redis(self):
