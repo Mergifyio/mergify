@@ -22,8 +22,10 @@ from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine import utils
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import types
 
 
@@ -88,6 +90,7 @@ class RequestReviewsAction(actions.Action):
             int,
             voluptuous.Range(1, GITHUB_MAXIMUM_REVIEW_REQUEST),
         ),
+        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
     }
 
     def _get_random_reviewers(
@@ -152,6 +155,28 @@ class RequestReviewsAction(actions.Action):
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
             )
+
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Request reviews with `bot_account` set are disabled",
+                required_permissions=[],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if bot_account:
+            tokens = await ctxt.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(bot_account)
+            if not github_user:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to comment: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
 
         # Using consolidated data to avoid already done API lookup
         reviews_keys = (
@@ -219,6 +244,9 @@ class RequestReviewsAction(actions.Action):
                 try:
                     await ctxt.client.post(
                         f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/requested_reviewers",
+                        oauth_token=github_user["oauth_access_token"]
+                        if github_user
+                        else None,
                         json={
                             "reviewers": list(user_reviews_to_request),
                             "team_reviewers": list(team_reviews_to_request),
