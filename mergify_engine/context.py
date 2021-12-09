@@ -1190,11 +1190,11 @@ class Context(object):
             return date.RelativeDatetime(date.fromisoformat(self.pull["created_at"]))
         elif name == "closed-at-relative":
             if self.pull["closed_at"] is None:
-                return date.RelativeDatetime(datetime.datetime.max)
+                return date.RelativeDatetime(date.DT_MAX)
             return date.RelativeDatetime(date.fromisoformat(self.pull["closed_at"]))
         elif name == "merged-at-relative":
             if self.pull["merged_at"] is None:
-                return date.RelativeDatetime(datetime.datetime.max)
+                return date.RelativeDatetime(date.DT_MAX)
             return date.RelativeDatetime(date.fromisoformat(self.pull["merged_at"]))
 
         elif name == "updated-at":

@@ -159,6 +159,11 @@ def test_relative_datetime_from_string(string, expected_value):
         assert dt.value == date.fromisoformat(expected_value)
 
 
+def test_relative_datetime_without_timezone():
+    with pytest.raises(date.InvalidDate):
+        date.RelativeDatetime(datetime.datetime.utcnow())
+
+
 @pytest.mark.parametrize(
     "time,expected_hour,expected_minute,expected_tzinfo",
     [
