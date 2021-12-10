@@ -1190,9 +1190,23 @@ class Train(queue.QueueBase):
         await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
 
         best_position = -1
+        need_to_be_readded = False
         for position, (embarked_pull, _) in enumerate(self._iter_embarked_pulls()):
             if embarked_pull.user_pull_request_number == ctxt.pull["number"]:
-                # already in queue, we are good
+                if (
+                    config["effective_priority"]
+                    != embarked_pull.config["effective_priority"]
+                    or config["name"] != embarked_pull.config["name"]
+                ):
+                    self.log.info(
+                        "pull request already in train but misplaced",
+                        gh_pull=ctxt.pull["number"],
+                        config=config,
+                    )
+                    need_to_be_readded = True
+                    break
+
+                # already in queue at right place, we are good
                 self.log.info(
                     "pull request already in train",
                     gh_pull=ctxt.pull["number"],
@@ -1205,8 +1219,15 @@ class Train(queue.QueueBase):
                 and config["effective_priority"]
                 > embarked_pull.config["effective_priority"]
             ):
-                # We found a car with lower priorit
+                # We found a car with lower priority
                 best_position = position
+
+        if need_to_be_readded:
+            # FIXME(sileht): this can be optimised by not dropping spec checks,
+            # if the position in the queue does not change
+            await self.remove_pull(ctxt)
+            await self.add_pull(ctxt, config)
+            return
 
         new_embarked_pull = EmbarkedPull(ctxt.pull["number"], config, date.utcnow())
 
