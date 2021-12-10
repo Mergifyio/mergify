@@ -36,6 +36,7 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import filter
+from mergify_engine.rules import live_resolvers
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -77,6 +78,7 @@ def strict_merge_parameter(v):
 
 async def get_rule_checks_status_next(
     log: logging.LoggerAdapter,
+    repository: context.Repository,
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
 ) -> check_api.Conclusion:
@@ -89,6 +91,8 @@ async def get_rule_checks_status_next(
             pending_checks=await getattr(pull, "check-pending"),
             all_checks=await pull.check,  # type: ignore[attr-defined]
         )
+        live_resolvers.configure_filter(repository, f)
+
         ret = await f(pull)
         if ret is filter.IncompleteCheck:
             log.debug("found an incomplete check")
@@ -152,6 +156,7 @@ async def get_rule_checks_status_legacy(
 
 async def get_rule_checks_status(
     log: logging.LoggerAdapter,
+    repository: context.Repository,
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
     *,
@@ -181,13 +186,15 @@ async def get_rule_checks_status(
             return check_api.Conclusion.PENDING
 
     legacy_status = await get_rule_checks_status_legacy(log, pulls, rule)
-    new_status = await get_rule_checks_status_next(log, pulls, rule)
+    new_status = await get_rule_checks_status_next(log, repository, pulls, rule)
 
     if legacy_status != new_status:
         checks_attr = [
             attr
             for attr in context.QueuePullRequest.QUEUE_ATTRIBUTES
-            if attr.startswith("status-") or attr.startswith("check-")
+            if attr.startswith("status-")
+            or attr.startswith("check-")
+            or attr == "check"
         ]
         log.warning(
             "get_rule_checks_status_next() returns different result than legacy one",

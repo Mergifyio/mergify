@@ -411,6 +411,6 @@ async def test_get_rule_checks_status(
     evaluated_rule = match.matching_rules[0]
     assert (
         await merge_base.get_rule_checks_status(
-            ctxt.log, [ctxt.pull_request], evaluated_rule
+            ctxt.log, ctxt.repository, [ctxt.pull_request], evaluated_rule
         )
     ) == conclusion

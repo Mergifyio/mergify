@@ -14,12 +14,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import functools
 import itertools
 import typing
 
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.clients import http
+from mergify_engine.rules import filter
 
 
 @dataclasses.dataclass
@@ -83,3 +85,22 @@ async def teams(
             [await _resolve_login(repository, value) for value in values]
         )
     )
+
+
+_TEAM_ATTRIBUTES = (
+    "author",
+    "merged_by",
+    "approved-reviews-by",
+    "dismissed-reviews-by",
+    "commented-reviews-by",
+    "changes-requested-reviews-by",
+)
+
+
+def configure_filter(
+    repository: context.Repository, f: filter.Filter[filter.FilterResultT]
+) -> None:
+    for attrib in _TEAM_ATTRIBUTES:
+        f.value_expanders[attrib] = functools.partial(  # type: ignore[assignment]
+            teams, repository
+        )

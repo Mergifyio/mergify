@@ -27,6 +27,11 @@ from mergify_engine import date
 from mergify_engine import rules
 from mergify_engine.actions import merge_base
 from mergify_engine.rules import conditions
+from mergify_engine.rules import filter
+from mergify_engine.rules import live_resolvers
+
+
+FAKE_REPO = mock.Mock(repo={"owner": {"login": "org"}})
 
 
 @dataclasses.dataclass
@@ -108,7 +113,7 @@ async def test_rules_conditions_update():
     )
 
     state = await merge_base.get_rule_checks_status(
-        mock.Mock(), pulls, mock.Mock(conditions=c)
+        mock.Mock(), FAKE_REPO, pulls, mock.Mock(conditions=c)
     )
     assert state == check_api.Conclusion.FAILURE
 
@@ -127,6 +132,7 @@ async def assert_queue_rule_checks_status(conds, pull, expected_state):
     await c([pull])
     state = await merge_base.get_rule_checks_status(
         mock.Mock(),
+        FAKE_REPO,
         [pull],
         mock.Mock(conditions=c),
         unmatched_conditions_return_failure=False,
@@ -773,3 +779,123 @@ async def test_rules_checks_status_depop(logger_checker):
         "c-ci/c-p-validate",
     ]
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
+
+
+@pytest.mark.asyncio
+async def test_rules_checks_status_ceph(logger_checker):
+    pull = FakeQueuePullRequest(
+        {
+            "number": 1,
+            "current-year": date.Year(2018),
+            "author": "me",
+            "base": "devel",
+            "head": "feature-1",
+            "check-failure": [],
+            "check-neutral": [],
+            "check-skipped": [],
+            "check-stale": [],
+            "approved-reviews-by": ["me", "other"],
+            "changes-requested-reviews-by": [],
+            "label": ["mergeit"],
+            "check-success": ["Summary", "DCO", "build"],
+            "check-success-or-neutral": ["Summary", "DCO", "build"],
+            "check-success-or-neutral-or-pending": [
+                "Summary",
+                "DCO",
+                "golangci-lint",
+                "commitlint",
+                "build",
+                "codespell",
+                "multi-arch-build",
+                "go-test",
+                "lint-extras",
+                "mod-check",
+                "go-test-api",
+                "Rule: automatic merge (merge)",
+                "ci/centos/mini-e2e/k8s-1.20",
+                "ci/centos/upgrade-tests-rbd",
+                "ci/centos/mini-e2e-helm/k8s-1.22",
+                "ci/centos/upgrade-tests-cephfs",
+                "ci/centos/mini-e2e/k8s-1.22",
+                "ci/centos/k8s-e2e-external-storage/1.22",
+                "ci/centos/mini-e2e-helm/k8s-1.21",
+                "ci/centos/k8s-e2e-external-storage/1.21",
+                "ci/centos/mini-e2e/k8s-1.21",
+                "ci/centos/mini-e2e-helm/k8s-1.20",
+            ],
+            "status-success": ["Summary", "DCO", "build"],
+            "check-pending": [
+                "golangci-lint",
+                "commitlint",
+                "codespell",
+                "multi-arch-build",
+                "go-test",
+                "lint-extras",
+                "mod-check",
+                "go-test-api",
+                "Rule: automatic merge (merge)",
+                "ci/centos/mini-e2e/k8s-1.20",
+                "ci/centos/upgrade-tests-rbd",
+                "ci/centos/mini-e2e-helm/k8s-1.22",
+                "ci/centos/upgrade-tests-cephfs",
+                "ci/centos/mini-e2e/k8s-1.22",
+                "ci/centos/k8s-e2e-external-storage/1.22",
+                "ci/centos/mini-e2e-helm/k8s-1.21",
+                "ci/centos/k8s-e2e-external-storage/1.21",
+                "ci/centos/mini-e2e/k8s-1.21",
+                "ci/centos/mini-e2e-helm/k8s-1.20",
+            ],
+        }
+    )
+    pull.attrs["check"] = (
+        pull.attrs.get("check-success", [])
+        + pull.attrs.get("check-neutral", [])
+        + pull.attrs.get("check-pending", [])
+        + pull.attrs.get("check-stale", [])
+        + pull.attrs.get("check-failure", [])
+        + pull.attrs.get("check-skipped", [])
+    )
+
+    tree = {
+        "and": [
+            {"!=": ["label", "DNM"]},
+            {"~=": ["base", "^(devel)|(release-.+)$"]},
+            {">=": ["#approved-reviews-by", 2]},
+            {"=": ["approved-reviews-by", "@ceph/ceph-csi-maintainers"]},
+            {"=": ["#changes-requested-reviews-by", 0]},
+            {"=": ["status-success", "codespell"]},
+            {"=": ["status-success", "multi-arch-build"]},
+            {"=": ["status-success", "go-test"]},
+            {"=": ["status-success", "golangci-lint"]},
+            {"=": ["status-success", "commitlint"]},
+            {"=": ["status-success", "mod-check"]},
+            {"=": ["status-success", "lint-extras"]},
+            {"=": ["status-success", "ci/centos/k8s-e2e-external-storage/1.21"]},
+            {"=": ["status-success", "ci/centos/k8s-e2e-external-storage/1.22"]},
+            {"=": ["status-success", "ci/centos/mini-e2e-helm/k8s-1.20"]},
+            {"=": ["status-success", "ci/centos/mini-e2e-helm/k8s-1.21"]},
+            {"=": ["status-success", "ci/centos/mini-e2e-helm/k8s-1.22"]},
+            {"=": ["status-success", "ci/centos/mini-e2e/k8s-1.20"]},
+            {"=": ["status-success", "ci/centos/mini-e2e/k8s-1.21"]},
+            {"=": ["status-success", "ci/centos/mini-e2e/k8s-1.22"]},
+            {"=": ["status-success", "ci/centos/upgrade-tests-cephfs"]},
+            {"=": ["status-success", "ci/centos/upgrade-tests-rbd"]},
+            {"=": ["status-success", "DCO"]},
+        ]
+    }
+    f = filter.IncompleteChecksFilter(
+        tree, pending_checks=pull.attrs["check-pending"], all_checks=pull.attrs["check"]
+    )
+
+    async def fake_get_team_members(*args):
+        return ["me", "other", "foo", "bar"]
+
+    repo_with_team = mock.Mock(
+        repo={"owner": {"login": "ceph"}},
+        installation=mock.Mock(
+            get_team_members=mock.Mock(side_effect=fake_get_team_members)
+        ),
+    )
+
+    live_resolvers.configure_filter(repo_with_team, f)
+    assert await f(pull) == filter.IncompleteCheck

@@ -139,6 +139,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     if unexpected_changes is None:
         real_status = status = await merge_base.get_rule_checks_status(
             ctxt.log,
+            ctxt.repository,
             pull_requests,
             evaluated_queue_rule,
             unmatched_conditions_return_failure=False,

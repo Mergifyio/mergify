@@ -223,7 +223,7 @@ class MergeAction(merge_base.MergeBaseAction):
             return True
 
         pull_rule_checks_status = await merge_base.get_rule_checks_status(
-            ctxt.log, [ctxt.pull_request], rule
+            ctxt.log, ctxt.repository, [ctxt.pull_request], rule
         )
         return pull_rule_checks_status == check_api.Conclusion.FAILURE
 
