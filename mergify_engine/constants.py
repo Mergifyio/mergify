@@ -19,6 +19,7 @@ SUMMARY_NAME = "Summary"
 MERGE_QUEUE_BRANCH_PREFIX = "mergify/merge-queue"
 MERGE_QUEUE_SUMMARY_NAME = "Queue: Embarked in merge train"
 
+CHECKS_TIMEOUT_CONDITION_LABEL = "checks-are-on-time"
 
 MERGIFY_OPENSOURCE_SPONSOR_DOC = (
     "<hr />\n"

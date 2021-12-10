@@ -64,9 +64,11 @@ class PartialDatetime:
 
 
 class TimedeltaRegexResultT(typing.TypedDict):
+    filled: typing.Optional[str]
     days: typing.Optional[str]
     hours: typing.Optional[str]
     minutes: typing.Optional[str]
+    seconds: typing.Optional[str]
 
 
 @dataclasses.dataclass(order=True)
@@ -261,3 +263,33 @@ def fromtimestamp(timestamp: float) -> datetime.datetime:
 
 def pretty_datetime(dt: datetime.datetime) -> str:
     return dt.strftime("%Y-%m-%d %H:%M %Z")
+
+
+_INTERVAL_RE = re.compile(
+    r"""
+    (?P<filled>
+        ((?P<days>[-+]?\d+) \s+ d(ays?)? \s* )?
+        ((?P<hours>[-+]?\d+) \s+ h(ours?)? \s* )?
+        ((?P<minutes>[-+]?\d+) \s+ m(inutes?)? \s* )?
+        ((?P<seconds>[-+]?\d+) \s+ s(econds?)? \s* )?
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+def interval_from_string(value: str) -> datetime.timedelta:
+    m = _INTERVAL_RE.match(value)
+    if m is None:
+        raise InvalidDate("Invalid date interval")
+
+    kw = typing.cast(TimedeltaRegexResultT, m.groupdict())
+    if not kw or not kw["filled"]:
+        raise InvalidDate("Invalid date interval")
+
+    return datetime.timedelta(
+        days=int(kw["days"] or 0),
+        hours=int(kw["hours"] or 0),
+        minutes=int(kw["minutes"] or 0),
+        seconds=int(kw["seconds"] or 0),
+    )

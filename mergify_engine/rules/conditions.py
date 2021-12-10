@@ -44,6 +44,7 @@ class RuleCondition:
     """
 
     condition: typing.Union[str, FakeTreeT]
+    label: typing.Optional[str] = None
     description: typing.Optional[str] = None
     partial_filter: filter.Filter[bool] = dataclasses.field(init=False)
     match: bool = dataclasses.field(init=False, default=False)
@@ -55,6 +56,7 @@ class RuleCondition:
 
     def update(self, condition_raw: typing.Union[str, FakeTreeT]) -> None:
         self.condition = condition_raw
+
         try:
             if isinstance(condition_raw, str):
                 condition = parser.parse(condition_raw)
@@ -84,13 +86,15 @@ class RuleCondition:
         self.update(new_tree)
 
     def __str__(self) -> str:
-        if isinstance(self.condition, str):
+        if self.label is not None:
+            return self.label
+        elif isinstance(self.condition, str):
             return self.condition
         else:
             return str(self.partial_filter)
 
     def copy(self) -> "RuleCondition":
-        rc = RuleCondition(self.condition, self.description)
+        rc = RuleCondition(self.condition, self.label, self.description)
         rc.partial_filter.value_expanders = self.partial_filter.value_expanders
         return rc
 

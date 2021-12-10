@@ -20,6 +20,7 @@ import typing
 from unittest import mock
 
 from first import first
+from freezegun import freeze_time
 import pytest
 import yaml
 
@@ -2203,6 +2204,7 @@ DO NOT EDIT
                                     "allow_inplace_speculative_checks": True,
                                     "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
+                                    "checks_timeout": None,
                                     "priority": 1,
                                     "speculative_checks": 5,
                                 },
@@ -2223,6 +2225,7 @@ DO NOT EDIT
                                     "allow_inplace_speculative_checks": True,
                                     "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
+                                    "checks_timeout": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
                                 },
@@ -2240,6 +2243,7 @@ DO NOT EDIT
                                     "allow_inplace_speculative_checks": True,
                                     "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
+                                    "checks_timeout": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
                                 },
@@ -2633,6 +2637,62 @@ DO NOT EDIT
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_ci_timeout(self):
+        config = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "checks_timeout": "10 m",
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        with freeze_time("2021-05-30T10:00:00", tick=True):
+            await self.setup_repo(yaml.dump(config))
+
+            p, _ = await self.create_pr()
+            await self.run_engine()
+            check = first(
+                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+                "delayed-refresh", "-inf", "+inf", withscores=True
+            )
+            assert len(pulls_to_refresh) == 1
+
+        with freeze_time("2021-05-30T10:12:00", tick=True):
+
+            await self.run_engine()
+            check = first(
+                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+
+            assert (
+                check["output"]["title"]
+                == "The pull request has been removed from the queue"
+            )
+            check = first(
+                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Queue: Embarked in merge train",
+            )
+
+            assert "checks have timed out" in check["output"]["summary"]
+
     async def test_queue_without_branch_protection_for_queueing(self):
         rules = {
             "queue_rules": [
@@ -2856,6 +2916,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             batch_size=1,
             allow_inplace_speculative_checks=True,
             allow_speculative_checks_interruption=True,
+            checks_timeout=None,
         )
         config = queue.PullQueueConfig(
             name="foo",
@@ -2928,6 +2989,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             batch_size=1,
             allow_inplace_speculative_checks=True,
             allow_speculative_checks_interruption=True,
+            checks_timeout=None,
         )
         config = queue.PullQueueConfig(
             name="foo",

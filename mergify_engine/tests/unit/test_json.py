@@ -32,6 +32,7 @@ payload_decoded = {
     "name": "hello",
     "conditions": [],
     "actions": {"merge": {"strict": Color.BLUE}},
+    "timedelta": datetime.timedelta(hours=2, minutes=5, seconds=5),
     "datetime_naive": datetime.datetime(2021, 5, 15, 8, 35, 36, 442306),
     "datetime_aware": datetime.datetime(
         2021, 5, 15, 8, 41, 36, 796485, tzinfo=datetime.timezone.utc
@@ -52,6 +53,10 @@ payload_encoded = {
     "datetime_aware": {
         "__pytype__": "datetime.datetime",
         "value": "2021-05-15T08:41:36.796485+00:00",
+    },
+    "timedelta": {
+        "__pytype__": "datetime.timedelta",
+        "value": "7505.0",
     },
     "a set": {
         "__pytype__": "set",
