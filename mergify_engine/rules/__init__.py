@@ -143,15 +143,6 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         "merged_by",
     )
 
-    TEAM_ATTRIBUTES = (
-        "author",
-        "merged_by",
-        "approved-reviews-by",
-        "dismissed-reviews-by",
-        "commented-reviews-by",
-        "changes-requested-reviews-by",
-    )
-
     # The list of pull request rules to match against.
     rules: typing.List[T_Rule]
 
@@ -183,13 +174,8 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         self = cls(rules)
 
         for rule in self.rules:
-            for attrib in self.TEAM_ATTRIBUTES:
-                for condition in rule.conditions.walk():
-                    condition.partial_filter.value_expanders[
-                        attrib
-                    ] = functools.partial(  # type: ignore[assignment]
-                        live_resolvers.teams, repository
-                    )
+            for condition in rule.conditions.walk():
+                live_resolvers.configure_filter(repository, condition.partial_filter)
 
             await rule.conditions(pulls)
 

@@ -185,6 +185,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 unexpected_changes = None
                 status = await merge_base.get_rule_checks_status(
                     ctxt.log,
+                    ctxt.repository,
                     [ctxt.pull_request],
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
@@ -383,7 +384,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt.log, [ctxt.pull_request], rule
+                ctxt.log, ctxt.repository, [ctxt.pull_request], rule
             )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
@@ -392,6 +393,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # the merge until we have a check that doesn't pass
             queue_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt.log,
+                ctxt.repository,
                 [ctxt.pull_request],
                 queue_rule_evaluated,
                 unmatched_conditions_return_failure=False,

@@ -26,6 +26,7 @@ from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine.rules import filter
+from mergify_engine.rules import live_resolvers
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -51,6 +52,7 @@ async def plan_next_refresh(
 
     for rule in _rules:
         f = filter.NearDatetimeFilter(rule.conditions.extract_raw_filter_tree())
+        live_resolvers.configure_filter(ctxt.repository, f)
         bet = await f(pull_request)
         if best_bet is None or best_bet > bet:
             best_bet = bet
