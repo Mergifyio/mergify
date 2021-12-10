@@ -975,6 +975,10 @@ class Context(object):
             approvals: typing.Dict[
                 github_types.GitHubLogin, github_types.GitHubReview
             ] = {}
+
+            requested_reviewer_ids = [
+                rr["id"] for rr in self.pull["requested_reviewers"]
+            ]
             valid_user_ids = {
                 r["user"]["id"]
                 for r in await self.reviews
@@ -984,6 +988,7 @@ class Context(object):
                         r["user"]["type"] == "Bot"
                         or await self.repository.has_write_permission(r["user"])
                     )
+                    and r["user"]["id"] not in requested_reviewer_ids
                 )
             }
 

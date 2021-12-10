@@ -1411,6 +1411,40 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     assert match.matching_rules[0].name == "default"
     assert match.matching_rules[0].conditions.match
 
+    # sileht review got re-requesed
+    ctxt.pull["requested_reviewers"].append(
+        {
+            "login": github_types.GitHubLogin("sileht"),
+            "id": github_types.GitHubAccountIdType(12321),
+            "type": "User",
+            "avatar_url": "",
+        }
+    )
+    ctxt._caches.reviews.delete()
+    ctxt._caches.consolidated_reviews.delete()
+    pull_request_rules = pull_request_rule_from_list(
+        [
+            {
+                "name": "default",
+                "conditions": [
+                    "#approved-reviews-by>=2",
+                ],
+                "actions": {},
+            }
+        ]
+    )
+    match = await pull_request_rules.get_pull_request_rule(ctxt)
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert not match.matching_rules[0].conditions.match
+
+    # sileht reapproved
+    ctxt.pull["requested_reviewers"] = []
+    ctxt._caches.reviews.delete()
+    ctxt._caches.consolidated_reviews.delete()
+    match = await pull_request_rules.get_pull_request_rule(ctxt)
+    assert [r.name for r in match.matching_rules] == ["default"]
+    assert match.matching_rules[0].conditions.match
+
     # Forbidden labels, when no label set
     pull_request_rules = pull_request_rule_from_list(
         [
