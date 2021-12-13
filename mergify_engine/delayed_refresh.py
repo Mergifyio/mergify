@@ -53,7 +53,10 @@ async def plan_next_refresh(
     for rule in _rules:
         f = filter.NearDatetimeFilter(rule.conditions.extract_raw_filter_tree())
         live_resolvers.configure_filter(ctxt.repository, f)
-        bet = await f(pull_request)
+        try:
+            bet = await f(pull_request)
+        except live_resolvers.LiveResolutionFailure:
+            continue
         if best_bet is None or best_bet > bet:
             best_bet = bet
 
