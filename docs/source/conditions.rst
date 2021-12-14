@@ -204,6 +204,9 @@ Here's the list of pull request attribute that can be used in conditions:
      - The position of the pull request in its queue if queued. The first pull
        request in the queue has position ``0``. The value is set to ``-1`` if
        the pull request is not queued.
+   * - ``queued-at``
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
+     - The time the pull request was queued at for merge.
    * - ``commits-behind``
      - list of string
      - The list of commits sha between the head of the base branch and the base
