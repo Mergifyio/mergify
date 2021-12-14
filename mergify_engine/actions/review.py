@@ -21,6 +21,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import utils as action_utils
@@ -73,6 +74,20 @@ class ReviewAction(actions.Action):
                 "",
             )
 
+        if bot_account:
+            review_user = bot_account
+            user_tokens = await ctxt.repository.installation.get_user_tokens()
+            github_user = user_tokens.get_token_for(bot_account)
+            if not github_user:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to review: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+        else:
+            review_user = github_types.GitHubLogin(config.BOT_USER_LOGIN)
+            github_user = None
+
         if self.config["message"]:
             try:
                 payload["body"] = await ctxt.pull_request.render_template(
@@ -90,7 +105,7 @@ class ReviewAction(actions.Action):
         reviews = reversed(
             list(
                 filter(
-                    lambda r: r["user"]["id"] is not config.BOT_USER_ID,
+                    lambda r: r["user"]["login"] is not review_user,
                     await ctxt.reviews,
                 )
             )
@@ -116,18 +131,6 @@ class ReviewAction(actions.Action):
                 and review["state"] == "CHANGES_REQUESTED"
             ):
                 break
-
-        if bot_account:
-            user_tokens = await ctxt.repository.installation.get_user_tokens()
-            github_user = user_tokens.get_token_for(bot_account)
-            if not github_user:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    f"Unable to review: user `{bot_account}` is unknown. ",
-                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
-                )
-        else:
-            github_user = None
 
         try:
             await ctxt.client.post(
