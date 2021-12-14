@@ -56,6 +56,8 @@ SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
 MARKDOWN_COMMIT_MESSAGE_RE = re.compile(r"^#+ Commit Message ?:?\s*$", re.I)
 
+MARKDOWN_COMMENT_RE = re.compile("(<!--.*?-->)", flags=re.DOTALL | re.IGNORECASE)
+
 
 class MergifyConfigFile(github_types.GitHubContentFile):
     decoded_content: bytes
@@ -1071,7 +1073,10 @@ class Context(object):
             return self.pull["title"]
 
         elif name == "body":
-            return re.sub("(<!--.*?-->)", "", self.pull["body"] or "")
+            return MARKDOWN_COMMENT_RE.sub(
+                "",
+                self.pull["body"] or "",
+            )
 
         elif name == "body-raw":
             return self.pull["body"] or ""
