@@ -62,6 +62,7 @@ class PullQueueConfig(typing.TypedDict):
     bot_account: typing.Optional[github_types.GitHubLogin]
     update_bot_account: typing.Optional[github_types.GitHubLogin]
     name: rules.QueueName
+    queue_config: rules.QueueConfig
 
 
 QueueT = typing.TypeVar("QueueT", bound="QueueBase")
