@@ -579,26 +579,26 @@ class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
     queue_rules: QueueRules
     defaults: Defaults
-    raw: typing.Dict[str, typing.Any]
 
 
-def merge_config(config: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
-    if defaults := config.get("defaults"):
-        if defaults_actions := defaults.get("actions"):
-            for rule in config.get("pull_request_rules", []):
-                actions = rule["actions"]
+def merge_config(
+    config: typing.Dict[str, typing.Any], defaults: typing.Dict[str, typing.Any]
+) -> typing.Dict[str, typing.Any]:
+    if defaults_actions := defaults.get("actions"):
+        for rule in config.get("pull_request_rules", []):
+            actions = rule["actions"]
 
-                for action_name, action in actions.items():
-                    if action_name not in defaults_actions:
-                        continue
-                    elif defaults_actions[action_name] is None:
-                        continue
+            for action_name, action in actions.items():
+                if action_name not in defaults_actions:
+                    continue
+                elif defaults_actions[action_name] is None:
+                    continue
 
-                    if action is None:
-                        rule["actions"][action_name] = defaults_actions[action_name]
-                    else:
-                        merged_action = defaults_actions[action_name] | action
-                        rule["actions"][action_name].update(merged_action)
+                if action is None:
+                    rule["actions"][action_name] = defaults_actions[action_name]
+                else:
+                    merged_action = defaults_actions[action_name] | action
+                    rule["actions"][action_name].update(merged_action)
     return config
 
 
@@ -614,16 +614,18 @@ def get_mergify_config(
     if config is None:
         config = {}
 
+    # Validate defaults
     try:
         UserConfigurationSchema(config, partial_validation=True)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
 
-    merged_config = merge_config(config)
+    defaults = config.pop("defaults", {})
+    merged_config = merge_config(config, defaults)
 
     try:
         config = UserConfigurationSchema(merged_config, partial_validation=False)
-        config["raw"] = merged_config
+        config["defaults"] = defaults
         return typing.cast(MergifyConfig, config)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])

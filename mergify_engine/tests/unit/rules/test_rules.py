@@ -1578,12 +1578,11 @@ def test_merge_config():
         ],
     }
 
-    merged_config = rules.merge_config(config)
+    defaults = config.pop("defaults", {})
+    merged_config = rules.merge_config(config, defaults)
 
     expected_config = config.copy()
-    expected_config["pull_request_rules"][0]["actions"].update(
-        expected_config["defaults"]["actions"]
-    )
+    expected_config["pull_request_rules"][0]["actions"].update(defaults["actions"])
 
     assert merged_config == expected_config
 
@@ -1603,7 +1602,8 @@ def test_merge_config():
         ],
     }
 
-    merged_config = rules.merge_config(config)
+    defaults = config.pop("defaults", {})
+    merged_config = rules.merge_config(config, defaults)
 
     assert merged_config == config
 
@@ -1617,7 +1617,8 @@ def test_merge_config():
         ],
     }
 
-    merged_config = rules.merge_config(config)
+    defaults = config.pop("defaults", {})
+    merged_config = rules.merge_config(config, defaults)
 
     assert merged_config == config
 
@@ -1737,41 +1738,6 @@ pull_request_rules:
     assert (
         str(e.value.error)
         == "required key not provided @ data['pull_request_rules'][0]['actions']['queue']['name']"
-    )
-
-    # TODO(sileht): This is currently required to set a queue name to set other
-    # queue options If one days we have more options like queue name, we may
-    # need to revisit the validators system to make all voluptuous.Required()
-    # keys optional for defaults
-    file = context.MergifyConfigFile(
-        type="file",
-        content="whatever",
-        sha="azertyuiop",
-        path="whatever",
-        decoded_content="""
-defaults:
-  actions:
-    queue:
-      merge_bot_account: foobar
-queue_rules:
-  - name: default
-    conditions: []
-pull_request_rules:
-  - name: ahah
-    conditions:
-    - base=main
-    actions:
-      queue:
-        name: default
-            """,
-    )
-
-    with pytest.raises(rules.InvalidRules) as e:
-        rules.get_mergify_config(file)
-
-    assert (
-        str(e.value.error)
-        == "required key not provided @ data['defaults']['actions']['queue']['name']"
     )
 
 
@@ -2001,3 +1967,34 @@ async def test_rules_conditions_schedule():
 - [ ] `schedule=SAT-SUN 07:00-12:00`
 """
     )
+
+
+def test_queue_action_defaults():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+defaults:
+  actions:
+    queue:
+      method: squash
+
+queue_rules:
+- name: default
+  conditions: []
+
+pull_request_rules:
+- name: ahah
+  conditions: []
+  actions:
+    queue:
+      name: default
+""",
+    )
+
+    pull_request_rules = list(rules.get_mergify_config(file)["pull_request_rules"])
+    print(pull_request_rules)
+    assert pull_request_rules[0].actions["queue"].config["name"] == "default"
+    assert pull_request_rules[0].actions["queue"].config["method"] == "squash"
