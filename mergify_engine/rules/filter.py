@@ -424,14 +424,10 @@ def _dt_op(
                 elif isinstance(ref, date.RelativeDatetime):
                     return date.utcnow() + datetime.timedelta(minutes=1)
                 return _dt_in_future(dt_ref + datetime.timedelta(minutes=1))
+            elif isinstance(ref, date.RelativeDatetime):
+                return _dt_in_future(dt_value + (date.utcnow() - dt_ref))
             elif dt_value < dt_ref:
-                if isinstance(ref, date.RelativeDatetime):
-                    if op in (operator.ge, operator.gt):
-                        return _dt_in_future(date.utcnow() + (dt_ref - dt_value))
-                    else:
-                        return date.DT_MAX
-                else:
-                    return _dt_in_future(dt_ref)
+                return _dt_in_future(dt_ref)
             else:
                 if isinstance(ref, date.Time):
                     # Condition will change next day at 00:00:00
@@ -454,11 +450,6 @@ def _dt_op(
                         dt_ref = dt_ref.replace(month=ref.value, day=1)
                     else:
                         dt_ref = dt_ref.replace(month=1, day=1)
-                elif isinstance(ref, date.RelativeDatetime):
-                    if op in (operator.le, operator.lt):
-                        return _dt_in_future(date.utcnow() + (dt_value - dt_ref))
-                    else:
-                        return date.DT_MAX
                 else:
                     return date.DT_MAX
                 if op in (operator.eq, operator.ne):
