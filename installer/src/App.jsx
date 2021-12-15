@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+
 import { request } from '@octokit/request';
 import { Formik } from 'formik';
 import PropTypes from 'prop-types';
@@ -6,24 +8,20 @@ import {
   Button, Form, Modal, Container, Spinner, Alert, Breadcrumb,
 } from 'react-bootstrap';
 import { Helmet } from 'react-helmet';
-import {
-  BrowserRouter as Router,
-  Switch,
-  useLocation,
-} from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 
 import Favicon from './favicon.ico';
 import LogoMergify from './logo-mergify-black.png';
 
 import './App.css';
 
-function getRandomString(size) {
+const getRandomString = function getRandomString(size) {
   const randomBytes = new Uint8Array(size / 2);
   (window.crypto || window.msCrypto).getRandomValues(randomBytes);
   return Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
+};
 
-function useAppCreator(code) {
+const useAppCreator = function useAppCreator(code) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState(null);
   useEffect(() => {
@@ -65,9 +63,9 @@ MERGIFYENGINE_SUBSCRIPTION_BASE_URL="https://dashboard.mergify.com"
   }, [code, setInfo]);
 
   return [info, error];
-}
+};
 
-function Steper(props) {
+const Steper = function Steper(props) {
   const { step } = props;
   return (
     <Breadcrumb>
@@ -76,12 +74,12 @@ function Steper(props) {
       <Breadcrumb.Item active className={step === 3 ? 'font-weight-bold' : ''}>3. Installation completed</Breadcrumb.Item>
     </Breadcrumb>
   );
-}
+};
 Steper.propTypes = {
   step: PropTypes.number.isRequired,
 };
 
-function StepCreateGitHubApp() {
+const StepCreateGitHubApp = function StepCreateGitHubApp() {
   const manifestInput = useRef();
   const manifestForm = useRef();
 
@@ -169,9 +167,9 @@ function StepCreateGitHubApp() {
       </Form>
     </>
   );
-}
+};
 
-function StepFinished() {
+const StepFinished = function StepFinished() {
   return (
     <>
       <Modal.Body>
@@ -181,9 +179,9 @@ function StepFinished() {
       <Modal.Footer />
     </>
   );
-}
+};
 
-function StepWaitingGitHubAppConfig() {
+const StepWaitingGitHubAppConfig = function StepWaitingGitHubAppConfig() {
   return (
     <>
       <Modal.Body>
@@ -197,9 +195,9 @@ function StepWaitingGitHubAppConfig() {
       <Modal.Footer />
     </>
   );
-}
+};
 
-function StepDownloadConfig(props) {
+const StepDownloadConfig = function StepDownloadConfig(props) {
   const { info } = props;
 
   const downloadLink = useRef();
@@ -234,19 +232,19 @@ function StepDownloadConfig(props) {
         </p>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onDownload} ref={downloadBtn} variant="secondary" className="mr-auto">Download the configuration</Button>
+        <Button onClick={onDownload} ref={downloadBtn} variant="secondary" className="ms-auto">Download the configuration</Button>
         <span className="text-muted"><small>You will be redirected to github.com to confirm the installation.</small></span>
         <a className="d-none" download="mergify.env" href={downloadUrl} ref={downloadLink}>Download link</a>
         <Button variant="primary" href={`${info.app.html_url}/installations/new/permissions?target_id=${info.app.owner.id}`}>Install</Button>
       </Modal.Footer>
     </>
   );
-}
+};
 StepDownloadConfig.propTypes = {
   info: PropTypes.string.isRequired,
 };
 
-function Steps() {
+const Steps = function Steps() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const code = searchParams.get('code') || '';
@@ -270,30 +268,28 @@ function Steps() {
     return (<StepWaitingGitHubAppConfig />);
   }
   return (<StepDownloadConfig info={info} />);
-}
+};
 
-function App() {
+const App = function App() {
   return (
     <>
       <Helmet title="Mergify">
         <meta name="description" content="Merge your code efficiently" />
-        <link rel="shortcut icon" type="image/png" href={Favicon} sizes="16x16" />
+        <link rel="icon" type="image/png" href={Favicon} sizes="16x16" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
       </Helmet>
 
-      <Router>
-        <Switch>
-          <Modal.Dialog size="lg">
-            <Modal.Header style={{ backgroundColor: '#C9E7F8' }}>
-              <img src={LogoMergify} alt="mergify logo" width="140px" className="mr-auto d-inline-block" />
-              <Modal.Title>GitHub App Installer</Modal.Title>
-            </Modal.Header>
-            <Steps />
-          </Modal.Dialog>
-        </Switch>
-      </Router>
+      <BrowserRouter>
+        <Modal.Dialog size="lg">
+          <Modal.Header style={{ backgroundColor: '#C9E7F8' }}>
+            <img src={LogoMergify} alt="mergify logo" width="140px" className="ms-auto d-inline-block" />
+            <Modal.Title>GitHub App Installer</Modal.Title>
+          </Modal.Header>
+          <Steps />
+        </Modal.Dialog>
+      </BrowserRouter>
     </>
   );
-}
+};
 
 export default App;
