@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import dataclasses
+import datetime
 import functools
 import itertools
 import logging
@@ -25,7 +26,9 @@ import voluptuous
 import yaml
 
 from mergify_engine import actions
+from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine.rules import conditions
 from mergify_engine.rules import live_resolvers
@@ -73,6 +76,7 @@ class QueueConfig(typing.TypedDict):
     batch_size: int
     allow_inplace_speculative_checks: bool
     allow_speculative_checks_interruption: bool
+    checks_timeout: typing.Optional[datetime.timedelta]
 
 
 EvaluatedQueueRule = typing.NewType("EvaluatedQueueRule", "QueueRule")
@@ -105,14 +109,29 @@ class QueueRule:
         logger: logging.LoggerAdapter,
         log_schedule_details: bool,
     ) -> EvaluatedQueueRule:
-        branch_protection_conditions = (
-            await conditions.get_branch_protection_conditions(repository, ref)
+        extra_conditions = await conditions.get_branch_protection_conditions(
+            repository, ref
         )
+        if self.config["checks_timeout"] is not None:
+            extra_conditions += (
+                conditions.RuleCondition(
+                    {
+                        ">": (
+                            "queue-merge-started-at-relative",
+                            date.RelativeDatetime(
+                                date.utcnow() - self.config["checks_timeout"]
+                            ),
+                        )
+                    },
+                    label=constants.CHECKS_TIMEOUT_CONDITION_LABEL,
+                    description=f"⏲️  Checks timeout setting ({self.config['checks_timeout']} seconds)",
+                ),
+            )
+
         queue_rule_with_branch_protection = QueueRule(
             self.name,
             conditions.QueueRuleConditions(
-                self.conditions.condition.copy().conditions
-                + branch_protection_conditions
+                extra_conditions + self.conditions.condition.copy().conditions
             ),
             self.config,
         )
@@ -442,6 +461,13 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
     )
 
 
+def ChecksTimeout(v: str) -> datetime.timedelta:
+    td = date.interval_from_string(v)
+    if td < datetime.timedelta(seconds=60):
+        raise voluptuous.Invalid("Interval must be greater than 60 seconds")
+    return td
+
+
 QueueRulesSchema = voluptuous.All(
     [
         voluptuous.All(
@@ -463,6 +489,9 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required(
                     "allow_speculative_checks_interruption", default=True
                 ): bool,
+                voluptuous.Required("checks_timeout", default=None): voluptuous.Any(
+                    None, voluptuous.All(str, voluptuous.Coerce(ChecksTimeout))
+                ),
             },
             voluptuous.Coerce(QueueRule.from_dict),
         )

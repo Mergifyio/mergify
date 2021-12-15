@@ -207,6 +207,9 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``queued-at``
      - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request was queued at for merge.
+   * - ``queue-merge-started-at``
+     - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
+     - The time the pull request mergeability checks has started at.
    * - ``commits-behind``
      - list of string
      - The list of commits sha between the head of the base branch and the base

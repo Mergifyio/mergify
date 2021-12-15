@@ -37,6 +37,12 @@ class Encoder(json.JSONEncoder):
                 "class": type(v).__name__,
                 "name": v.name,
             }
+        elif isinstance(v, datetime.timedelta):
+            return {
+                "__pytype__": "datetime.timedelta",
+                "value": str(v.total_seconds()),
+            }
+
         elif isinstance(v, datetime.datetime):
             return {
                 "__pytype__": "datetime.datetime",
@@ -64,6 +70,8 @@ def _decode(v: typing.Dict[typing.Any, typing.Any]) -> typing.Any:
         enum_cls = _JSON_TYPES[cls_name]
         enum_name = v["name"]
         return enum_cls[enum_name]
+    elif v.get("__pytype__") == "datetime.timedelta":
+        return datetime.timedelta(seconds=float(v["value"]))
     elif v.get("__pytype__") == "datetime.datetime":
         return datetime.datetime.fromisoformat(v["value"])
     elif v.get("__pytype__") == "set":

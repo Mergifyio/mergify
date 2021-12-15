@@ -266,6 +266,22 @@ Examples
               This pull request looks stale. Feel free to reopen it if you think it's a mistake.
 
 
+.. _duration:
+
+Duration
+~~~~~~~~
+
+Duration can be expressed as ``quantity unit [quantity unit...]`` where
+quantity is a number (possibly signed); unit is microsecond, millisecond,
+second, minute, hour, day, week, or abbreviations or plurals of these units;
+
+.. code-block::
+
+   1 day 15 hours 6 minutes 42 seconds
+   1 d 15 h 6 m 42 s
+
+
+
 Disabling Rules
 ~~~~~~~~~~~~~~~
 

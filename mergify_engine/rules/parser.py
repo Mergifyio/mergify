@@ -91,6 +91,7 @@ CONDITION_PARSERS = {
     "closed-at": Parser.TIMESTAMP_OR_TIMEDELTA,
     "merged-at": Parser.TIMESTAMP_OR_TIMEDELTA,
     "queued-at": Parser.TIMESTAMP_OR_TIMEDELTA,
+    "queue-merge-started-at": Parser.TIMESTAMP_OR_TIMEDELTA,
     "current-timestamp": Parser.TIMESTAMP,
     "locked": Parser.BOOL,
     "merged": Parser.BOOL,

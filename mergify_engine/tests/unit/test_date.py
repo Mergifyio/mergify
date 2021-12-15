@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import datetime
+import typing
 import zoneinfo
 
 from freezegun import freeze_time
@@ -203,3 +204,68 @@ def test_invalid_date_string(date_type, value, expected_message):
         date_type.from_string(value)
 
     assert exc.value.message == expected_message
+
+
+@pytest.mark.parametrize(
+    "value,expected_interval",
+    [
+        ("1 days", datetime.timedelta(days=1)),
+        ("1 day", datetime.timedelta(days=1)),
+        ("1 d", datetime.timedelta(days=1)),
+        ("1 hours", datetime.timedelta(hours=1)),
+        ("1 hour", datetime.timedelta(hours=1)),
+        ("1 h", datetime.timedelta(hours=1)),
+        ("1 minutes", datetime.timedelta(minutes=1)),
+        ("1 minute", datetime.timedelta(minutes=1)),
+        ("1 m", datetime.timedelta(minutes=1)),
+        ("1 seconds", datetime.timedelta(seconds=1)),
+        ("1 second", datetime.timedelta(seconds=1)),
+        ("1 s", datetime.timedelta(seconds=1)),
+        (
+            "1 days 15 hours 6 minutes 42 seconds",
+            datetime.timedelta(days=1, hours=15, minutes=6, seconds=42),
+        ),
+        (
+            "1 d +15 hour 6 m 42 seconds",
+            datetime.timedelta(days=1, hours=15, minutes=6, seconds=42),
+        ),
+        (
+            "1 d 15 h +6 m 42 s",
+            datetime.timedelta(days=1, hours=15, minutes=6, seconds=42),
+        ),
+        (
+            "1 d 15 hour 42 seconds",
+            datetime.timedelta(days=1, hours=15, minutes=0, seconds=42),
+        ),
+        (
+            "1 d 15 hour 6 m",
+            datetime.timedelta(days=1, hours=15, minutes=6, seconds=0),
+        ),
+        (
+            "1 d +6 minute 42 s",
+            datetime.timedelta(days=1, hours=0, minutes=6, seconds=42),
+        ),
+        (
+            "1 d 6 m 42 seconds",
+            datetime.timedelta(days=1, hours=0, minutes=6, seconds=42),
+        ),
+        (
+            "-1 d -6 m 42 seconds",
+            datetime.timedelta(days=-1, hours=0, minutes=-6, seconds=42),
+        ),
+        (
+            "1 d -6 m 42 seconds",
+            datetime.timedelta(days=1, hours=0, minutes=-6, seconds=42),
+        ),
+        ("whater", None),
+        ("1 foo 2 bar", None),
+    ],
+)
+def test_interval_from_string(
+    value: str, expected_interval: typing.Optional[datetime.timedelta]
+) -> None:
+    if expected_interval is None:
+        with pytest.raises(date.InvalidDate):
+            date.interval_from_string(value)
+    else:
+        assert date.interval_from_string(value) == expected_interval

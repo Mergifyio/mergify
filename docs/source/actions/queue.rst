@@ -363,6 +363,12 @@ A ``queue_rules`` takes the following parameter:
        between 1 and 20.
        See :ref:`speculative checks`.
 
+   * - ``checks_timeout``
+     - :ref:`Duration <duration>`
+     -
+     - The amount of time Mergify waits for pending checks to return before unqueueing pull requests.
+       This cannot be less than 60 seconds.
+
 .. note::
 
    |premium plan tag|

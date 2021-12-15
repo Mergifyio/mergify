@@ -746,6 +746,7 @@ ContextAttributeType = typing.Union[
     datetime.time,
     date.PartialDatetime,
     datetime.datetime,
+    datetime.timedelta,
     date.RelativeDatetime,
     typing.List[github_types.SHAType],
     typing.List[github_types.GitHubLogin],
@@ -1090,6 +1091,23 @@ class Context(object):
                 return queued_at
             else:
                 return date.RelativeDatetime(queued_at)
+
+        elif name in ("queue-merge-started-at", "queue-merge-started-at-relative"):
+            # Only used with QueuePullRequest
+            q = await merge_train.Train.from_context(self)
+            car = q.get_car_by_tmp_pull(self)
+            if car is None:
+                car = q.get_car(self)
+                if car is None:
+                    started_at = date.DT_MAX
+                else:
+                    started_at = car.creation_date
+            else:
+                started_at = car.creation_date
+            if name == "queue-merge-started-at":
+                return started_at
+            else:
+                return date.RelativeDatetime(started_at)
 
         elif name == "label":
             return [label["name"] for label in self.pull["labels"]]
@@ -1946,6 +1964,8 @@ class QueuePullRequest(BasePullRequest):
         "current-day-of-week",
         "current-timestamp",
         "schedule",
+        "queue-merge-started-at",
+        "queue-merge-started-at-relative",
     )
 
     async def __getattr__(self, name: str) -> ContextAttributeType:

@@ -715,6 +715,16 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     f"The pull requests {refs} cannot be merged and will be split"
                 )
 
+        checks_timeout_summary = ""
+        if conclusion == check_api.Conclusion.FAILURE:
+            for condition in evaluated_queue_rule.conditions.walk():
+                if (
+                    condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
+                    and not condition.match
+                ):
+                    checks_timeout_summary = "\n\n⏲️  The checks have timed out ⏲️"
+                    break
+
         queue_summary = "\n\nRequired conditions for merge:\n\n"
         queue_summary += evaluated_queue_rule.conditions.get_summary()
 
@@ -744,6 +754,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if self.creation_state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
+            summary += checks_timeout_summary
             summary += queue_summary + "\n" + batch_failure_summary
 
             if self.queue_pull_request_number is None:
@@ -871,6 +882,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             conclusion,
             title=original_pull_title,
             summary=unexpected_change_summary
+            + checks_timeout_summary
             + queue_summary
             + "\n"
             + checks_copy_summary

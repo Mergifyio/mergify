@@ -25,6 +25,7 @@ from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import json as mergify_json
@@ -166,6 +167,13 @@ async def get_rule_checks_status(
 
     if rule.conditions.match:
         return check_api.Conclusion.SUCCESS
+
+    for condition in rule.conditions.walk():
+        if (
+            condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
+            and not condition.match
+        ):
+            return check_api.Conclusion.FAILURE
 
     conditions_without_checks = rule.conditions.copy()
     for condition_without_check in conditions_without_checks.walk():
@@ -345,7 +353,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 return check_api.Result(
                     check_api.Conclusion.CANCELLED,
                     "The pull request has been removed from the queue",
-                    "The queue conditions cannot be satisfied due to failing checks. "
+                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
                     f"{self.UNQUEUE_DOCUMENTATION}",
                 )
 

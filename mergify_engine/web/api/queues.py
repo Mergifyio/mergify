@@ -152,6 +152,7 @@ class Queues:
                                                 "speculative_checks": 2,
                                                 "allow_inplace_speculative_checks": True,
                                                 "allow_speculative_checks_interruption": True,
+                                                "checks_timeout": 60,
                                             },
                                         },
                                         "speculative_check_pull_request": {
@@ -173,6 +174,7 @@ class Queues:
                                                 "speculative_checks": 2,
                                                 "allow_inplace_speculative_checks": True,
                                                 "allow_speculative_checks_interruption": True,
+                                                "checks_timeout": 60,
                                             },
                                         },
                                         "speculative_check_pull_request": {
