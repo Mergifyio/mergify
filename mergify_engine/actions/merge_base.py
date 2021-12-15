@@ -239,7 +239,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
 
     @abc.abstractmethod
     async def _should_be_merged(
-        self, ctxt: context.Context, q: queue.QueueBase
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
         pass
 
@@ -350,7 +350,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 )
 
         try:
-            if await self._should_be_merged(ctxt, q):
+            if await self._should_be_merged(ctxt, rule, q):
                 result = await self._merge(
                     ctxt, rule, q, merge_bot_account, update_bot_account
                 )
@@ -419,7 +419,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
             ctxt, rule, q
         ):
             try:
-                if await self._should_be_merged(ctxt, q):
+                if await self._should_be_merged(ctxt, rule, q):
                     if await self._should_be_merged_during_cancel(ctxt, q):
                         result = await self._merge(
                             ctxt, rule, q, merge_bot_account, update_bot_account

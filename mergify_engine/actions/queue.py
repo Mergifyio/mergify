@@ -304,11 +304,29 @@ Then, re-embark the pull request into the merge queue by posting the comment
             check_api.Conclusion.PENDING,
         ]
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_merged(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
+    ) -> bool:
         if not await q.is_first_pull(ctxt):
             return False
 
         if not await ctxt.is_behind:
+            # NOTE(sileht) check first if PR should be removed from the queue
+            pull_rule_checks_status = await merge_base.get_rule_checks_status(
+                ctxt.log, ctxt.repository, [ctxt.pull_request], rule
+            )
+            if pull_rule_checks_status == check_api.Conclusion.FAILURE:
+                return False
+
+            # NOTE(sileht): if the pull request rules are pending we wait their
+            # match before checking queue rules states, in case of one
+            # condition suddently unqueue the pull request.
+            # TODO(sileht): we may want to make this behavior configurable as
+            # people having slow/long CI running only on pull request rules, we
+            # may want to merge it before it finishes.
+            elif pull_rule_checks_status == check_api.Conclusion.PENDING:
+                return False
+
             queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
                 ctxt.repository,
                 ctxt.pull["base"]["ref"],
@@ -388,6 +406,15 @@ Then, re-embark the pull request into the merge queue by posting the comment
             )
             if pull_rule_checks_status == check_api.Conclusion.FAILURE:
                 return True
+
+            # NOTE(sileht): if the pull request rules are pending we wait their
+            # match before checking queue rules states, in case of one
+            # condition suddently unqueue the pull request.
+            # TODO(sileht): we may want to make this behavior configurable as
+            # people having slow/long CI running only on pull request rules, we
+            # may want to merge it before it finishes.
+            elif pull_rule_checks_status == check_api.Conclusion.PENDING:
+                return False
 
             # NOTE(sileht): This car have been updated/rebased, so we should not cancel
             # the merge until we have a check that doesn't pass
