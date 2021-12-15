@@ -29,6 +29,7 @@ from urllib import parse
 
 import daiquiri
 import first
+from graphql_utils import multi
 import jinja2.exceptions
 import jinja2.meta
 import jinja2.runtime
@@ -43,6 +44,7 @@ from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import date
 from mergify_engine import exceptions
+from mergify_engine import github_graphql_types
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -790,6 +792,60 @@ class Context(object):
             if not commit["commit_verification_verified"]
         ]
 
+    async def retrieve_resolved_review_threads(
+        self, resolved: typing.Optional[bool] = True
+    ) -> typing.List[str]:
+        query = """
+            repository(owner: "{owner}", name: "{name}") {{
+                pullRequest(number: {number}) {{
+                    reviewThreads(first: 100{after}) {{
+                    edges {{
+                        node {{
+                        isResolved
+                        comments(first: 1) {{
+                            edges {{
+                                node {{
+                                    body
+                                }}
+                            }}
+                        }}
+                        }}
+                    }}
+                    }}
+                }}
+            }}
+        """
+        responses = typing.cast(
+            typing.AsyncIterable[
+                typing.Dict[str, github_graphql_types.GraphqlRepository]
+            ],
+            multi.multi_query(
+                query,
+                iterable=(
+                    {
+                        "owner": self.repository.repo["owner"]["login"],
+                        "name": self.repository.repo["name"],
+                        "number": self.pull["number"],
+                    },
+                ),
+                send_fn=self.client.graphql_post,
+            ),
+        )
+        resolved_review_threads = []
+        async for response in responses:
+            for _current_query, current_response in response.items():
+                if len(current_response["pullRequest"]["reviewThreads"]["edges"]) > 0:
+                    for review_comment in current_response["pullRequest"][
+                        "reviewThreads"
+                    ]["edges"]:
+                        if review_comment["node"]["isResolved"] == resolved:
+                            resolved_review_threads.append(
+                                review_comment["node"]["comments"]["edges"][0]["node"][
+                                    "body"
+                                ]
+                            )
+        return resolved_review_threads
+
     @classmethod
     async def create(
         cls,
@@ -1216,6 +1272,10 @@ class Context(object):
             return date.fromisoformat(self.pull["merged_at"])
         elif name == "commits-unverified":
             return await self.retrieve_unverified_commits()
+        elif name == "review-threads-resolved":
+            return await self.retrieve_resolved_review_threads()
+        elif name == "review-threads-unresolved":
+            return await self.retrieve_resolved_review_threads(resolved=False)
         else:
             raise PullRequestAttributeError(name)
 
@@ -1689,6 +1749,8 @@ class PullRequest(BasePullRequest):
         "commits",
         "commits-behind",
         "commits-unverified",
+        "review-threads-resolved",
+        "review-threads-unresolved",
         "files",
     }
 

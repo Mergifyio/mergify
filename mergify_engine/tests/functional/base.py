@@ -37,6 +37,7 @@ from mergify_engine import branch_updater
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import duplicate_pull
+from mergify_engine import github_graphql_types
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import utils
@@ -748,6 +749,90 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
         await self.wait_for("issue_comment", {"action": "created"})
 
+    async def create_review_thread(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+        message: str,
+        line: typing.Optional[int] = 1,
+        path: typing.Optional[str] = "test1",
+    ) -> int:
+        commits = await self.get_commits(pull_number=pull_number)
+        response = await self.client_admin.post(
+            f"{self.url_origin}/pulls/{pull_number}/comments",
+            json={
+                "body": message,
+                "path": path,
+                "commit_id": commits[-1]["sha"],
+                "line": line,
+            },
+        )
+        await self.wait_for("pull_request_review_comment", {"action": "created"})
+        return typing.cast(int, response.json()["id"])
+
+    async def get_review_threads(
+        self, number: int
+    ) -> github_graphql_types.GraphqlReviewThreadsQuery:
+        query = f"""
+        query {{
+            repository(owner: "{self.repository_ctxt.repo["owner"]["login"]}", name: "{self.repository_ctxt.repo["name"]}") {{
+                pullRequest(number: {number}) {{
+                    reviewThreads(first: 100) {{
+                    edges {{
+                        node {{
+                            isResolved
+                            id
+                            comments(first: 1) {{
+                                edges {{
+                                    node {{
+                                        body
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                    }}
+                }}
+            }}
+        }}
+        """
+        data = typing.cast(
+            github_graphql_types.GraphqlReviewThreadsQuery,
+            (await self.client_admin.graphql_post(query))["data"],
+        )
+        return data
+
+    async def reply_to_review_comment(
+        self,
+        pull_number: github_types.GitHubPullRequestNumber,
+        message: str,
+        comment_id: int,
+    ) -> None:
+        await self.client_admin.post(
+            f"{self.url_origin}/pulls/{pull_number}/comments",
+            json={"body": message, "in_reply_to": comment_id},
+        )
+        await self.wait_for("pull_request_review_comment", {"action": "created"})
+
+    async def resolve_review_thread(
+        self,
+        thread_id: str,
+    ) -> bool:
+
+        mutation = f"""
+        mutation {{
+            resolveReviewThread(input:{{clientMutationId: "{config.BOT_USER_ID}", threadId: "{thread_id}"}}) {{
+                thread {{
+                    isResolved
+                }}
+            }}
+        }}
+        """
+        response = await self.client_admin.graphql_post(mutation)
+        data = typing.cast(
+            github_graphql_types.GraphqlResolveThreadMutationResponse, response["data"]
+        )
+        return data["resolveReviewThread"]["thread"]["isResolved"]
+
     async def create_issue(self, title: str, body: str) -> github_types.GitHubIssue:
         resp = await self.client_admin.post(
             f"{self.url_origin}/issues", json={"body": body, "title": title}
@@ -867,6 +952,19 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 typing.AsyncGenerator[github_types.GitHubReview, None],
                 self.client_admin.items(
                     f"{self.url_origin}/pulls/{pull_number}/reviews"
+                ),
+            )
+        ]
+
+    async def get_review_comments(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> typing.List[github_types.GitHubReview]:
+        return [
+            review
+            async for review in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubReview, None],
+                self.client_admin.items(
+                    f"{self.url_origin}/pulls/{pull_number}/comments"
                 ),
             )
         ]

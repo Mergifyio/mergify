@@ -154,6 +154,8 @@ pull_request_rules:
  'number': {p['number']},
  'queue-position': -1,
  'review-requested': [],
+ 'review-threads-resolved': [],
+ 'review-threads-unresolved': [],
  'status-failure': [],
  'status-neutral': [],
  'status-success': ['Summary'],
