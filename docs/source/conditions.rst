@@ -302,6 +302,12 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``commits-unverified``
      - list of strings
      - The list of commit messages that are marked as ``unverified`` by GitHub.
+   * - ``review-threads-resolved``
+     - list of strings
+     - The list of body associated to review threads that are marked as ``resolved`` by GitHub.
+   * - ``review-threads-unresolved``
+     - list of strings
+     - The list of body associated to review threads that are NOT marked as ``resolved`` by GitHub.
 
 
 .. warning::

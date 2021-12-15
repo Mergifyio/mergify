@@ -78,6 +78,8 @@ CONDITION_PARSERS = {
     "check-pending": Parser.TEXT,
     "check-stale": Parser.TEXT,
     "commits-unverified": Parser.TEXT,
+    "review-threads-resolved": Parser.TEXT,
+    "review-threads-unresolved": Parser.TEXT,
     "current-time": Parser.TIME,
     "current-day": Parser.DAY,
     "current-month": Parser.MONTH,
