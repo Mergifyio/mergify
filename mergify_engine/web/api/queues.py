@@ -151,6 +151,7 @@ class Queues:
                                                 "batch_size": 1,
                                                 "speculative_checks": 2,
                                                 "allow_inplace_speculative_checks": True,
+                                                "allow_speculative_checks_interruption": True,
                                             },
                                         },
                                         "speculative_check_pull_request": {
@@ -171,6 +172,7 @@ class Queues:
                                                 "batch_size": 1,
                                                 "speculative_checks": 2,
                                                 "allow_inplace_speculative_checks": True,
+                                                "allow_speculative_checks_interruption": True,
                                             },
                                         },
                                         "speculative_check_pull_request": {

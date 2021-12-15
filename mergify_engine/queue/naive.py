@@ -76,6 +76,13 @@ class Queue(queue.QueueBase):
                     "update_bot_account": None,
                     "update_method": "merge",
                     "name": rules.QueueName(""),
+                    "queue_config": {
+                        "priority": 0,
+                        "speculative_checks": 1,
+                        "batch_size": 1,
+                        "allow_inplace_speculative_checks": True,
+                        "allow_speculative_checks_interruption": True,
+                    },
                 }
             )
         config: queue.PullQueueConfig = json.loads(config_str)
