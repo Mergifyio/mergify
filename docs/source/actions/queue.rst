@@ -348,6 +348,13 @@ A ``queue_rules`` takes the following parameter:
      - True
      - Allow to update/rebase the original pull request if possible to check its mergeability.
        If ``False``, a draft pull request is always created.
+   * - ``allow_speculative_checks_interruption``
+     - bool
+     - True
+     - Allow interrupting the ongoing speculative checks when a pull request
+       with higher priority enters in the queue.
+       If ``False``, pull request with higher priority will be inserted just after the pull requests that
+       have speculative checks running.
 
    * - ``batch_size``
      - int

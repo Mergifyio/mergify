@@ -2201,6 +2201,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_speculative_checks": True,
+                                    "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
                                     "priority": 1,
                                     "speculative_checks": 5,
@@ -2220,6 +2221,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_speculative_checks": True,
+                                    "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
                                     "priority": 0,
                                     "speculative_checks": 5,
@@ -2236,6 +2238,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_speculative_checks": True,
+                                    "allow_speculative_checks_interruption": True,
                                     "batch_size": 1,
                                     "priority": 0,
                                     "speculative_checks": 5,
@@ -2852,6 +2855,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             speculative_checks=5,
             batch_size=1,
             allow_inplace_speculative_checks=True,
+            allow_speculative_checks_interruption=True,
         )
         config = queue.PullQueueConfig(
             name="foo",
@@ -2861,6 +2865,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
+            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -2922,6 +2927,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             speculative_checks=5,
             batch_size=1,
             allow_inplace_speculative_checks=True,
+            allow_speculative_checks_interruption=True,
         )
         config = queue.PullQueueConfig(
             name="foo",
@@ -2931,6 +2937,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
+            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(

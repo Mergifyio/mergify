@@ -82,6 +82,11 @@ queue_rules:
     conditions: []
     speculative_checks: 2
     batch_size: 5
+  - name: noint
+    conditions: []
+    speculative_checks: 2
+    batch_size: 5
+    allow_speculative_checks_interruption: False
 
 """
 
@@ -273,6 +278,7 @@ def get_config(
         effective_priority=effective_priority,
         bot_account=None,
         update_bot_account=None,
+        queue_config=QUEUE_RULES[queue_name].config,
     )
 
 
@@ -695,7 +701,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 31000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 41000
     )
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
@@ -706,7 +712,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 32000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 42000
     )
 
 
@@ -970,3 +976,33 @@ async def test_train_queue_splitted_on_failure_5x3(
         [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
     ] == get_cars_content(t)
     assert [] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_no_interrupt_add_pull(repository, monkepatched_traincar):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    config = get_config("noint")
+
+    await t.add_pull(await fake_context(repository, 1), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await fake_context(repository, 2), config)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await fake_context(repository, 3), config)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    # Inserting high prio didn't break started speculative checks, but the PR
+    # move above other
+    await t.add_pull(await fake_context(repository, 4), get_config("noint", 20000))
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [4, 3] == get_waiting_content(t)

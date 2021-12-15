@@ -148,6 +148,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 "speculative_checks": 1,
                 "batch_size": 1,
                 "allow_inplace_speculative_checks": True,
+                "allow_speculative_checks_interruption": True,
             }
         )
 
