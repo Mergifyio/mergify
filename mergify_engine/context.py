@@ -738,6 +738,7 @@ class ContextCaches:
 
 
 ContextAttributeType = typing.Union[
+    None,
     bool,
     typing.List[str],
     str,
@@ -1070,6 +1071,26 @@ class Context(object):
                 return -1
             return position
 
+        elif name in ("queued-at", "queued-at-relative"):
+            q = await merge_train.Train.from_context(self)
+            car = q.get_car(self)
+            queued_at: typing.Optional[datetime.datetime]
+            if car is None:
+                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
+                queued_at = date.DT_MAX
+            else:
+                queued_at = first.first(
+                    ep.queued_at
+                    for ep in car.initial_embarked_pulls
+                    if ep.user_pull_request_number == self.pull["number"]
+                )
+                if queued_at is None:
+                    raise RuntimeError("current pull request not found in its car")
+            if name == "queued-at":
+                return queued_at
+            else:
+                return date.RelativeDatetime(queued_at)
+
         elif name == "label":
             return [label["name"] for label in self.pull["labels"]]
 
@@ -1251,10 +1272,12 @@ class Context(object):
             return date.RelativeDatetime(date.fromisoformat(self.pull["created_at"]))
         elif name == "closed-at-relative":
             if self.pull["closed_at"] is None:
+                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
                 return date.RelativeDatetime(date.DT_MAX)
             return date.RelativeDatetime(date.fromisoformat(self.pull["closed_at"]))
         elif name == "merged-at-relative":
             if self.pull["merged_at"] is None:
+                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
                 return date.RelativeDatetime(date.DT_MAX)
             return date.RelativeDatetime(date.fromisoformat(self.pull["merged_at"]))
 
@@ -1264,10 +1287,12 @@ class Context(object):
             return date.fromisoformat(self.pull["created_at"])
         elif name == "closed-at":
             if self.pull["closed_at"] is None:
+                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
                 return date.DT_MAX
             return date.fromisoformat(self.pull["closed_at"])
         elif name == "merged-at":
             if self.pull["merged_at"] is None:
+                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
                 return date.DT_MAX
             return date.fromisoformat(self.pull["merged_at"])
         elif name == "commits-unverified":
