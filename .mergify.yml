@@ -172,3 +172,19 @@ pull_request_rules:
     actions:
       comment:
         message: Your hotfix is failing CI @{{author}} 🥺
+
+  - name: release notes update
+    conditions:
+      - or:
+          - "-title~=^feat"
+          - and:
+              - "title~=^feat"
+              - files~=^releasenotes/notes
+    actions:
+      post_check:
+        title: |
+          {% if check_succeed %}
+          Release notes found.
+          {% else %}
+          Release note missing.
+          {% endif %}
