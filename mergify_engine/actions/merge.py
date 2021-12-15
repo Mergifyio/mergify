@@ -190,7 +190,9 @@ class MergeAction(merge_base.MergeBaseAction):
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
         return True
 
-    async def _should_be_merged(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_merged(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
+    ) -> bool:
         if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
             return not await ctxt.is_behind and await q.is_first_pull(ctxt)
         elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
