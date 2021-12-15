@@ -678,6 +678,38 @@ queue_rules:
     assert len(report_failure.mock_calls) == 1
 
 
+@pytest.mark.asyncio
+async def test_train_priority_change(
+    repository,
+    monkepatched_traincar,
+):
+    t = merge_train.Train(repository, "branch")
+    await t.load()
+
+    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
+    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
+
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    assert (
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 31000
+    )
+
+    # NOTE(sileht): pull request got requeued with new configuration that don't
+    # update the position but update the prio
+    await t.add_pull(await fake_context(repository, 1), get_config("two", 2000))
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    assert (
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 32000
+    )
+
+
 def test_train_batch_split():
     now = datetime.datetime.utcnow()
     t = merge_train.Train(repository, "branch")
