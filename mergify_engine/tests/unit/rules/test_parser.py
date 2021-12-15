@@ -330,6 +330,10 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
             {"<=": ("merged-at", now)},
         ),
         (
+            f"queued-at<={now.isoformat()}",
+            {"<=": ("queued-at", now)},
+        ),
+        (
             f"updated-at<={now.isoformat()}",
             {"<=": ("updated-at", now)},
         ),
