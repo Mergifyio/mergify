@@ -861,7 +861,7 @@ class Worker:
         return self.worker_per_process * self.process_count
 
     @staticmethod
-    def _extract_owner(
+    def extract_owner(
         org_bucket_name: OrgBucketNameType,
     ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
         org_bucket_splitted = org_bucket_name.split("~")[1:]
@@ -912,7 +912,7 @@ class Worker:
         org_bucket_name = await org_bucket_selector.next_org_bucket()
         if org_bucket_name:
             LOG.debug("worker %s take org bucket: %s", worker_id, org_bucket_name)
-            owner_id, owner_login = self._extract_owner(org_bucket_name)
+            owner_id, owner_login = self.extract_owner(org_bucket_name)
             try:
                 with tracer.trace(
                     "org bucket processing",
@@ -974,7 +974,7 @@ class Worker:
         dedicated_worker_events_count: typing.Dict[str, int] = {}
 
         for org_bucket, _ in org_buckets:
-            owner_id, owner_login = self._extract_owner(
+            owner_id, owner_login = self.extract_owner(
                 OrgBucketNameType(org_bucket.decode())
             )
             if owner_id in dedicated_worker_owner_ids:
@@ -1247,28 +1247,40 @@ async def async_status() -> None:
 
     redis_stream = utils.create_yaaredis_for_stream()
 
-    def sorter(item: typing.Tuple[bytes, float]) -> int:
+    dedicated_workers_data = await redis_stream.smembers(DEDICATED_WORKERS_KEY)
+    if dedicated_workers_data is None:
+        dedicated_worker_owner_ids = set()
+    else:
+        dedicated_worker_owner_ids = {
+            github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
+        }
+
+    def sorter(item: typing.Tuple[bytes, float]) -> str:
         org_bucket, score = item
-        return SharedOrgBucketSelector.get_shared_worker_id_for(
-            org_bucket, worker_count
+        owner_id, owner_login = Worker.extract_owner(
+            OrgBucketNameType(org_bucket.decode())
         )
+        if owner_id in dedicated_worker_owner_ids:
+            return f"dedicated-{owner_id}"
+        else:
+            shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
+                org_bucket, worker_count
+            )
+            return f"shared-{shared_id}"
 
     org_buckets = sorted(
         await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
         key=sorter,
     )
 
-    # FIXME(sileht): This doesn't report dedicated worker
-    for shared_worker_id, org_buckets_by_worker in itertools.groupby(
-        org_buckets, key=sorter
-    ):
+    for worker_id, org_buckets_by_worker in itertools.groupby(org_buckets, key=sorter):
         for org_bucket, score in org_buckets_by_worker:
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
             owner = org_bucket.split(b"~")[2]
             event_org_buckets = await redis_stream.zrange(org_bucket, 0, -1)
             count = sum([await redis_stream.xlen(es) for es in event_org_buckets])
             items = f"{len(event_org_buckets)} pull requests, {count} events"
-            print(f"{{{shared_worker_id:02}}} [{date}] {owner.decode()}: {items}")
+            print(f"{{{worker_id}}} [{date}] {owner.decode()}: {items}")
 
 
 def status() -> None:
