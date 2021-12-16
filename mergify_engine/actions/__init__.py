@@ -146,7 +146,7 @@ class Action(abc.ABC):
     @staticmethod
     async def wanted_users(
         ctxt: context.Context, users: typing.List[str]
-    ) -> typing.List[str]:
+    ) -> typing.Set[str]:
         wanted = set()
         for user in set(users):
             try:
@@ -158,7 +158,7 @@ class Action(abc.ABC):
             else:
                 wanted.add(user)
 
-        return list(wanted)
+        return wanted
 
     async def get_conditions_requirements(
         self,
