@@ -162,7 +162,7 @@ class GithubAppInstallationAuth(httpx.Auth):
 
         return self.build_github_app_request(
             "POST",
-            f"{config.GITHUB_API_URL}/app/installations/{self._installation['id']}/access_tokens",
+            f"{config.GITHUB_REST_API_URL}/app/installations/{self._installation['id']}/access_tokens",
             force=force,
         )
 
@@ -216,7 +216,7 @@ async def get_installation_from_account_id(
             return typing.cast(
                 github_types.GitHubInstallation,
                 await client.item(
-                    f"{config.GITHUB_API_URL}/user/{account_id}/installation"
+                    f"{config.GITHUB_REST_API_URL}/user/{account_id}/installation"
                 ),
             )
         except http.HTTPNotFound as e:
@@ -236,7 +236,7 @@ async def get_installation_from_login(
             return typing.cast(
                 github_types.GitHubInstallation,
                 await client.item(
-                    f"{config.GITHUB_API_URL}/users/{login}/installation"
+                    f"{config.GITHUB_REST_API_URL}/users/{login}/installation"
                 ),
             )
         except http.HTTPNotFound as e:
@@ -303,7 +303,7 @@ class AsyncGithubClient(http.AsyncClient):
         ],
     ):
         super().__init__(
-            base_url=config.GITHUB_API_URL,
+            base_url=config.GITHUB_REST_API_URL,
             auth=auth,
             headers={"Accept": "application/vnd.github.machine-man-preview+json"},
         )
@@ -393,7 +393,7 @@ class AsyncGithubClient(http.AsyncClient):
         )
 
     async def graphql_post(self, query: str) -> typing.Any:
-        response = await self.post("/graphql", json={"query": query})
+        response = await self.post(config.GITHUB_GRAPHQL_API_URL, json={"query": query})
         data = response.json()
         if "data" not in data:
             raise GraphqlError(response.text)

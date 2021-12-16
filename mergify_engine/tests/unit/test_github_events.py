@@ -38,7 +38,7 @@ async def _do_test_event_to_pull_check_run(
         data = json.loads(
             f.read()
             .replace("https://github.com", config.GITHUB_URL)
-            .replace("https://api.github.com", config.GITHUB_API_URL)
+            .replace("https://api.github.com", config.GITHUB_REST_API_URL)
         )
 
     gh_owner = github_types.GitHubAccount(

@@ -1,0 +1,5 @@
+---
+deprecations:
+  - |
+    Environment variable ``MERGIFYENGINE_GITHUB_API_URL`` have been replaced by
+    ``MERGIFYENGINE_GITHUB_REST_API_URL`` and ``MERGIFYENGINE_GITHUB_GRAPHQL_API_URL``.
