@@ -134,7 +134,9 @@ class CopyAction(actions.Action):
         # No, then do it
         if not new_pull:
             try:
-                users_to_add = await self.wanted_users(ctxt, self.config["assignees"])
+                users_to_add = list(
+                    await self.wanted_users(ctxt, self.config["assignees"])
+                )
                 new_pull = await duplicate_pull.duplicate(
                     ctxt,
                     branch_name,

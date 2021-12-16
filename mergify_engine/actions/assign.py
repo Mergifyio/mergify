@@ -68,7 +68,10 @@ class AssignAction(actions.Action):
     async def _add_assignees(
         self, ctxt: context.Context, users_to_add: typing.List[str]
     ) -> check_api.Result:
-        assignees = await self.wanted_users(ctxt, users_to_add)
+        users_to_add_parsed = await self.wanted_users(ctxt, users_to_add)
+        assignees = list(
+            users_to_add_parsed - {a["login"] for a in ctxt.pull["assignees"]}
+        )
 
         if assignees:
             try:
@@ -98,7 +101,10 @@ class AssignAction(actions.Action):
     async def _remove_assignees(
         self, ctxt: context.Context, users_to_remove: typing.List[str]
     ) -> check_api.Result:
-        assignees = await self.wanted_users(ctxt, users_to_remove)
+        users_to_remove_parsed = await self.wanted_users(ctxt, users_to_remove)
+        assignees = list(
+            users_to_remove_parsed & {a["login"] for a in ctxt.pull["assignees"]}
+        )
 
         if assignees:
             try:
