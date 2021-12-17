@@ -35,7 +35,7 @@ class TestAttributes(base.FunctionalTestBase):
                 {
                     "name": "default",
                     "conditions": ["schedule: MON-FRI 08:00-17:00"],
-                    "allow_inplace_speculative_checks": False,
+                    "allow_inplace_checks": False,
                 }
             ],
             "pull_request_rules": [

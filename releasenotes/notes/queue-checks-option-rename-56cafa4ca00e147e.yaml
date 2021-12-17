@@ -1,0 +1,6 @@
+---
+deprecations:
+  - The ``queue_rules`` option ``allow_inplace_speculative_checks`` has been renamed ``allow_inplace_checks``.
+  - |
+    The ``queue_rules`` option ``allow_speculative_checks_interruption`` has been renamed
+    ``allow_checks_interruption``.

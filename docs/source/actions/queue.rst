@@ -343,18 +343,18 @@ A ``queue_rules`` takes the following parameter:
      - |premium plan tag| The maximum number of checks to run in parallel in the queue. Must be
        between 1 and 20.
        See :ref:`speculative checks`.
-   * - ``allow_inplace_speculative_checks``
+   * - ``allow_inplace_checks``
      - bool
      - True
      - Allow to update/rebase the original pull request if possible to check its mergeability.
        If ``False``, a draft pull request is always created.
-   * - ``allow_speculative_checks_interruption``
+   * - ``allow_checks_interruption``
      - bool
      - True
      - Allow interrupting the ongoing speculative checks when a pull request
        with higher priority enters in the queue.
        If ``False``, pull request with higher priority will be inserted just after the pull requests that
-       have speculative checks running.
+       have checks running.
 
    * - ``batch_size``
      - int

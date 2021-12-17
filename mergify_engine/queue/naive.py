@@ -80,8 +80,8 @@ class Queue(queue.QueueBase):
                         "priority": 0,
                         "speculative_checks": 1,
                         "batch_size": 1,
-                        "allow_inplace_speculative_checks": True,
-                        "allow_speculative_checks_interruption": True,
+                        "allow_inplace_checks": True,
+                        "allow_checks_interruption": True,
                         "checks_timeout": None,
                     },
                 }

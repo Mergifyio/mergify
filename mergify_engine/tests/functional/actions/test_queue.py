@@ -162,7 +162,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
-                    "allow_inplace_speculative_checks": False,
+                    "allow_inplace_checks": False,
                 }
             ],
             "pull_request_rules": [
@@ -412,7 +412,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
-                    "allow_inplace_speculative_checks": False,
+                    "allow_inplace_checks": False,
                 }
             ],
             "pull_request_rules": [
@@ -2201,8 +2201,8 @@ DO NOT EDIT
                             "priority": 2000,
                             "queue_rule": {
                                 "config": {
-                                    "allow_inplace_speculative_checks": True,
-                                    "allow_speculative_checks_interruption": True,
+                                    "allow_inplace_checks": True,
+                                    "allow_checks_interruption": True,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 1,
@@ -2222,8 +2222,8 @@ DO NOT EDIT
                             "priority": 2000,
                             "queue_rule": {
                                 "config": {
-                                    "allow_inplace_speculative_checks": True,
-                                    "allow_speculative_checks_interruption": True,
+                                    "allow_inplace_checks": True,
+                                    "allow_checks_interruption": True,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 0,
@@ -2240,8 +2240,8 @@ DO NOT EDIT
                             "priority": 2000,
                             "queue_rule": {
                                 "config": {
-                                    "allow_inplace_speculative_checks": True,
-                                    "allow_speculative_checks_interruption": True,
+                                    "allow_inplace_checks": True,
+                                    "allow_checks_interruption": True,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 0,
@@ -2914,8 +2914,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             priority=0,
             speculative_checks=5,
             batch_size=1,
-            allow_inplace_speculative_checks=True,
-            allow_speculative_checks_interruption=True,
+            allow_inplace_checks=True,
+            allow_checks_interruption=True,
             checks_timeout=None,
         )
         config = queue.PullQueueConfig(
@@ -2987,8 +2987,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             priority=0,
             speculative_checks=5,
             batch_size=1,
-            allow_inplace_speculative_checks=True,
-            allow_speculative_checks_interruption=True,
+            allow_inplace_checks=True,
+            allow_checks_interruption=True,
             checks_timeout=None,
         )
         config = queue.PullQueueConfig(

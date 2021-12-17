@@ -1211,8 +1211,7 @@ class Train(queue.QueueBase):
                     != embarked_pull.config["effective_priority"]
                     or config["name"] != embarked_pull.config["name"]
                 ) and (
-                    config["queue_config"]["allow_speculative_checks_interruption"]
-                    or car is None
+                    config["queue_config"]["allow_checks_interruption"] or car is None
                 ):
 
                     self.log.info(
@@ -1235,10 +1234,7 @@ class Train(queue.QueueBase):
                 best_position == -1
                 and config["effective_priority"]
                 > embarked_pull.config["effective_priority"]
-                and (
-                    config["queue_config"]["allow_speculative_checks_interruption"]
-                    or car is None
-                )
+                and (config["queue_config"]["allow_checks_interruption"] or car is None)
             ):
                 # We found a car with lower priority
                 best_position = position
@@ -1530,7 +1526,7 @@ class Train(queue.QueueBase):
             and len(car.parent_pull_request_numbers) == 0
         )
         if can_be_updated:
-            must_be_updated = queue_rule.config["allow_inplace_speculative_checks"]
+            must_be_updated = queue_rule.config["allow_inplace_checks"]
         else:
             must_be_updated = False
 

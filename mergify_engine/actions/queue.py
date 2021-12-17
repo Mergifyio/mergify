@@ -454,8 +454,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "speculative_checks": self.config["queue_config"]["speculative_checks"]
                 > 1,
                 "batch_size": self.config["queue_config"]["batch_size"] > 1,
-                "allow_inplace_speculative_checks": self.config["queue_config"][
-                    "allow_inplace_speculative_checks"
+                "allow_inplace_checks": self.config["queue_config"][
+                    "allow_inplace_checks"
                 ],
                 "commit_message": self.config["commit_message"],
                 "commit_message_set": "commit_message" in self.raw_config,
