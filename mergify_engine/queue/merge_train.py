@@ -1530,12 +1530,7 @@ class Train(queue.QueueBase):
             and len(car.parent_pull_request_numbers) == 0
         )
         if can_be_updated:
-            if queue_rule.config["allow_inplace_speculative_checks"]:
-                must_be_updated = True
-            else:
-                # The pull request is already up2date no need to create
-                # a pull request
-                must_be_updated = not await car.is_behind()
+            must_be_updated = queue_rule.config["allow_inplace_speculative_checks"]
         else:
             must_be_updated = False
 
