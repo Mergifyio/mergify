@@ -26,7 +26,7 @@ Here's what you need to know about the file format:
 - The file format is `YAML <http://yaml.org/>`_.
 
 - The file main type is a dictionary whose keys are named
-  ``pull_request_rules`` and ``defaults``.
+  ``pull_request_rules``, ``queue_rules``, and ``defaults``.
 
 Pull Request Rules
 ~~~~~~~~~~~~~~~~~~
