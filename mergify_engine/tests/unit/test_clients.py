@@ -36,7 +36,7 @@ async def test_client_installation_token_with_owner_id(
 ) -> None:
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
 
@@ -85,7 +85,7 @@ async def test_client_installation_token_with_owner_id(
 @pytest.mark.asyncio
 async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         httpserver.expect_request("/user/12345/installation").respond_with_json(
@@ -159,7 +159,7 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
     )
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         installation_json = await github.get_installation_from_account_id(owner_id)
@@ -295,7 +295,7 @@ async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -
     ).respond_with_data("This is an 5XX error", status=500)
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         installation_json = await github.get_installation_from_account_id(
@@ -328,7 +328,7 @@ async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -
     )
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         with pytest.raises(http.HTTPServerSideError) as exc_info:
@@ -356,7 +356,7 @@ async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -
         {"message": "Repository not found"}, status=404
     )
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         with pytest.raises(exceptions.MergifyNotInstalled):
@@ -380,7 +380,7 @@ async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -
         {"message": "Repository not found"}, status=404
     )
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         with pytest.raises(exceptions.MergifyNotInstalled):
@@ -423,7 +423,7 @@ async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> 
     )
 
     with mock.patch(
-        "mergify_engine.config.GITHUB_API_URL",
+        "mergify_engine.config.GITHUB_REST_API_URL",
         httpserver.url_for("/")[:-1],
     ):
         installation_json = await github.get_installation_from_account_id(

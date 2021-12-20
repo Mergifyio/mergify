@@ -91,6 +91,23 @@ def config_log() -> None:
     LOG.info("* PATH: %s", os.environ.get("PATH"))
     LOG.info("##########################################################")
 
+    legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
+    if legacy_api_url is not None:
+        if legacy_api_url[-1] == "/":
+            legacy_api_url = legacy_api_url[:-1]
+        if legacy_api_url.endswith("/api/v3"):
+            LOG.warning(
+                """
+MERGIFYENGINE_GITHUB_API_URL configuration environment is deprecated and must be replaced by:
+
+  MERGIFYENGINE_GITHUB_REST_API_URL=%s
+  MERGIFYENGINE_GITHUB_GRAPHQL_API_URL=%s
+
+  """,
+                legacy_api_url,
+                f"{legacy_api_url[:-3]}/graphql",
+            )
+
 
 def setup_logging(dump_config: bool = True) -> None:
     outputs = []

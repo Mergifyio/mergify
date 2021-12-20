@@ -73,7 +73,7 @@ async def redis_stream() -> typing.AsyncGenerator[utils.RedisStream, None]:
 async def github_server(
     httpserver: httpserver.HTTPServer, monkeypatch: pytest.MonkeyPatch
 ) -> typing.AsyncGenerator[httpserver.HTTPServer, None]:
-    monkeypatch.setattr(config, "GITHUB_API_URL", httpserver.url_for("/")[:-1])
+    monkeypatch.setattr(config, "GITHUB_REST_API_URL", httpserver.url_for("/")[:-1])
     monkeypatch.setattr(github.CachedToken, "STORAGE", {})
 
     httpserver.expect_request("/users/owner/installation").respond_with_json(
