@@ -136,7 +136,12 @@ Schema = voluptuous.Schema(
         voluptuous.Required("BOT_USER_LOGIN"): str,
         # GitHub optional
         voluptuous.Required("GITHUB_URL", default="https://github.com"): str,
-        voluptuous.Required("GITHUB_API_URL", default="https://api.github.com"): str,
+        voluptuous.Required(
+            "GITHUB_REST_API_URL", default="https://api.github.com"
+        ): str,
+        voluptuous.Required(
+            "GITHUB_GRAPHQL_API_URL", default="https://api.github.com/graphql"
+        ): str,
         # Mergify website for subscription
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
@@ -240,7 +245,8 @@ SENTRY_ENVIRONMENT: str
 CACHE_TOKEN_SECRET: str
 PRIVATE_KEY: bytes
 GITHUB_URL: str
-GITHUB_API_URL: str
+GITHUB_REST_API_URL: str
+GITHUB_GRAPHQL_API_URL: str
 WEBHOOK_MARKETPLACE_FORWARD_URL: str
 WEBHOOK_APP_FORWARD_URL: str
 WEBHOOK_FORWARD_EVENT_TYPES: str
@@ -298,6 +304,15 @@ for key, _ in Schema.schema.items():
     if val is not None:
         CONFIG[key] = val
 
+legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
+if legacy_api_url is not None:
+    if legacy_api_url[-1] == "/":
+        legacy_api_url = legacy_api_url[:-1]
+    if legacy_api_url.endswith("/api/v3"):
+        CONFIG["GITHUB_REST_API_URL"] = legacy_api_url
+        CONFIG["GITHUB_GRAPHQL_API_URL"] = f"{legacy_api_url[:-3]}/graphql"
+
+
 globals().update(Schema(CONFIG))
 
 if globals()["STREAM_URL"] is None:
@@ -318,4 +333,6 @@ if "TESTING_GPGKEY_SECRET" in CONFIG and not CONFIG["TESTING_GPGKEY_SECRET"].sta
 
 
 def is_saas() -> bool:
-    return typing.cast(str, globals()["GITHUB_API_URL"]) == "https://api.github.com"
+    return (
+        typing.cast(str, globals()["GITHUB_REST_API_URL"]) == "https://api.github.com"
+    )

@@ -45,7 +45,7 @@ async def get_repositories_setuped(
     token: str, install_id: int
 ) -> typing.List[github_types.GitHubRepository]:  # pragma: no cover
     repositories = []
-    url = f"{config.GITHUB_API_URL}/user/installations/{install_id}/repositories"
+    url = f"{config.GITHUB_REST_API_URL}/user/installations/{install_id}/repositories"
     token = f"token {token}"
     async with http.AsyncClient(
         headers={

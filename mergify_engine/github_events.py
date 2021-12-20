@@ -514,7 +514,7 @@ async def extract_pull_numbers_from_event(
         data = typing.cast(github_types.GitHubEventCheckSuite, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = (
-            f"{config.GITHUB_API_URL}/repos/{installation.owner_login}/{repo_name}"
+            f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}/{repo_name}"
         )
         pulls = [
             p["number"]
@@ -531,7 +531,7 @@ async def extract_pull_numbers_from_event(
         data = typing.cast(github_types.GitHubEventCheckRun, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = (
-            f"{config.GITHUB_API_URL}/repos/{installation.owner_login}/{repo_name}"
+            f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}/{repo_name}"
         )
         pulls = [
             p["number"]

@@ -39,12 +39,12 @@ class TestCountSeats(base.FunctionalTestBase):
 
         repos = (
             await self.client_admin.get(
-                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/repos"
+                url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/repos"
             )
         ).json()
         members = (
             await self.client_admin.get(
-                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+                url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
             )
         ).json()
         write_users = {
@@ -109,7 +109,7 @@ class TestCountSeats(base.FunctionalTestBase):
         await self._prepare_repo()
         members = (
             await self.client_admin.get(
-                url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+                url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
             )
         ).json()
         seats_count = (await count_seats.Seats.get(self.redis_cache)).count()
@@ -143,7 +143,7 @@ class TestCountSeats(base.FunctionalTestBase):
 
                 repos = (
                     await self.client_admin.get(
-                        url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/repos"
+                        url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/repos"
                     )
                 ).json()
                 expected_repositories = sorted(
@@ -156,7 +156,7 @@ class TestCountSeats(base.FunctionalTestBase):
 
                 members = (
                     await self.client_admin.get(
-                        url=f"{config.GITHUB_API_URL}/orgs/mergifyio-testing/members"
+                        url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
                     )
                 ).json()
                 users_expected = {(member["id"], member["login"]) for member in members}
