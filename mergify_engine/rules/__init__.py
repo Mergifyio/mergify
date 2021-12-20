@@ -74,8 +74,8 @@ class QueueConfig(typing.TypedDict):
     priority: int
     speculative_checks: int
     batch_size: int
-    allow_inplace_speculative_checks: bool
-    allow_speculative_checks_interruption: bool
+    allow_inplace_checks: bool
+    allow_checks_interruption: bool
     checks_timeout: typing.Optional[datetime.timedelta]
 
 
@@ -99,6 +99,22 @@ class QueueRule:
     def from_dict(cls, d: T_from_dict) -> "QueueRule":
         name = d.pop("name")
         conditions = d.pop("conditions")
+
+        # NOTE(sileht): backward compat
+        # FIXME(sileht): need mypy>0.920 for type: ignore[typeddict-item]
+        allow_inplace_speculative_checks = d.pop(  # type: ignore
+            "allow_inplace_speculative_checks", None
+        )
+        if allow_inplace_speculative_checks is not None:
+            d["allow_inplace_checks"] = allow_inplace_speculative_checks
+
+        # FIXME(sileht): need mypy>0.920 for type: ignore[typeddict-item]
+        allow_speculative_checks_interruption = d.pop(  # type: ignore
+            "allow_speculative_checks_interruption", None
+        )
+        if allow_speculative_checks_interruption is not None:
+            d["allow_checks_interruption"] = allow_speculative_checks_interruption
+
         return cls(name, conditions, d)
 
     async def get_pull_request_rule(
@@ -483,12 +499,14 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("batch_size", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
+                voluptuous.Required("allow_inplace_checks", default=True): bool,
+                voluptuous.Required("allow_checks_interruption", default=True): bool,
                 voluptuous.Required(
-                    "allow_inplace_speculative_checks", default=True
-                ): bool,
+                    "allow_inplace_speculative_checks", default=None
+                ): voluptuous.Any(None, bool),
                 voluptuous.Required(
-                    "allow_speculative_checks_interruption", default=True
-                ): bool,
+                    "allow_speculative_checks_interruption", default=None
+                ): voluptuous.Any(None, bool),
                 voluptuous.Required("checks_timeout", default=None): voluptuous.Any(
                     None, voluptuous.All(str, voluptuous.Coerce(ChecksTimeout))
                 ),

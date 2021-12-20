@@ -86,7 +86,7 @@ queue_rules:
     conditions: []
     speculative_checks: 2
     batch_size: 5
-    allow_speculative_checks_interruption: False
+    allow_checks_interruption: False
 
 """
 
