@@ -154,16 +154,12 @@ Unknown pull request attribute: hello
                     "actions": {
                         "review": {
                             "type": "APPROVE",
-                            "bot_account": "{{ body }}",
                         }
                     },
                 },
                 {
                     "name": "requested",
-                    "conditions": [
-                        f"base={self.main_branch_name}",
-                        "#approved-reviews-by>=1",
-                    ],
+                    "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "review": {
                             "message": "WTF?",
@@ -186,7 +182,12 @@ Unknown pull request attribute: hello
         reviews = await self.get_reviews(p["number"])
         self.assertEqual(2, len(reviews))
         self.assertEqual("APPROVED", reviews[-2]["state"])
-        self.assertEqual("mergify-test4", reviews[-2]["user"]["login"])
         self.assertEqual("CHANGES_REQUESTED", reviews[-1]["state"])
         self.assertEqual("WTF?", reviews[-1]["body"])
         self.assertEqual("mergify-test4", reviews[-1]["user"]["login"])
+
+        # ensure review don't get posted twice
+        await self.create_comment(p["number"], "@mergifyio refresh")
+        await self.run_engine()
+        reviews = await self.get_reviews(p["number"])
+        self.assertEqual(2, len(reviews))

@@ -102,24 +102,14 @@ class ReviewAction(actions.Action):
                 "body"
             ] = f"Pull request automatically reviewed by Mergify: {self.config['type']}"
 
-        reviews = list(
-            reversed(
-                list(
-                    filter(
-                        lambda r: r["user"]["login"] is not review_user,
-                        await ctxt.reviews,
-                    )
+        reviews = reversed(
+            list(
+                filter(
+                    lambda r: r["user"]["login"] == review_user,
+                    await ctxt.reviews,
                 )
             )
         )
-
-        if bot_account:
-            ctxt.log.info(
-                "review need to be posted by bot",
-                reviews=reviews,
-                review_user=review_user,
-                payload=payload,
-            )
 
         for review in reviews:
             if (
