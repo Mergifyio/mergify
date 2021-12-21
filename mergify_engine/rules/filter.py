@@ -312,10 +312,10 @@ def BinaryFilter(
         {"-": operator.not_},
         {
             "=": (operator.eq, any, _identity),
-            "<": (operator.lt, any, _identity),
-            ">": (operator.gt, any, _identity),
-            "<=": (operator.le, any, _identity),
-            ">=": (operator.ge, any, _identity),
+            "<": (lambda a, b: a is not None and a < b, any, _identity),
+            ">": (lambda a, b: a is not None and a > b, any, _identity),
+            "<=": (lambda a, b: a == b or (a is not None and a <= b), any, _identity),
+            ">=": (lambda a, b: a == b or (a is not None and a >= b), any, _identity),
             "!=": (operator.ne, all, _identity),
             "~=": (lambda a, b: a is not None and b.search(a), any, re.compile),
         },
@@ -389,6 +389,8 @@ def _dt_op(
     op: typing.Callable[[typing.Any, typing.Any], bool],
 ) -> typing.Callable[[typing.Any, typing.Any], datetime.datetime]:
     def _operator(value: typing.Any, ref: typing.Any) -> datetime.datetime:
+        if value is None:
+            return date.DT_MAX
         try:
             dt_value = _as_datetime(value).astimezone(datetime.timezone.utc)
             dt_ref = _as_datetime(ref).astimezone(datetime.timezone.utc)
