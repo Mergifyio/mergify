@@ -14,6 +14,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+
+import typing
+
 import voluptuous
 
 from mergify_engine import actions
@@ -25,6 +28,16 @@ from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
+ON_SYNCHRONIZE = "synchronize"
+ON_ALWAYS = "always"
+FROM_REQUESTED_REVIEWERS = "from_requested_reviewers"
+
+DEFAULT_MESSAGE = {
+    ON_SYNCHRONIZE: "Pull request has been modified.",
+    ON_ALWAYS: "Automatic dismiss reviews requested",
+}
+
+
 class DismissReviewsAction(actions.Action):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
@@ -34,71 +47,99 @@ class DismissReviewsAction(actions.Action):
 
     validator = {
         voluptuous.Required("approved", default=True): voluptuous.Any(
-            True, False, [types.GitHubLogin]
+            True,
+            False,
+            [types.GitHubLogin],
+            FROM_REQUESTED_REVIEWERS,
         ),
         voluptuous.Required("changes_requested", default=True): voluptuous.Any(
-            True, False, [types.GitHubLogin]
+            True,
+            False,
+            [types.GitHubLogin],
+            FROM_REQUESTED_REVIEWERS,
         ),
-        voluptuous.Required(
-            "message", default="Pull request has been modified."
-        ): types.Jinja2,
+        voluptuous.Required("message", default=None): voluptuous.Any(
+            None, types.Jinja2
+        ),
+        voluptuous.Required("on", default=ON_SYNCHRONIZE): voluptuous.Any(
+            ON_SYNCHRONIZE, ON_ALWAYS
+        ),
     }
 
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
-        if ctxt.has_been_synchronized():
-            # FIXME(sileht): Currently sender id is not the bot by the admin
-            # user that enroll the repo in Mergify, because branch_updater uses
-            # his access_token instead of the Mergify installation token.
-            # As workaround we track in redis merge commit id
-            # This is only true for method="rebase"
-            if not await ctxt.has_been_synchronized_by_user():
-                return check_api.Result(
-                    check_api.Conclusion.SUCCESS,
-                    "Updated by Mergify, ignoring",
-                    "",
-                )
 
-            try:
-                message = await ctxt.pull_request.render_template(
-                    self.config["message"]
-                )
-            except context.RenderTemplateFailure as rmf:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "Invalid dismiss reviews message",
-                    str(rmf),
-                )
-
-            errors = set()
-            for review in (await ctxt.consolidated_reviews())[1]:
-                conf = self.config.get(review["state"].lower(), False)
-                if conf and (conf is True or review["user"]["login"] in conf):
-                    try:
-                        await ctxt.client.put(
-                            f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews/{review['id']}/dismissals",
-                            json={"message": message},
-                        )
-                    except http.HTTPClientSideError as e:  # pragma: no cover
-                        errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
-
-            if errors:
-                return check_api.Result(
-                    check_api.Conclusion.PENDING,
-                    "Unable to dismiss review",
-                    "\n".join(errors),
-                )
-            else:
-                await signals.send(ctxt, "action.dismiss_reviews")
-                return check_api.Result(
-                    check_api.Conclusion.SUCCESS, "Review dismissed", ""
-                )
+        if self.config["message"] is None:
+            message_raw = DEFAULT_MESSAGE[self.config["on"]]
         else:
+            message_raw = typing.cast(str, self.config["message"])
+
+        try:
+            message = await ctxt.pull_request.render_template(message_raw)
+        except context.RenderTemplateFailure as rmf:
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Invalid dismiss reviews message",
+                str(rmf),
+            )
+
+        if self.config["on"] == ON_SYNCHRONIZE and not ctxt.has_been_synchronized():
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
-                "Nothing to do, pull request have not been synchronized",
+                "Nothing to do, pull request has not been synchronized",
                 "",
+            )
+
+        # FIXME(sileht): Currently sender id is not the bot by the admin
+        # user that enroll the repo in Mergify, because branch_updater uses
+        # his access_token instead of the Mergify installation token.
+        # As workaround we track in redis merge commit id
+        # This is only true for method="rebase"
+        if (
+            self.config["on"] == ON_SYNCHRONIZE
+            and not await ctxt.has_been_synchronized_by_user()
+        ):
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Updated by Mergify, ignoring", ""
+            )
+
+        requested_reviewers_login = [
+            rr["login"] for rr in ctxt.pull["requested_reviewers"]
+        ]
+
+        to_dismiss = set()
+        for review in (await ctxt.consolidated_reviews())[1]:
+            conf = self.config.get(review["state"].lower(), False)
+            if conf is True:
+                to_dismiss.add(review["id"])
+            elif conf == FROM_REQUESTED_REVIEWERS:
+                if review["user"]["login"] in requested_reviewers_login:
+                    to_dismiss.add(review["id"])
+            elif isinstance(conf, list):
+                if review["user"]["login"] in conf:
+                    to_dismiss.add(review["id"])
+
+        errors = set()
+        for review_id in to_dismiss:
+            try:
+                await ctxt.client.put(
+                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/reviews/{review_id}/dismissals",
+                    json={"message": message},
+                )
+            except http.HTTPClientSideError as e:  # pragma: no cover
+                errors.add(f"GitHub error: [{e.status_code}] `{e.message}`")
+
+        if errors:
+            return check_api.Result(
+                check_api.Conclusion.PENDING,
+                "Unable to dismiss review",
+                "\n".join(errors),
+            )
+        else:
+            await signals.send(ctxt, "action.dismiss_reviews")
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Review dismissed", ""
             )
 
     async def cancel(
