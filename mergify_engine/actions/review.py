@@ -102,11 +102,13 @@ class ReviewAction(actions.Action):
                 "body"
             ] = f"Pull request automatically reviewed by Mergify: {self.config['type']}"
 
-        reviews = reversed(
-            list(
-                filter(
-                    lambda r: r["user"]["login"] is not review_user,
-                    await ctxt.reviews,
+        reviews = list(
+            reversed(
+                list(
+                    filter(
+                        lambda r: r["user"]["login"] is not review_user,
+                        await ctxt.reviews,
+                    )
                 )
             )
         )
