@@ -110,6 +110,15 @@ class ReviewAction(actions.Action):
                 )
             )
         )
+
+        if bot_account:
+            ctxt.log.info(
+                "review need to be posted by bot",
+                reviews=reviews,
+                review_user=review_user,
+                payload=payload,
+            )
+
         for review in reviews:
             if (
                 review["body"] == payload.get("body", "")
