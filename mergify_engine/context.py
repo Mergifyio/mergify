@@ -1077,8 +1077,7 @@ class Context(object):
             car = q.get_car(self)
             queued_at: typing.Optional[datetime.datetime]
             if car is None:
-                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
-                queued_at = date.DT_MAX
+                return None
             else:
                 queued_at = first.first(
                     ep.queued_at
@@ -1099,7 +1098,7 @@ class Context(object):
             if car is None:
                 car = q.get_car(self)
                 if car is None:
-                    started_at = date.DT_MAX
+                    return None
                 else:
                     started_at = car.creation_date
             else:
@@ -1290,13 +1289,11 @@ class Context(object):
             return date.RelativeDatetime(date.fromisoformat(self.pull["created_at"]))
         elif name == "closed-at-relative":
             if self.pull["closed_at"] is None:
-                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
-                return date.RelativeDatetime(date.DT_MAX)
+                return None
             return date.RelativeDatetime(date.fromisoformat(self.pull["closed_at"]))
         elif name == "merged-at-relative":
             if self.pull["merged_at"] is None:
-                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
-                return date.RelativeDatetime(date.DT_MAX)
+                return None
             return date.RelativeDatetime(date.fromisoformat(self.pull["merged_at"]))
 
         elif name == "updated-at":
@@ -1305,13 +1302,11 @@ class Context(object):
             return date.fromisoformat(self.pull["created_at"])
         elif name == "closed-at":
             if self.pull["closed_at"] is None:
-                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
-                return date.DT_MAX
+                return None
             return date.fromisoformat(self.pull["closed_at"])
         elif name == "merged-at":
             if self.pull["merged_at"] is None:
-                # TODO(sileht): We should return None for all XXX-at attribute MRGFY-780
-                return date.DT_MAX
+                return None
             return date.fromisoformat(self.pull["merged_at"])
         elif name == "commits-unverified":
             return await self.retrieve_unverified_commits()
