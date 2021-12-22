@@ -1179,11 +1179,11 @@ class Context(object):
         elif name == "body":
             return MARKDOWN_COMMENT_RE.sub(
                 "",
-                self.pull["body"] or "",
+                self.body,
             )
 
         elif name == "body-raw":
-            return self.pull["body"] or ""
+            return self.body
 
         elif name == "files":
             return [f["filename"] for f in await self.files]
@@ -1342,13 +1342,19 @@ class Context(object):
         re.MULTILINE | re.IGNORECASE,
     )
 
-    def get_depends_on(self) -> typing.List[github_types.GitHubPullRequestNumber]:
+    @property
+    def body(self) -> str:
+        # NOTE(sileht): multiline regex on our side assume eol char is only LF,
+        # not CR. So ensure we don't have CRLF in the body
         if self.pull["body"] is None:
-            return []
+            return ""
+        return self.pull["body"].replace("\r\n", "\n")
+
+    def get_depends_on(self) -> typing.List[github_types.GitHubPullRequestNumber]:
         return sorted(
             {
                 github_types.GitHubPullRequestNumber(int(pull))
-                for owner, repo, pull in self.DEPENDS_ON.findall(self.pull["body"])
+                for owner, repo, pull in self.DEPENDS_ON.findall(self.body)
                 if (owner == "" and repo == "")
                 or (
                     owner == self.pull["base"]["user"]["login"]

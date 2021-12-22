@@ -581,9 +581,11 @@ depends-on: {config.GITHUB_URL}/foo/bar/999
 depends-on: azertyuiopqsdfghjklmwxcvbn
 depends-on: https://somewhereelse.com/foo/bar/999
 Depends-oN: {config.GITHUB_URL}/user/repo/pull/456
+Depends-oN: {config.GITHUB_URL}/user/repo/pull/457\r
 Depends-oN: {config.GITHUB_URL}/user/repo/pull/789
  DEPENDS-ON: #42
 Depends-On:  #48
+Depends-On:  #50\r
 Depends-On:  #999 with crap
 DePeNdS-oN: {config.GITHUB_URL}/user/repo/pull/999 with crap
 
@@ -591,7 +593,7 @@ footer
 """
 
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
-    assert ctxt.get_depends_on() == [42, 48, 123, 456, 789]
+    assert ctxt.get_depends_on() == [42, 48, 50, 123, 456, 457, 789]
 
 
 @pytest.mark.asyncio
