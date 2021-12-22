@@ -56,6 +56,7 @@ import typing
 import daiquiri
 from datadog import statsd
 from ddtrace import tracer
+import first
 import msgpack
 import tenacity
 import yaaredis
@@ -323,6 +324,21 @@ class StreamProcessor:
     redis_cache: utils.RedisCache
     dedicated: bool
 
+    # NOTE(sileht): This could take some memory in the future
+    # we can assume github_types.GitHubLogin is ~ 104 bytes
+    # and github_types.GitHubAccountIdType 32 bytes
+    # and 10% dict overhead
+    owners_mapping: typing.Dict[
+        github_types.GitHubAccountIdType, github_types.GitHubLogin
+    ] = dataclasses.field(default_factory=dict)
+
+    def get_owner_login(
+        self, owner_id: github_types.GitHubAccountIdType
+    ) -> github_types.GitHubLogin:
+        return self.owners_mapping.get(
+            owner_id, github_types.GitHubLogin(f"<unknown {owner_id}>")
+        )
+
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
         self,
@@ -396,8 +412,9 @@ class StreamProcessor:
         org_bucket_name: OrgBucketNameType,
         owner_id: github_types.GitHubAccountIdType,
         owner_login: github_types.GitHubLogin,
+        owner_login_for_tracing: github_types.GitHubLogin,
     ) -> None:
-        LOG.debug("consuming org bucket", gh_owner=owner_login)
+        LOG.debug("consuming org bucket", gh_owner=owner_login_for_tracing)
 
         try:
             async with self._translate_exception_to_retries(org_bucket_name):
@@ -423,6 +440,9 @@ class StreamProcessor:
                     installation = context.Installation(
                         installation_raw, sub, client, self.redis_cache
                     )
+                    self.owners_mapping[
+                        installation.owner_id
+                    ] = installation.owner_login
                     await self._consume_buckets(org_bucket_name, installation)
                     await merge_train.Train.refresh_trains(installation)
 
@@ -434,7 +454,9 @@ class StreamProcessor:
             )
         except OrgBucketUnused:
             LOG.info(
-                "unused org bucket, dropping it", gh_owner=owner_login, exc_info=True
+                "unused org bucket, dropping it",
+                gh_owner=owner_login_for_tracing,
+                exc_info=True,
             )
             try:
                 await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
@@ -442,6 +464,7 @@ class StreamProcessor:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "fail to drop org bucket, it will be retried",
+                    gh_owner=owner_login_for_tracing,
                     org_bucket_name=org_bucket_name,
                 )
         except OrgBucketRetry as e:
@@ -454,13 +477,15 @@ class StreamProcessor:
                 "failed to process org bucket, retrying",
                 attempts=e.attempts,
                 retry_at=e.retry_at,
-                gh_owner=owner_login,
+                gh_owner=owner_login_for_tracing,
                 exc_info=True,
             )
             return
         except vcr_errors_CannotOverwriteExistingCassetteException:
             LOG.error(
-                "failed to process org bucket", gh_owner=owner_login, exc_info=True
+                "failed to process org bucket",
+                gh_owner=owner_login_for_tracing,
+                exc_info=True,
             )
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
@@ -472,11 +497,14 @@ class StreamProcessor:
                 for _, message in messages:
                     LOG.info(msgpack.unpackb(message[b"source"], raw=False))
                 await self.redis_stream.delete(bucket)
+                await self.redis_stream.delete("attempts")
                 await self.redis_stream.zrem(org_bucket_name, bucket)
         except Exception:
             # Ignore it, it will retried later
             LOG.error(
-                "failed to process org bucket", gh_owner=owner_login, exc_info=True
+                "failed to process org bucket",
+                gh_owner=owner_login_for_tracing,
+                exc_info=True,
             )
 
         LOG.debug("cleanup org bucket start", org_bucket_name=org_bucket_name)
@@ -492,8 +520,13 @@ class StreamProcessor:
             LOG.warning(
                 "fail to cleanup org bucket, it maybe partially replayed",
                 org_bucket_name=org_bucket_name,
+                gh_owner=owner_login_for_tracing,
             )
-        LOG.debug("cleanup org bucket end", org_bucket_name=org_bucket_name)
+        LOG.debug(
+            "cleanup org bucket end",
+            org_bucket_name=org_bucket_name,
+            gh_owner=owner_login_for_tracing,
+        )
 
     @staticmethod
     def _extract_infos_from_bucket_sources_key(
@@ -555,15 +588,26 @@ class StreamProcessor:
             pulls_processed += 1
             installation.client.set_requests_ratio(pulls_processed)
 
+            messages = await self.redis_stream.xrange(bucket_sources_key)
+            statsd.histogram("engine.buckets.events.read_size", len(messages))  # type: ignore[no-untyped-call]
+
+            if messages:
+                # TODO(sileht): 4.x.x, will have repo_name optional
+                # we can always pick the first one on 5.x.x milestone.
+                tracing_repo_name = first.first(
+                    m[1].get(b"repo_name") for m in messages
+                )
+                if tracing_repo_name is None:
+                    tracing_repo_name = f"<unknown {repo_id}>"
+            else:
+                tracing_repo_name = f"<unknown {repo_id}>"
+
             logger = daiquiri.getLogger(
                 __name__,
                 gh_owner=installation.owner_login,
-                gh_repo=repo_name,
+                gh_repo=tracing_repo_name,
                 gh_pull=pull_number,
             )
-
-            messages = await self.redis_stream.xrange(bucket_sources_key)
-            statsd.histogram("engine.buckets.events.read_size", len(messages))  # type: ignore[no-untyped-call]
             logger.debug("read org bucket", sources=len(messages))
             if not messages:
                 # Should not occur but better be safe than sorry
@@ -641,9 +685,11 @@ class StreamProcessor:
                     with tracer.trace(
                         "pull processing",
                         span_type="worker",
-                        resource=f"{installation.owner_login}/{repo_name}/{pull_number}",
+                        resource=f"{installation.owner_login}/{tracing_repo_name}/{pull_number}",
                     ) as span:
-                        span.set_tags({"gh_repo": repo_name, "gh_pull": pull_number})
+                        span.set_tags(
+                            {"gh_repo": tracing_repo_name, "gh_pull": pull_number}
+                        )
                         await self._consume_pull(
                             bucket_key,
                             installation,
@@ -913,15 +959,16 @@ class Worker:
         if org_bucket_name:
             LOG.debug("worker %s take org bucket: %s", worker_id, org_bucket_name)
             owner_id, owner_login = self.extract_owner(org_bucket_name)
+            owner_login_for_tracing = stream_processor.get_owner_login(owner_id)
             try:
                 with tracer.trace(
                     "org bucket processing",
                     span_type="worker",
-                    resource=owner_login,
+                    resource=owner_login_for_tracing,
                 ) as span:
-                    span.set_tag("gh_owner", owner_login)
+                    span.set_tag("gh_owner", owner_login_for_tracing)
                     await stream_processor.consume(
-                        org_bucket_name, owner_id, owner_login
+                        org_bucket_name, owner_id, owner_login, owner_login_for_tracing
                     )
             finally:
                 LOG.debug(

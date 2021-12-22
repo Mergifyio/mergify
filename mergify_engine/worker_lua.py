@@ -32,9 +32,10 @@ local bucket_sources_key = KEYS[2]
 local scheduled_at_timestamp = ARGV[1]
 local source = ARGV[2]
 local score = ARGV[3]
+local repo_name = ARGV[4]
 
 -- Add the source to the pull request sources
-redis.call("XADD", bucket_sources_key, "*", "source", source, "score", score)
+redis.call("XADD", bucket_sources_key, "*", "source", source, "score", score, "repo_name", repo_name)
 -- Add this pull request to the org bucket if not exists
 -- REDIS 6.2:
 -- redis.call("ZADD", bucket_key, "LT", score, bucket_sources_key)
@@ -72,6 +73,7 @@ async def push_pull(
             str(scheduled_at.timestamp()),
             source,
             score,
+            repo_name,
         ),
     )
 
