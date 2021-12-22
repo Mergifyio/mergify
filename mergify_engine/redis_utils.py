@@ -18,7 +18,6 @@ import typing
 import uuid
 
 import daiquiri
-import yaaredis.exceptions
 
 from mergify_engine import utils
 
@@ -41,6 +40,34 @@ def register_script(script: str) -> ScriptIdT:
     return script_id
 
 
+async def load_script(redis: utils.RedisStream, script_id: ScriptIdT) -> None:
+    global SCRIPTS
+    sha, script = SCRIPTS[script_id]
+    newsha = await redis.script_load(script)
+    if newsha != sha:
+        LOG.error(
+            "wrong redis script sha cached",
+            script_id=script_id,
+            sha=sha,
+            newsha=newsha,
+        )
+        SCRIPTS[script_id] = (newsha, script)
+
+
+async def load_scripts(redis: utils.RedisStream) -> None:
+    # TODO(sileht): cleanup unused script, this is tricky, because during
+    # deployment we have running in parallel due to the rolling upgrade:
+    # * an old version of the asgi server
+    # * a new version of the asgi server
+    # * a new version of the backend
+    global SCRIPTS
+    ids = list(SCRIPTS.keys())
+    exists = await redis.script_exists(*ids)
+    for script_id, exist in zip(ids, exists):
+        if not exist:
+            await load_script(redis, script_id)
+
+
 async def run_script(
     redis: utils.RedisStream,
     script_id: ScriptIdT,
@@ -53,16 +80,4 @@ async def run_script(
         args = keys
     else:
         args = keys + args
-    try:
-        return await redis.evalsha(sha, len(keys), *args)
-    except yaaredis.exceptions.NoScriptError:
-        newsha = await redis.script_load(script)
-        if newsha != sha:
-            LOG.error(
-                "wrong redis script sha cached",
-                script_id=script_id,
-                sha=sha,
-                newsha=newsha,
-            )
-            SCRIPTS[script_id] = (newsha, script)
-        return await redis.evalsha(newsha, len(keys), *args)
+    return await redis.evalsha(sha, len(keys), *args)

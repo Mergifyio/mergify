@@ -71,6 +71,7 @@ from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
 from mergify_engine import migrations
+from mergify_engine import redis_utils
 from mergify_engine import service
 from mergify_engine import signals
 from mergify_engine import utils
@@ -1088,6 +1089,7 @@ class Worker:
         self._redis_stream = utils.create_yaaredis_for_stream()
         self._redis_cache = utils.create_yaaredis_for_cache()
 
+        await redis_utils.load_scripts(self._redis_stream)
         await migrations.run(self._redis_cache)
 
         if "stream" in self.enabled_services:
