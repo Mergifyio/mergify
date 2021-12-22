@@ -16,6 +16,11 @@
 import typing
 
 
+class CachedReviewThread(typing.TypedDict):
+    isResolved: bool
+    first_comment: str
+
+
 class GraphqlComment(typing.TypedDict):
     body: str
 
