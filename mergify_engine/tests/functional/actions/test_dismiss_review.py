@@ -15,6 +15,7 @@
 # under the License.
 import yaml
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -214,6 +215,48 @@ Unknown pull request attribute: Loser
         # Ensure review have not been dismiss
         self.assertEqual(
             [("APPROVED", "mergify-test1")],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
+        )
+
+    async def test_dismiss_reviews_from_requested_reviewers(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "dismiss reviews",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "dismiss_reviews": {
+                            "on": "always",
+                            "approved": "from_requested_reviewers",
+                        }
+                    },
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+        p, commits = await self.create_pr()
+        await self.create_review(p["number"], "APPROVE")
+        await self.create_review(
+            p["number"], "APPROVE", oauth_token=config.ORG_USER_PERSONAL_TOKEN
+        )
+
+        self.assertEqual(
+            [("APPROVED", "mergify-test1"), ("APPROVED", "mergify-test4")],
+            [
+                (r["state"], r["user"]["login"])
+                for r in await self.get_reviews(p["number"])
+            ],
+        )
+        await self.create_review_request(p["number"], ["mergify-test1"])
+        await self.run_engine()
+
+        # Ensure review have been dismiss
+        self.assertEqual(
+            [("DISMISSED", "mergify-test1"), ("APPROVED", "mergify-test4")],
             [
                 (r["state"], r["user"]["login"])
                 for r in await self.get_reviews(p["number"])

@@ -712,10 +712,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         event: typing.Literal[
             "APPROVE", "REQUEST_CHANGES", "COMMENT", "PENDING"
         ] = "APPROVE",
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
     ) -> None:
         await self.client_admin.post(
             f"{self.url_origin}/pulls/{pull_number}/reviews",
             json={"event": event, "body": f"event: {event}"},
+            oauth_token=oauth_token,
         )
         await self.wait_for("pull_request_review", {"action": "submitted"})
 

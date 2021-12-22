@@ -32,6 +32,8 @@ Options
        pull request is updated. If set to ``false``, nothing will be done. If
        set to a list, each item should be the GitHub login of a user whose
        review will be removed.
+       If set to ``from_requested_reviewers``, the list of requested reviewers
+       will be used to get whose review will be removed.
    * - ``changes_requested``
      - Boolean or list of string
      - ``true``
@@ -39,10 +41,17 @@ Options
        when the pull request is updated. If set to ``false``, nothing will be
        done. If set to a list, each item should be the GitHub login of a user
        whose review will be removed.
+       If set to ``from_requested_reviewers``, the list of requested reviewers
+       will be used to get whose review will be removed.
    * - ``message``
      - :ref:`data type template`
      - ``Pull request has been modified.``
      - The message to post when dismissing the review.
+   * - ``on``
+     - ``synchronize`` or ``always``
+     - ``synchronize``
+     - If set to ``synchronize``, the action will run only if the pull request commits changed.
+       Otherwise, it will run each time the rule matches.
 
 Examples
 --------
