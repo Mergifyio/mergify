@@ -708,6 +708,9 @@ class Repository(object):
 
 @dataclasses.dataclass
 class ContextCaches:
+    review_threads: cache.SingleCache[
+        typing.List[github_graphql_types.CachedReviewThread],
+    ] = dataclasses.field(default_factory=cache.SingleCache)
     consolidated_reviews: cache.SingleCache[
         typing.Tuple[
             typing.List[github_types.GitHubReview],
@@ -794,58 +797,66 @@ class Context(object):
             if not commit["commit_verification_verified"]
         ]
 
-    async def retrieve_resolved_review_threads(
-        self, resolved: typing.Optional[bool] = True
-    ) -> typing.List[str]:
-        query = """
-            repository(owner: "{owner}", name: "{name}") {{
-                pullRequest(number: {number}) {{
-                    reviewThreads(first: 100{after}) {{
-                    edges {{
-                        node {{
-                        isResolved
-                        comments(first: 1) {{
-                            edges {{
-                                node {{
-                                    body
+    async def retrieve_review_threads(
+        self,
+    ) -> typing.List[github_graphql_types.CachedReviewThread]:
+        review_threads = self._caches.review_threads.get()
+        if review_threads is cache.Unset:
+            query = """
+                repository(owner: "{owner}", name: "{name}") {{
+                    pullRequest(number: {number}) {{
+                        reviewThreads(first: 100{after}) {{
+                        edges {{
+                            node {{
+                            isResolved
+                            comments(first: 1) {{
+                                edges {{
+                                    node {{
+                                        body
+                                    }}
                                 }}
+                            }}
                             }}
                         }}
                         }}
                     }}
-                    }}
                 }}
-            }}
-        """
-        responses = typing.cast(
-            typing.AsyncIterable[
-                typing.Dict[str, github_graphql_types.GraphqlRepository]
-            ],
-            multi.multi_query(
-                query,
-                iterable=(
-                    {
-                        "owner": self.repository.repo["owner"]["login"],
-                        "name": self.repository.repo["name"],
-                        "number": self.pull["number"],
-                    },
+            """
+            responses = typing.cast(
+                typing.AsyncIterable[
+                    typing.Dict[str, github_graphql_types.GraphqlRepository]
+                ],
+                multi.multi_query(
+                    query,
+                    iterable=(
+                        {
+                            "owner": self.repository.repo["owner"]["login"],
+                            "name": self.repository.repo["name"],
+                            "number": self.pull["number"],
+                        },
+                    ),
+                    send_fn=self.client.graphql_post,
                 ),
-                send_fn=self.client.graphql_post,
-            ),
-        )
-        resolved_review_threads = []
-        async for response in responses:
-            for _current_query, current_response in response.items():
-                for review_comment in current_response["pullRequest"]["reviewThreads"][
-                    "edges"
-                ]:
-                    if review_comment["node"]["isResolved"] == resolved:
-                        resolved_review_threads.append(
-                            review_comment["node"]["comments"]["edges"][0]["node"][
-                                "body"
-                            ]
+            )
+            review_threads = []
+            async for response in responses:
+                for _current_query, current_response in response.items():
+                    for thread in current_response["pullRequest"]["reviewThreads"][
+                        "edges"
+                    ]:
+                        review_threads.append(
+                            github_graphql_types.CachedReviewThread(
+                                {
+                                    "isResolved": thread["node"]["isResolved"],
+                                    "first_comment": thread["node"]["comments"][
+                                        "edges"
+                                    ][0]["node"]["body"],
+                                }
+                            )
                         )
-        return resolved_review_threads
+
+            self._caches.review_threads.set(review_threads)
+        return review_threads
 
     @classmethod
     async def create(
@@ -1310,9 +1321,17 @@ class Context(object):
         elif name == "commits-unverified":
             return await self.retrieve_unverified_commits()
         elif name == "review-threads-resolved":
-            return await self.retrieve_resolved_review_threads()
+            return [
+                t["first_comment"]
+                for t in await self.retrieve_review_threads()
+                if t["isResolved"]
+            ]
         elif name == "review-threads-unresolved":
-            return await self.retrieve_resolved_review_threads(resolved=False)
+            return [
+                t["first_comment"]
+                for t in await self.retrieve_review_threads()
+                if not t["isResolved"]
+            ]
         else:
             raise PullRequestAttributeError(name)
 
