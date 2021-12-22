@@ -836,16 +836,15 @@ class Context(object):
         resolved_review_threads = []
         async for response in responses:
             for _current_query, current_response in response.items():
-                if len(current_response["pullRequest"]["reviewThreads"]["edges"]) > 0:
-                    for review_comment in current_response["pullRequest"][
-                        "reviewThreads"
-                    ]["edges"]:
-                        if review_comment["node"]["isResolved"] == resolved:
-                            resolved_review_threads.append(
-                                review_comment["node"]["comments"]["edges"][0]["node"][
-                                    "body"
-                                ]
-                            )
+                for review_comment in current_response["pullRequest"]["reviewThreads"][
+                    "edges"
+                ]:
+                    if review_comment["node"]["isResolved"] == resolved:
+                        resolved_review_threads.append(
+                            review_comment["node"]["comments"]["edges"][0]["node"][
+                                "body"
+                            ]
+                        )
         return resolved_review_threads
 
     @classmethod
