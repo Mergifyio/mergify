@@ -22,7 +22,7 @@ from mergify_engine import utils
 
 
 @pytest.mark.asyncio
-async def test_merge_train_hash(
+async def test_0001_merge_train_hash(
     redis_cache: utils.RedisCache,
 ) -> None:
     assert not await redis_cache.exists("migration-stamps")
@@ -39,7 +39,7 @@ async def test_merge_train_hash(
 
     await migrations.run(redis_cache)
 
-    assert await redis_cache.get("migration-stamps") == "1"
+    assert await redis_cache.get("migration-stamps") == "2"
 
     old_trains = sorted(await redis_cache.keys("merge-train~*"))
     assert old_trains == []
@@ -56,7 +56,7 @@ async def test_merge_train_hash(
 
 
 @pytest.mark.asyncio
-@mock.patch("mergify_engine.redis_utils.run_script", side_effect=Exception("NOWAY!"))
+@mock.patch("mergify_engine.migrations._run_scripts")
 async def test_legacy_stamps(
     _: mock.Mock,
     redis_cache: utils.RedisCache,
@@ -65,3 +65,27 @@ async def test_legacy_stamps(
     await redis_cache.set("MERGE_TRAIN_MIGRATION_DONE", "done")
     await migrations.run(redis_cache)
     assert await redis_cache.get("migration-stamps") == "1"
+
+
+@pytest.mark.asyncio
+async def test_0002_pull_request_sha_number(
+    redis_cache: utils.RedisCache,
+) -> None:
+    assert not await redis_cache.exists("migration-stamps")
+
+    for i in range(20):
+        await redis_cache.set(f"sha~{i}~{i}~{i}", f"{i}")
+
+    for i in range(20):
+        await redis_cache.set(f"summary-sha~{i}~{i}~{i}", f"{i}")
+
+    assert len(await redis_cache.keys("*")) == 40
+
+    await migrations.run(redis_cache)
+
+    assert len(await redis_cache.keys("*")) == 21
+
+    assert await redis_cache.get("migration-stamps") == "2"
+
+    for key in await redis_cache.keys("*"):
+        assert key == "migration-stamps" or key.startswith("summary-sha~")

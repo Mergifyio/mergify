@@ -62,7 +62,6 @@ async def _do_test_event_to_pull_check_run(
     )
     pulls = await github_events.extract_pull_numbers_from_event(
         installation,
-        github_types.GitHubRepositoryName("Cytopia"),
         "check_run",
         data,
         [],
