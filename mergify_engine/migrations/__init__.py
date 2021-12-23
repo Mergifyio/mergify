@@ -58,6 +58,7 @@ async def _run_scripts(
 
         raw = pkg_resources.resource_string(__name__, f"{dirname}/{script}").decode()
         redis_script = redis_utils.register_script(raw)
+        await redis_utils.load_script(redis, redis_script)
         await redis_utils.run_script(redis, redis_script, ())
         current_version = version
         await redis.set(MIGRATION_STAMPS_KEY, current_version)

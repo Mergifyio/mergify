@@ -8,6 +8,7 @@ from pytest_httpserver import httpserver
 
 from mergify_engine import config
 from mergify_engine import logs
+from mergify_engine import redis_utils
 from mergify_engine import utils
 from mergify_engine.clients import github
 
@@ -61,6 +62,7 @@ async def redis_cache() -> typing.AsyncGenerator[utils.RedisCache, None]:
 async def redis_stream() -> typing.AsyncGenerator[utils.RedisStream, None]:
     with utils.yaaredis_for_stream() as client:
         await client.flushdb()
+        await redis_utils.load_scripts(client)
         try:
             yield client
         finally:
