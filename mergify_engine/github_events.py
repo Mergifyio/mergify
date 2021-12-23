@@ -263,12 +263,11 @@ async def push_to_worker(
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
 
-        elif event["action"] != "rerequested":
-            ignore_reason = f"check_suite/{event['action']}"
+        elif event[event_type]["app"]["id"] != config.INTEGRATION_ID:
+            ignore_reason = "not a mergify check_suite"
 
         elif (
-            event[event_type]["app"]["id"] == config.INTEGRATION_ID
-            and event["action"] != "rerequested"
+            event["action"] != "rerequested"
             and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
         ):
             ignore_reason = f"mergify {event_type}"
