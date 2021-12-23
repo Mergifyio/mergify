@@ -17,6 +17,7 @@
 import daiquiri
 
 from mergify_engine import config
+from mergify_engine import redis_utils
 from mergify_engine import utils
 
 
@@ -34,6 +35,7 @@ async def startup() -> None:
     _AREDIS_CACHE = utils.create_yaaredis_for_cache(
         max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
     )
+    await redis_utils.load_scripts(_AREDIS_STREAM)
 
 
 async def shutdown() -> None:
