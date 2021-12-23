@@ -37,6 +37,20 @@ from mergify_engine.engine import commands_runner
 LOG = daiquiri.getLogger(__name__)
 
 
+async def get_pull_request_head_sha_to_number_mapping(
+    redis_cache: utils.RedisCache,
+    owner_id: github_types.GitHubAccountIdType,
+    repo_id: github_types.GitHubRepositoryIdType,
+    sha: github_types.SHAType,
+) -> typing.Optional[github_types.GitHubPullRequestNumber]:
+    ret = await redis_cache.get(
+        context.Context.redis_last_summary_pulls_key(owner_id, repo_id, sha),
+    )
+    if ret is None:
+        return None
+    return github_types.GitHubPullRequestNumber(int(ret))
+
+
 def meter_event(
     event_type: github_types.GitHubEventType, event: github_types.GitHubEvent
 ) -> None:
@@ -237,6 +251,10 @@ async def push_to_worker(
         if event["repository"]["archived"]:
             ignore_reason = "repository archived"
 
+        pull_number = await get_pull_request_head_sha_to_number_mapping(
+            redis_cache, owner_id, repo_id, event["sha"]
+        )
+
     elif event_type == "push":
         event = typing.cast(github_types.GitHubEventPush, event)
         owner_login = event["repository"]["owner"]["login"]
@@ -273,6 +291,10 @@ async def push_to_worker(
         ):
             ignore_reason = f"mergify {event_type}"
 
+        pull_number = await get_pull_request_head_sha_to_number_mapping(
+            redis_cache, owner_id, repo_id, event["check_suite"]["head_sha"]
+        )
+
     elif event_type == "check_run":
         event = typing.cast(github_types.GitHubEventCheckRun, event)
         owner_login = event["repository"]["owner"]["login"]
@@ -289,6 +311,10 @@ async def push_to_worker(
             and event[event_type].get("external_id") != check_api.USER_CREATED_CHECKS
         ):
             ignore_reason = f"mergify {event_type}"
+
+        pull_number = await get_pull_request_head_sha_to_number_mapping(
+            redis_cache, owner_id, repo_id, event["check_run"]["head_sha"]
+        )
 
     elif event_type == "organization":
         event = typing.cast(github_types.GitHubEventOrganization, event)
