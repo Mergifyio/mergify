@@ -727,7 +727,6 @@ class StreamProcessor:
         # multiple complete event
         pull_numbers = await github_events.extract_pull_numbers_from_event(
             installation,
-            repo_name,
             source["event_type"],
             source["data"],
             pulls,

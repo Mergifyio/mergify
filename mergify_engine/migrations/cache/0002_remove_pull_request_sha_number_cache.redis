@@ -1,0 +1,4 @@
+local keys = redis.call("KEYS", "sha~*~*~*")
+for idx, key in ipairs(keys) do
+    redis.call("DEL", key)
+end

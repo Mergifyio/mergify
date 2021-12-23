@@ -464,29 +464,18 @@ async def filter_and_dispatch(
 SHA_EXPIRATION = 60
 
 
-async def _get_github_pulls_from_sha(
-    installation: context.Installation,
-    repo_name: github_types.GitHubRepositoryName,
+def _get_github_pulls_from_sha(
     sha: github_types.SHAType,
     pulls: typing.List[github_types.GitHubPullRequest],
 ) -> typing.List[github_types.GitHubPullRequestNumber]:
-    cache_key = f"sha~{installation.owner_login}~{repo_name}~{sha}"
-    pull_number = await installation.redis.get(cache_key)
-    if pull_number is None:
-        for pull in pulls:
-            if pull["head"]["sha"] == sha:
-                await installation.redis.set(
-                    cache_key, pull["number"], ex=SHA_EXPIRATION
-                )
-                return [pull["number"]]
-        return []
-    else:
-        return [github_types.GitHubPullRequestNumber(int(pull_number))]
+    for pull in pulls:
+        if pull["head"]["sha"] == sha:
+            return [pull["number"]]
+    return []
 
 
 async def extract_pull_numbers_from_event(
     installation: context.Installation,
-    repo_name: github_types.GitHubRepositoryName,
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
     opened_pulls: typing.List[github_types.GitHubPullRequest],
@@ -507,42 +496,34 @@ async def extract_pull_numbers_from_event(
         return [p["number"] for p in opened_pulls if p["base"]["ref"] == branch]
     elif event_type == "status":
         data = typing.cast(github_types.GitHubEventStatus, data)
-        return await _get_github_pulls_from_sha(
-            installation, repo_name, data["sha"], opened_pulls
-        )
+        return _get_github_pulls_from_sha(data["sha"], opened_pulls)
     elif event_type == "check_suite":
         data = typing.cast(github_types.GitHubEventCheckSuite, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
         base_repo_url = (
-            f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}/{repo_name}"
+            f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}/"
         )
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
-            if p["base"]["repo"]["url"] == base_repo_url
+            if p["base"]["repo"]["url"].startswith(base_repo_url)
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
-            pulls = await _get_github_pulls_from_sha(
-                installation, repo_name, sha, opened_pulls
-            )
+            pulls = _get_github_pulls_from_sha(sha, opened_pulls)
         return pulls
     elif event_type == "check_run":
         data = typing.cast(github_types.GitHubEventCheckRun, data)
         # NOTE(sileht): This list may contains Pull Request from another org/user fork...
-        base_repo_url = (
-            f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}/{repo_name}"
-        )
+        base_repo_url = f"{config.GITHUB_REST_API_URL}/repos/{installation.owner_login}"
         pulls = [
             p["number"]
             for p in data[event_type]["pull_requests"]
-            if p["base"]["repo"]["url"] == base_repo_url
+            if p["base"]["repo"]["url"].startswith(base_repo_url)
         ]
         if not pulls:
             sha = data[event_type]["head_sha"]
-            pulls = await _get_github_pulls_from_sha(
-                installation, repo_name, sha, opened_pulls
-            )
+            pulls = _get_github_pulls_from_sha(sha, opened_pulls)
         return pulls
     else:
         return []
