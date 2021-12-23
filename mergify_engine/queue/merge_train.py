@@ -601,7 +601,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     show_queue=False,
                 )
 
-                if tmp_pull_ctxt.pull["body"] != body:
+                if tmp_pull_ctxt.body != body:
                     await tmp_pull_ctxt.client.patch(
                         f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
                         json={"body": body},
@@ -793,7 +793,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 show_queue=show_queue,
             )
 
-            if tmp_pull_ctxt.pull["body"] != body:
+            if tmp_pull_ctxt.body != body:
                 await tmp_pull_ctxt.client.patch(
                     f"{tmp_pull_ctxt.base_url}/pulls/{self.queue_pull_request_number}",
                     json={"body": body},
