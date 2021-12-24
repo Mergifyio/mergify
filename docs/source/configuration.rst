@@ -376,7 +376,7 @@ request, you can use the following command line:
 
 .. code:: bash
 
-    $ curl -F 'data=@.mergify.yml' https://engine.mergify.io/validate
+    $ curl -F 'data=@.mergify.yml' https://engine.mergify.io/validate/
 
 
 Or by uploading the configuration file with this form:
