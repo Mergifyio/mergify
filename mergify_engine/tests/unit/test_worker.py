@@ -396,7 +396,7 @@ async def test_consume_unexisting_stream(
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("buckets~2~notexists", 2, "notexists", "notexists")
+    await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
 
 
@@ -443,7 +443,7 @@ async def test_consume_good_stream(
     assert 2 == await redis_stream.xlen("bucket-sources~123~repo~123")
 
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -529,7 +529,7 @@ async def test_stream_processor_retrying_pull(
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
 
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
@@ -573,7 +573,7 @@ async def test_stream_processor_retrying_pull(
         b"pull~owner-123~repo~123": b"1",
     } == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
     assert 1 == await redis_stream.zcard("bucket~123~owner-123")
@@ -585,7 +585,7 @@ async def test_stream_processor_retrying_pull(
     assert len(run_engine.mock_calls) == 4
     assert {b"pull~owner-123~repo~42": b"2"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 5
 
     # Too many retries, everything is gone
@@ -660,7 +660,7 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -693,7 +693,7 @@ async def test_stream_processor_retrying_stream_recovered(
 
     run_engine.side_effect = None
 
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 2
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
@@ -757,7 +757,7 @@ async def test_stream_processor_retrying_stream_failure(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -786,11 +786,11 @@ async def test_stream_processor_retrying_stream_failure(
 
     assert {b"bucket~123~owner-123": b"1"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 2
     assert {b"bucket~123~owner-123": b"2"} == await redis_stream.hgetall("attempts")
 
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 3
 
     # Still there
@@ -838,8 +838,8 @@ async def test_stream_processor_pull_unexpected_error(
     )
 
     p = worker.StreamProcessor(redis_stream, redis_cache, False)
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
-    await p.consume("bucket~123~owner-123", 123, "owner-123", "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
+    await p.consume("bucket~123~owner-123", 123, "owner-123")
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
@@ -911,7 +911,7 @@ async def test_stream_processor_date_scheduling(
         stream_name = await s.next_org_bucket()
         assert stream_name is not None
         owner_id, owner_login = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, owner_login, owner_login)
+        await p.consume(stream_name, owner_id, owner_login)
 
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
@@ -932,7 +932,7 @@ async def test_stream_processor_date_scheduling(
         stream_name = await s.next_org_bucket()
         assert stream_name is not None
         owner_id, owner_login = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, owner_login, owner_login)
+        await p.consume(stream_name, owner_id, owner_login)
 
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
@@ -977,11 +977,13 @@ async def test_worker_drop_bucket(
     for bucket_source in bucket_sources:
         assert 3 == await redis_stream.xlen(bucket_source)
 
-    await worker_lua.drop_bucket(redis_stream, 123, "owner-123")
+    await worker_lua.drop_bucket(redis_stream, "bucket~123~owner-123")
     assert 0 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.keys("bucket-sources~*"))
 
-    await worker_lua.clean_org_bucket(redis_stream, 123, "owner-123", date.utcnow())
+    await worker_lua.clean_org_bucket(
+        redis_stream, "bucket~123~owner-123", date.utcnow()
+    )
 
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
@@ -1040,7 +1042,7 @@ async def test_stream_processor_retrying_after_read_error(
     installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
     with pytest.raises(worker.OrgBucketRetry):
         async with p._translate_exception_to_retries(
-            worker.OrgBucketNameType("stream~owner~123")
+            worker_lua.BucketOrgKeyType("stream~owner~123")
         ):
             await worker.run_engine(installation, 123, "repo", 1234, [])
 
