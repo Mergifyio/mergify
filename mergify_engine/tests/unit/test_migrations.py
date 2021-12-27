@@ -39,7 +39,7 @@ async def test_0001_merge_train_hash(
 
     await migrations.run(redis_cache)
 
-    assert await redis_cache.get("migration-stamps") == "2"
+    assert await redis_cache.get("migration-stamps") == "3"
 
     old_trains = sorted(await redis_cache.keys("merge-train~*"))
     assert old_trains == []
@@ -85,7 +85,36 @@ async def test_0002_pull_request_sha_number(
 
     assert len(await redis_cache.keys("*")) == 21
 
-    assert await redis_cache.get("migration-stamps") == "2"
+    assert await redis_cache.get("migration-stamps") == "3"
 
     for key in await redis_cache.keys("*"):
         assert key == "migration-stamps" or key.startswith("summary-sha~")
+
+
+@pytest.mark.asyncio
+async def test_0003_attempts(
+    redis_cache: utils.RedisCache,
+) -> None:
+    assert not await redis_cache.exists("migration-stamps")
+
+    for i in range(20):
+        await redis_cache.hset("attempts", f"pull~132~foobar~{i}", 1)
+
+    for i in range(5):
+        await redis_cache.hset("attempts", f"bucket~{i}~owner", 1)
+
+    for i in range(5):
+        await redis_cache.hset("attempts", f"bucket-sources~{i}~repo~{i}", 1)
+
+    assert len(await redis_cache.keys("*")) == 1
+    assert len(await redis_cache.hkeys("attempts")) == 30
+
+    await migrations.run(redis_cache)
+
+    assert len(await redis_cache.keys("*")) == 2
+    assert len(await redis_cache.hkeys("attempts")) == 10
+
+    assert await redis_cache.get("migration-stamps") == "3"
+
+    for key in await redis_cache.hkeys("attempts"):
+        assert key.startswith("bucket")

@@ -569,8 +569,8 @@ async def test_stream_processor_retrying_pull(
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~repo~42")
     assert {
-        b"pull~owner-123~repo~42": b"1",
-        b"pull~owner-123~repo~123": b"1",
+        b"bucket-sources~123~repo~42": b"1",
+        b"bucket-sources~123~repo~123": b"1",
     } == await redis_stream.hgetall("attempts")
 
     await p.consume("bucket~123~owner-123", 123, "owner-123")
@@ -583,7 +583,9 @@ async def test_stream_processor_retrying_pull(
 
     assert 1 == len(await redis_stream.hgetall("attempts"))
     assert len(run_engine.mock_calls) == 4
-    assert {b"pull~owner-123~repo~42": b"2"} == await redis_stream.hgetall("attempts")
+    assert {b"bucket-sources~123~repo~42": b"2"} == await redis_stream.hgetall(
+        "attempts"
+    )
 
     await p.consume("bucket~123~owner-123", 123, "owner-123")
     assert len(run_engine.mock_calls) == 5

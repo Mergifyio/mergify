@@ -103,6 +103,7 @@ WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
 DEDICATED_WORKERS_KEY = "dedicated-workers"
+ATTEMPTS_KEY = "attempts"
 
 
 class IgnoredException(Exception):
@@ -342,7 +343,7 @@ class StreamProcessor:
     async def _translate_exception_to_retries(
         self,
         bucket_org_key: worker_lua.BucketOrgKeyType,
-        attempts_key: typing.Optional[str] = None,
+        bucket_sources_key: typing.Optional[worker_lua.BucketSourcesKeyType] = None,
     ) -> typing.AsyncIterator[None]:
         try:
             yield
@@ -350,18 +351,23 @@ class StreamProcessor:
             if isinstance(e, yaaredis.exceptions.ConnectionError):
                 statsd.increment("redis.client.connection.errors")
 
-            if isinstance(e, exceptions.MergeableStateUnknown) and attempts_key:
-                attempts = await self.redis_stream.hincrby("attempts", attempts_key)
+            if (
+                isinstance(e, exceptions.MergeableStateUnknown)
+                and bucket_sources_key is not None
+            ):
+                attempts = await self.redis_stream.hincrby(
+                    ATTEMPTS_KEY, bucket_sources_key
+                )
                 if attempts < MAX_RETRIES:
                     raise PullRetry(attempts) from e
                 else:
-                    await self.redis_stream.hdel("attempts", attempts_key)
+                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
                     raise MaxPullRetry(attempts) from e
 
             if isinstance(e, exceptions.MergifyNotInstalled):
-                if attempts_key:
-                    await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", bucket_org_key)
+                if bucket_sources_key:
+                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
+                await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 raise OrgBucketUnused(bucket_org_key)
 
             if isinstance(e, github.TooManyPages):
@@ -369,23 +375,23 @@ class StreamProcessor:
                 # appropriate check-runs to inform user the PR is too big to be handled
                 # by Mergify, but this need a bit of refactory to do it, so in the
                 # meantimes...
-                if attempts_key:
-                    await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", bucket_org_key)
+                if bucket_sources_key:
+                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
+                await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
-                if attempts_key:
-                    await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", bucket_org_key)
+                if bucket_sources_key:
+                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
+                await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
                 retry_at = date.utcnow() + e.countdown
                 score = retry_at.timestamp()
-                if attempts_key:
-                    await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", bucket_org_key)
+                if bucket_sources_key:
+                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
+                await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 await self.redis_stream.zaddoption(
                     "streams", "XX", **{bucket_org_key: score}
                 )
@@ -397,7 +403,7 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis_stream.hincrby("attempts", bucket_org_key)
+            attempts = await self.redis_stream.hincrby(ATTEMPTS_KEY, bucket_org_key)
             retry_in = 2 ** min(attempts, 3) * backoff
             retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
@@ -495,7 +501,7 @@ class StreamProcessor:
                 for _, message in messages:
                     LOG.info(msgpack.unpackb(message[b"source"], raw=False))
                 await self.redis_stream.delete(bucket)
-                await self.redis_stream.delete("attempts")
+                await self.redis_stream.delete(ATTEMPTS_KEY)
                 await self.redis_stream.zrem(bucket_org_key, bucket)
         except Exception:
             # Ignore it, it will retried later
@@ -786,14 +792,13 @@ class StreamProcessor:
             gh_pull=pull_number,
         )
 
-        attempts_key = f"pull~{installation.owner_login}~{repo_name}~{pull_number}"
         try:
             async with self._translate_exception_to_retries(
                 bucket_org_key,
-                attempts_key,
+                bucket_sources_key,
             ):
                 await run_engine(installation, repo_id, repo_name, pull_number, sources)
-            await self.redis_stream.hdel("attempts", attempts_key)
+            await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
             await worker_lua.remove_pull(
                 self.redis_stream,
                 bucket_org_key,
@@ -1333,11 +1338,11 @@ async def async_reschedule_now() -> int:
             scheduled_at = date.utcnow()
             score = scheduled_at.timestamp()
             transaction = await redis.pipeline()
-            await transaction.hdel("attempts", org_bucket)
+            await transaction.hdel(ATTEMPTS_KEY, org_bucket)
             # TODO(sileht): Should we update bucket scores too ?
             await transaction.zadd("streams", **{org_bucket.decode(): score})
             # NOTE(sileht): Do we need to cleanup the per PR attempt?
-            # await transaction.hdel("attempts", attempts_key)
+            # await transaction.hdel(ATTEMPTS_KEY, bucket_sources_key)
             await transaction.execute()
             return 0
     else:
