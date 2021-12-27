@@ -450,7 +450,6 @@ async def push_to_worker(
             owner_login,
             repo_id,
             repo_name,
-            repo_name,
             pull_number,
             event_type,
             slim_event,

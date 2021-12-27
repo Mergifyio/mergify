@@ -113,7 +113,6 @@ async def send(
             owner_login,
             repository_id,
             repository_name,
-            repository_name,
             pull_request_number,
             "refresh",
             {

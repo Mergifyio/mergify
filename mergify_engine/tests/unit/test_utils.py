@@ -183,20 +183,20 @@ async def test_refresh_with_pull_request_number(
 
     keys = await redis_stream.keys("*")
     assert set(keys) == {
-        b"bucket~1~foo",
-        b"bucket-sources~0~test~0",
-        b"bucket-sources~0~test~5",
+        b"bucket~1",
+        b"bucket-sources~0~0",
+        b"bucket-sources~0~5",
         b"streams",
     }
 
-    messages = await redis_stream.xrange("bucket-sources~0~test~5")
+    messages = await redis_stream.xrange("bucket-sources~0~5")
     assert len(messages) == 1
     event = msgpack.unpackb(messages[0][1][b"source"])["data"]
     assert event["action"] == "internal"
     assert event["ref"] is None
     assert event["pull_request_number"] == 5
 
-    messages = await redis_stream.xrange("bucket-sources~0~test~0")
+    messages = await redis_stream.xrange("bucket-sources~0~0")
     assert len(messages) == 1
     event = msgpack.unpackb(messages[0][1][b"source"])["data"]
     assert event["action"] == "admin"
