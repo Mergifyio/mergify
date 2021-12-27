@@ -104,8 +104,6 @@ STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
 DEDICATED_WORKERS_KEY = "dedicated-workers"
 
-OrgBucketNameType = typing.NewType("OrgBucketNameType", str)
-
 
 class IgnoredException(Exception):
     pass
@@ -122,13 +120,13 @@ class MaxPullRetry(PullRetry):
 
 @dataclasses.dataclass
 class OrgBucketRetry(Exception):
-    org_bucket_name: OrgBucketNameType
+    bucket_org_key: worker_lua.BucketOrgKeyType
     attempts: int
     retry_at: datetime.datetime
 
 
 class OrgBucketUnused(Exception):
-    org_bucket_name: OrgBucketNameType
+    bucket_org_key: worker_lua.BucketOrgKeyType
 
 
 @dataclasses.dataclass
@@ -249,7 +247,7 @@ async def run_engine(
 
 
 class BucketSelector(typing.Protocol):
-    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
         ...
 
 
@@ -262,7 +260,7 @@ class DedicatedOrgBucketSelector:
         owner_id = int(org_bucket.split(b"~")[1])
         return owner_id == self.owner_id
 
-    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
         # FIXME(sileht): we can use ZSCORE instead of ZRANGEBYSCORE when we
         # have drop all login/name from bucket names.
         # NOTE(sileht): Should we drop the 30s latency ? That may impact the rate limit...
@@ -277,7 +275,7 @@ class DedicatedOrgBucketSelector:
                     "engine.streams.selected",
                     tags=[f"worker_id:dedicated-{self.owner_id}", "dedicated"],
                 )
-                return OrgBucketNameType(org_bucket.decode())
+                return worker_lua.BucketOrgKeyType(org_bucket.decode())
 
         return None
 
@@ -302,7 +300,7 @@ class SharedOrgBucketSelector:
             == self.shared_worker_id
         )
 
-    async def next_org_bucket(self) -> typing.Optional[OrgBucketNameType]:
+    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
         now = time.time()
         for org_bucket in await self.redis_stream.zrangebyscore(
             "streams",
@@ -314,7 +312,7 @@ class SharedOrgBucketSelector:
                     "engine.streams.selected",
                     tags=[f"worker_id:shared-{self.shared_worker_id}"],
                 )
-                return OrgBucketNameType(org_bucket.decode())
+                return worker_lua.BucketOrgKeyType(org_bucket.decode())
 
         return None
 
@@ -343,7 +341,7 @@ class StreamProcessor:
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
         self,
-        org_bucket_name: OrgBucketNameType,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
         attempts_key: typing.Optional[str] = None,
     ) -> typing.AsyncIterator[None]:
         try:
@@ -363,8 +361,8 @@ class StreamProcessor:
             if isinstance(e, exceptions.MergifyNotInstalled):
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", org_bucket_name)
-                raise OrgBucketUnused(org_bucket_name)
+                await self.redis_stream.hdel("attempts", bucket_org_key)
+                raise OrgBucketUnused(bucket_org_key)
 
             if isinstance(e, github.TooManyPages):
                 # TODO(sileht): Ideally this should be catcher earlier to post an
@@ -373,13 +371,13 @@ class StreamProcessor:
                 # meantimes...
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", org_bucket_name)
+                await self.redis_stream.hdel("attempts", bucket_org_key)
                 raise IgnoredException()
 
             if exceptions.should_be_ignored(e):
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", org_bucket_name)
+                await self.redis_stream.hdel("attempts", bucket_org_key)
                 raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
@@ -387,11 +385,11 @@ class StreamProcessor:
                 score = retry_at.timestamp()
                 if attempts_key:
                     await self.redis_stream.hdel("attempts", attempts_key)
-                await self.redis_stream.hdel("attempts", org_bucket_name)
+                await self.redis_stream.hdel("attempts", bucket_org_key)
                 await self.redis_stream.zaddoption(
-                    "streams", "XX", **{org_bucket_name: score}
+                    "streams", "XX", **{bucket_org_key: score}
                 )
-                raise OrgBucketRetry(org_bucket_name, 0, retry_at)
+                raise OrgBucketRetry(bucket_org_key, 0, retry_at)
 
             backoff = exceptions.need_retry(e)
             if backoff is None:
@@ -399,26 +397,25 @@ class StreamProcessor:
                 # without increasing the attempts
                 raise
 
-            attempts = await self.redis_stream.hincrby("attempts", org_bucket_name)
+            attempts = await self.redis_stream.hincrby("attempts", bucket_org_key)
             retry_in = 2 ** min(attempts, 3) * backoff
             retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
             await self.redis_stream.zaddoption(
-                "streams", "XX", **{org_bucket_name: score}
+                "streams", "XX", **{bucket_org_key: score}
             )
-            raise OrgBucketRetry(org_bucket_name, attempts, retry_at)
+            raise OrgBucketRetry(bucket_org_key, attempts, retry_at)
 
     async def consume(
         self,
-        org_bucket_name: OrgBucketNameType,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
         owner_id: github_types.GitHubAccountIdType,
-        owner_login: github_types.GitHubLogin,
         owner_login_for_tracing: github_types.GitHubLogin,
     ) -> None:
         LOG.debug("consuming org bucket", gh_owner=owner_login_for_tracing)
 
         try:
-            async with self._translate_exception_to_retries(org_bucket_name):
+            async with self._translate_exception_to_retries(bucket_org_key):
                 sub = await subscription.Subscription.get_subscription(
                     self.redis_cache, owner_id
                 )
@@ -444,14 +441,14 @@ class StreamProcessor:
                     self.owners_mapping[
                         installation.owner_id
                     ] = installation.owner_login
-                    await self._consume_buckets(org_bucket_name, installation)
+                    await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
 
         except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "Stream Processor lost Redis connection",
-                org_bucket_name=org_bucket_name,
+                bucket_org_key=bucket_org_key,
             )
         except OrgBucketUnused:
             LOG.info(
@@ -460,13 +457,13 @@ class StreamProcessor:
                 exc_info=True,
             )
             try:
-                await worker_lua.drop_bucket(self.redis_stream, owner_id, owner_login)
+                await worker_lua.drop_bucket(self.redis_stream, bucket_org_key)
             except yaaredis.exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "fail to drop org bucket, it will be retried",
                     gh_owner=owner_login_for_tracing,
-                    org_bucket_name=org_bucket_name,
+                    bucket_org_key=bucket_org_key,
                 )
         except OrgBucketRetry as e:
             log_method = (
@@ -491,7 +488,7 @@ class StreamProcessor:
             # NOTE(sileht): During functionnal tests replay, we don't want to retry for ever
             # so we catch the error and print all events that can't be processed
             buckets = await self.redis_stream.zrangebyscore(
-                org_bucket_name, min=0, max="+inf", start=0, num=1
+                bucket_org_key, min=0, max="+inf", start=0, num=1
             )
             for bucket in buckets:
                 messages = await self.redis_stream.xrange(bucket)
@@ -499,7 +496,7 @@ class StreamProcessor:
                     LOG.info(msgpack.unpackb(message[b"source"], raw=False))
                 await self.redis_stream.delete(bucket)
                 await self.redis_stream.delete("attempts")
-                await self.redis_stream.zrem(org_bucket_name, bucket)
+                await self.redis_stream.zrem(bucket_org_key, bucket)
         except Exception:
             # Ignore it, it will retried later
             LOG.error(
@@ -508,44 +505,45 @@ class StreamProcessor:
                 exc_info=True,
             )
 
-        LOG.debug("cleanup org bucket start", org_bucket_name=org_bucket_name)
+        LOG.debug("cleanup org bucket start", bucket_org_key=bucket_org_key)
         try:
             await worker_lua.clean_org_bucket(
                 self.redis_stream,
-                owner_id,
-                owner_login,
+                bucket_org_key,
                 date.utcnow(),
             )
         except yaaredis.exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "fail to cleanup org bucket, it maybe partially replayed",
-                org_bucket_name=org_bucket_name,
+                bucket_org_key=bucket_org_key,
                 gh_owner=owner_login_for_tracing,
             )
         LOG.debug(
             "cleanup org bucket end",
-            org_bucket_name=org_bucket_name,
+            bucket_org_key=bucket_org_key,
             gh_owner=owner_login_for_tracing,
         )
 
     @staticmethod
     def _extract_infos_from_bucket_sources_key(
-        bucket_sources_key: bytes,
+        bucket_sources_key: worker_lua.BucketSourcesKeyType,
     ) -> typing.Tuple[
         github_types.GitHubRepositoryIdType,
         github_types.GitHubRepositoryName,
         github_types.GitHubPullRequestNumber,
     ]:
-        _, repo_id, repo_name, pull_number = bucket_sources_key.split(b"~")
+        _, repo_id, repo_name, pull_number = bucket_sources_key.split("~")
         return (
             github_types.GitHubRepositoryIdType(int(repo_id)),
-            github_types.GitHubRepositoryName(repo_name.decode()),
+            github_types.GitHubRepositoryName(repo_name),
             github_types.GitHubPullRequestNumber(int(pull_number)),
         )
 
     async def _consume_buckets(
-        self, bucket_key: OrgBucketNameType, installation: context.Installation
+        self,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
+        installation: context.Installation,
     ) -> None:
         opened_pulls_by_repo: typing.Dict[
             github_types.GitHubRepositoryIdType,
@@ -558,7 +556,7 @@ class StreamProcessor:
         started_at = time.monotonic()
         while True:
             bucket_sources_keys = await self.redis_stream.zrangebyscore(
-                bucket_key,
+                bucket_org_key,
                 min=0,
                 max="+inf",
                 withscores=True,
@@ -568,7 +566,10 @@ class StreamProcessor:
                 len(bucket_sources_keys),
                 gh_owner=installation.owner_login,
             )
-            for bucket_sources_key, _bucket_score in bucket_sources_keys:
+            for _bucket_sources_key, _bucket_score in bucket_sources_keys:
+                bucket_sources_key = worker_lua.BucketSourcesKeyType(
+                    _bucket_sources_key.decode()
+                )
                 (
                     repo_id,
                     repo_name,
@@ -614,16 +615,13 @@ class StreamProcessor:
                 # Should not occur but better be safe than sorry
                 await worker_lua.remove_pull(
                     self.redis_stream,
-                    installation.owner_id,
-                    installation.owner_login,
-                    repo_id,
-                    repo_name,
-                    pull_number,
+                    bucket_org_key,
+                    bucket_sources_key,
                     (),
                 )
                 break
 
-            if bucket_sources_key.endswith(b"~0"):
+            if bucket_sources_key.endswith("~0"):
                 logger.debug(
                     "unpack events without pull request number", count=len(messages)
                 )
@@ -658,11 +656,8 @@ class StreamProcessor:
                     # NOTE(sileht) can we take the risk to batch the deletion here ?
                     await worker_lua.remove_pull(
                         self.redis_stream,
-                        installation.owner_id,
-                        installation.owner_login,
-                        repo_id,
-                        repo_name,
-                        pull_number,
+                        bucket_org_key,
+                        bucket_sources_key,
                         (typing.cast(T_MessageID, message_id),),
                     )
             else:
@@ -692,7 +687,8 @@ class StreamProcessor:
                             {"gh_repo": tracing_repo_name, "gh_pull": pull_number}
                         )
                         await self._consume_pull(
-                            bucket_key,
+                            bucket_org_key,
+                            bucket_sources_key,
                             installation,
                             repo_id,
                             repo_name,
@@ -760,7 +756,8 @@ class StreamProcessor:
 
     async def _consume_pull(
         self,
-        org_bucket_name: OrgBucketNameType,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
+        bucket_sources_key: worker_lua.BucketSourcesKeyType,
         installation: context.Installation,
         repo_id: github_types.GitHubRepositoryIdType,
         repo_name: github_types.GitHubRepositoryName,
@@ -792,39 +789,30 @@ class StreamProcessor:
         attempts_key = f"pull~{installation.owner_login}~{repo_name}~{pull_number}"
         try:
             async with self._translate_exception_to_retries(
-                org_bucket_name,
+                bucket_org_key,
                 attempts_key,
             ):
                 await run_engine(installation, repo_id, repo_name, pull_number, sources)
             await self.redis_stream.hdel("attempts", attempts_key)
             await worker_lua.remove_pull(
                 self.redis_stream,
-                installation.owner_id,
-                installation.owner_login,
-                repo_id,
-                repo_name,
-                pull_number,
+                bucket_org_key,
+                bucket_sources_key,
                 tuple(message_ids),
             )
         except IgnoredException:
             await worker_lua.remove_pull(
                 self.redis_stream,
-                installation.owner_id,
-                installation.owner_login,
-                repo_id,
-                repo_name,
-                pull_number,
+                bucket_org_key,
+                bucket_sources_key,
                 tuple(message_ids),
             )
             logger.debug("failed to process pull request, ignoring", exc_info=True)
         except MaxPullRetry as e:
             await worker_lua.remove_pull(
                 self.redis_stream,
-                installation.owner_id,
-                installation.owner_login,
-                repo_id,
-                repo_name,
-                pull_number,
+                bucket_org_key,
+                bucket_sources_key,
                 tuple(message_ids),
             )
             logger.error(
@@ -908,9 +896,9 @@ class Worker:
 
     @staticmethod
     def extract_owner(
-        org_bucket_name: OrgBucketNameType,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
     ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
-        org_bucket_splitted = org_bucket_name.split("~")[1:]
+        org_bucket_splitted = bucket_org_key.split("~")[1:]
         return (
             github_types.GitHubAccountIdType(int(org_bucket_splitted[0])),
             github_types.GitHubLogin(org_bucket_splitted[1]),
@@ -955,10 +943,10 @@ class Worker:
 
         logs.WORKER_ID.set(worker_id)
 
-        org_bucket_name = await org_bucket_selector.next_org_bucket()
-        if org_bucket_name:
-            LOG.debug("worker %s take org bucket: %s", worker_id, org_bucket_name)
-            owner_id, owner_login = self.extract_owner(org_bucket_name)
+        bucket_org_key = await org_bucket_selector.next_org_bucket()
+        if bucket_org_key:
+            LOG.debug("worker %s take org bucket: %s", worker_id, bucket_org_key)
+            owner_id, owner_login = self.extract_owner(bucket_org_key)
             owner_login_for_tracing = stream_processor.get_owner_login(owner_id)
             try:
                 with tracer.trace(
@@ -968,13 +956,13 @@ class Worker:
                 ) as span:
                     span.set_tag("gh_owner", owner_login_for_tracing)
                     await stream_processor.consume(
-                        org_bucket_name, owner_id, owner_login, owner_login_for_tracing
+                        bucket_org_key, owner_id, owner_login_for_tracing
                     )
             finally:
                 LOG.debug(
                     "worker %s release org bucket: %s",
                     worker_id,
-                    org_bucket_name,
+                    bucket_org_key,
                 )
 
     @tracer.wrap("monitoring_task", span_type="worker")
@@ -1022,7 +1010,7 @@ class Worker:
 
         for org_bucket, _ in org_buckets:
             owner_id, owner_login = self.extract_owner(
-                OrgBucketNameType(org_bucket.decode())
+                worker_lua.BucketOrgKeyType(org_bucket.decode())
             )
             if owner_id in dedicated_worker_owner_ids:
                 worker_id = f"dedicated-{owner_id}"
@@ -1306,7 +1294,7 @@ async def async_status() -> None:
     def sorter(item: typing.Tuple[bytes, float]) -> str:
         org_bucket, score = item
         owner_id, owner_login = Worker.extract_owner(
-            OrgBucketNameType(org_bucket.decode())
+            worker_lua.BucketOrgKeyType(org_bucket.decode())
         )
         if owner_id in dedicated_worker_owner_ids:
             return f"dedicated-{owner_id}"
