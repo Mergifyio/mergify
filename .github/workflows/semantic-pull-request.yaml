@@ -10,6 +10,7 @@ on:
 
 jobs:
   semantic-pull-request:
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: "testing merge queue filter"
