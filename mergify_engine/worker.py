@@ -897,12 +897,9 @@ class Worker:
     @staticmethod
     def extract_owner(
         bucket_org_key: worker_lua.BucketOrgKeyType,
-    ) -> typing.Tuple[github_types.GitHubAccountIdType, github_types.GitHubLogin]:
+    ) -> github_types.GitHubAccountIdType:
         org_bucket_splitted = bucket_org_key.split("~")[1:]
-        return (
-            github_types.GitHubAccountIdType(int(org_bucket_splitted[0])),
-            github_types.GitHubLogin(org_bucket_splitted[1]),
-        )
+        return github_types.GitHubAccountIdType(int(org_bucket_splitted[0]))
 
     async def shared_stream_worker_task(self, shared_worker_id: int) -> None:
         if self._redis_stream is None or self._redis_cache is None:
@@ -946,7 +943,7 @@ class Worker:
         bucket_org_key = await org_bucket_selector.next_org_bucket()
         if bucket_org_key:
             LOG.debug("worker %s take org bucket: %s", worker_id, bucket_org_key)
-            owner_id, owner_login = self.extract_owner(bucket_org_key)
+            owner_id = self.extract_owner(bucket_org_key)
             owner_login_for_tracing = stream_processor.get_owner_login(owner_id)
             try:
                 with tracer.trace(
@@ -1009,7 +1006,7 @@ class Worker:
         dedicated_worker_events_count: typing.Dict[str, int] = {}
 
         for org_bucket, _ in org_buckets:
-            owner_id, owner_login = self.extract_owner(
+            owner_id = self.extract_owner(
                 worker_lua.BucketOrgKeyType(org_bucket.decode())
             )
             if owner_id in dedicated_worker_owner_ids:
@@ -1293,7 +1290,7 @@ async def async_status() -> None:
 
     def sorter(item: typing.Tuple[bytes, float]) -> str:
         org_bucket, score = item
-        owner_id, owner_login = Worker.extract_owner(
+        owner_id = Worker.extract_owner(
             worker_lua.BucketOrgKeyType(org_bucket.decode())
         )
         if owner_id in dedicated_worker_owner_ids:

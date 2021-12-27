@@ -910,8 +910,8 @@ async def test_stream_processor_date_scheduling(
     with freeze_time("2020-01-14"):
         stream_name = await s.next_org_bucket()
         assert stream_name is not None
-        owner_id, owner_login = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, owner_login)
+        owner_id = worker.Worker.extract_owner(stream_name)
+        await p.consume(stream_name, owner_id, f"owner-{owner_id}")
 
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
@@ -931,8 +931,8 @@ async def test_stream_processor_date_scheduling(
     with freeze_time("2041-01-14"):
         stream_name = await s.next_org_bucket()
         assert stream_name is not None
-        owner_id, owner_login = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, owner_login)
+        owner_id = worker.Worker.extract_owner(stream_name)
+        await p.consume(stream_name, owner_id, f"owner-{owner_id}")
 
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
