@@ -1332,11 +1332,11 @@ async def async_status() -> None:
     for worker_id, org_buckets_by_worker in itertools.groupby(org_buckets, key=sorter):
         for org_bucket, score in org_buckets_by_worker:
             date = datetime.datetime.utcfromtimestamp(score).isoformat(" ", "seconds")
-            owner = org_bucket.split(b"~")[2]
+            owner_id = org_bucket.split(b"~")[1]
             event_org_buckets = await redis_stream.zrange(org_bucket, 0, -1)
             count = sum([await redis_stream.xlen(es) for es in event_org_buckets])
             items = f"{len(event_org_buckets)} pull requests, {count} events"
-            print(f"{{{worker_id}}} [{date}] {owner.decode()}: {items}")
+            print(f"{{{worker_id}}} [{date}] {owner_id.decode()}: {items}")
 
 
 def status() -> None:
