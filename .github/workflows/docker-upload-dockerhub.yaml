@@ -8,6 +8,7 @@ on:
 
 jobs:
   push_to_registry:
+    timeout-minutes: 10
     name: Push Docker image to DockerHub
     runs-on: ubuntu-20.04
     steps:
