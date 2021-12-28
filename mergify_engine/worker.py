@@ -35,8 +35,8 @@
 #                                  score = timestamp
 #
 #
-# Orgs key format: f"bucket~{owner_id}~{owner_login}"
-# Pull key format: f"bucket-sources~{repo_id}~{repo_name}~{pull_number or 0}"
+# Orgs key format: f"bucket~{owner_id}"
+# Pull key format: f"bucket-sources~{repo_id}~{pull_number or 0}"
 #
 
 import argparse
@@ -158,7 +158,6 @@ async def push(
     owner_id: github_types.GitHubAccountIdType,
     owner_login: github_types.GitHubLogin,
     repo_id: github_types.GitHubRepositoryIdType,
-    repo_name: github_types.GitHubRepositoryName,
     tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
@@ -168,10 +167,14 @@ async def push(
     with tracer.trace(
         "push event",
         span_type="worker",
-        resource=f"{owner_login}/{repo_name}/{pull_number}",
+        resource=f"{owner_login}/{tracing_repo_name}/{pull_number}",
     ) as span:
         span.set_tags(
-            {"gh_owner": owner_login, "gh_repo": repo_name, "gh_pull": pull_number}
+            {
+                "gh_owner": owner_login,
+                "gh_repo": tracing_repo_name,
+                "gh_pull": pull_number,
+            }
         )
         now = date.utcnow()
         event = msgpack.packb(
@@ -188,9 +191,9 @@ async def push(
         if score is None:
             score = str(date.utcnow().timestamp())
 
-        bucket_org_key = worker_lua.BucketOrgKeyType(f"bucket~{owner_id}~{owner_login}")
+        bucket_org_key = worker_lua.BucketOrgKeyType(f"bucket~{owner_id}")
         bucket_sources_key = worker_lua.BucketSourcesKeyType(
-            f"bucket-sources~{repo_id}~{repo_name}~{pull_number or 0}"
+            f"bucket-sources~{repo_id}~{pull_number or 0}"
         )
         await worker_lua.push_pull(
             redis,
@@ -204,7 +207,7 @@ async def push(
         LOG.debug(
             "pushed to worker",
             gh_owner=owner_login,
-            gh_repo=repo_name,
+            gh_repo=tracing_repo_name,
             gh_pull=pull_number,
             event_type=event_type,
         )
@@ -539,13 +542,16 @@ class StreamProcessor:
         bucket_sources_key: worker_lua.BucketSourcesKeyType,
     ) -> typing.Tuple[
         github_types.GitHubRepositoryIdType,
-        github_types.GitHubRepositoryName,
         github_types.GitHubPullRequestNumber,
     ]:
-        _, repo_id, repo_name, pull_number = bucket_sources_key.split("~")
+        parts = bucket_sources_key.split("~")
+        if len(parts) == 3:
+            _, repo_id, pull_number = parts
+        else:
+            # TODO(sileht): old format remove in 5.0.0
+            _, repo_id, _, pull_number = parts
         return (
             github_types.GitHubRepositoryIdType(int(repo_id)),
-            github_types.GitHubRepositoryName(repo_name),
             github_types.GitHubPullRequestNumber(int(pull_number)),
         )
 
@@ -581,7 +587,6 @@ class StreamProcessor:
                 )
                 (
                     repo_id,
-                    repo_name,
                     pull_number,
                 ) = self._extract_infos_from_bucket_sources_key(bucket_sources_key)
                 if (repo_id, pull_number) in need_retries_later:
@@ -666,7 +671,6 @@ class StreamProcessor:
                     converted_messages = await self._convert_event_to_messages(
                         installation,
                         repo_id,
-                        repo_name,
                         tracing_repo_name,
                         source,
                         opened_pulls_by_repo[repo_id],
@@ -731,7 +735,6 @@ class StreamProcessor:
         self,
         installation: context.Installation,
         repo_id: github_types.GitHubRepositoryIdType,
-        repo_name: github_types.GitHubRepositoryName,
         tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
@@ -766,7 +769,6 @@ class StreamProcessor:
                 installation.owner_id,
                 installation.owner_login,
                 repo_id,
-                repo_name,
                 tracing_repo_name,
                 pull_number,
                 source["event_type"],
@@ -921,8 +923,7 @@ class Worker:
     def extract_owner(
         bucket_org_key: worker_lua.BucketOrgKeyType,
     ) -> github_types.GitHubAccountIdType:
-        org_bucket_splitted = bucket_org_key.split("~")[1:]
-        return github_types.GitHubAccountIdType(int(org_bucket_splitted[0]))
+        return github_types.GitHubAccountIdType(int(bucket_org_key.split("~")[1]))
 
     async def shared_stream_worker_task(self, shared_worker_id: int) -> None:
         if self._redis_stream is None or self._redis_cache is None:
