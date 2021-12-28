@@ -1345,14 +1345,14 @@ def status() -> None:
 
 async def async_reschedule_now() -> int:
     parser = argparse.ArgumentParser(description="Rescheduler for Mergify")
-    parser.add_argument("org", help="Organization")
+    parser.add_argument("owner_id", help="Organization ID")
     args = parser.parse_args()
 
     redis = utils.create_yaaredis_for_stream()
     org_buckets = await redis.zrangebyscore("streams", min=0, max="+inf")
-    expected_org = f"~{args.org.lower()}"
+    expected_bucket = f"bucket~{args.owner_id}"
     for org_bucket in org_buckets:
-        if org_bucket.decode().lower().endswith(expected_org):
+        if org_bucket.decode().startswith(expected_bucket):
             scheduled_at = date.utcnow()
             score = scheduled_at.timestamp()
             transaction = await redis.pipeline()
@@ -1364,7 +1364,7 @@ async def async_reschedule_now() -> int:
             await transaction.execute()
             return 0
     else:
-        print(f"Stream for {args.org} not found")
+        print(f"Stream for {expected_bucket} not found")
         return 1
 
 

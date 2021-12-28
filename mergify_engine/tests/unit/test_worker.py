@@ -1227,7 +1227,7 @@ async def test_worker_reschedule(
     )
     assert planned_for == planned_for_not_rescheduled
 
-    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "OwNer-123"])
+    monkeypatch.setattr("sys.argv", ["mergify-worker-rescheduler", "123"])
     ret = await worker.async_reschedule_now()
     assert ret == 0
 
