@@ -159,6 +159,7 @@ async def push(
     owner_login: github_types.GitHubLogin,
     repo_id: github_types.GitHubRepositoryIdType,
     repo_name: github_types.GitHubRepositoryName,
+    tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     event_type: github_types.GitHubEventType,
     data: github_types.GitHubEvent,
@@ -193,6 +194,7 @@ async def push(
             owner_login,
             repo_id,
             repo_name,
+            tracing_repo_name,
             pull_number,
             scheduled_at,
             event,
@@ -210,13 +212,13 @@ async def push(
 async def run_engine(
     installation: context.Installation,
     repo_id: github_types.GitHubRepositoryIdType,
-    repo_name: github_types.GitHubRepositoryName,
+    tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
     pull_number: github_types.GitHubPullRequestNumber,
     sources: typing.List[context.T_PayloadEventSource],
 ) -> None:
     logger = daiquiri.getLogger(
         __name__,
-        gh_repo=repo_name,
+        gh_repo=tracing_repo_name,
         gh_owner=installation.owner_login,
         gh_pull=pull_number,
     )
@@ -334,9 +336,9 @@ class StreamProcessor:
 
     def get_owner_login(
         self, owner_id: github_types.GitHubAccountIdType
-    ) -> github_types.GitHubLogin:
+    ) -> github_types.GitHubLoginForTracing:
         return self.owners_mapping.get(
-            owner_id, github_types.GitHubLogin(f"<unknown {owner_id}>")
+            owner_id, github_types.GitHubLoginUnknown(f"<unknown {owner_id}>")
         )
 
     @contextlib.asynccontextmanager
@@ -416,7 +418,7 @@ class StreamProcessor:
         self,
         bucket_org_key: worker_lua.BucketOrgKeyType,
         owner_id: github_types.GitHubAccountIdType,
-        owner_login_for_tracing: github_types.GitHubLogin,
+        owner_login_for_tracing: github_types.GitHubLoginForTracing,
     ) -> None:
         LOG.debug("consuming org bucket", gh_owner=owner_login_for_tracing)
 
@@ -602,13 +604,23 @@ class StreamProcessor:
             if messages:
                 # TODO(sileht): 4.x.x, will have repo_name optional
                 # we can always pick the first one on 5.x.x milestone.
-                tracing_repo_name = first.first(
+                tracing_repo_name_bin = first.first(
                     m[1].get(b"repo_name") for m in messages
                 )
-                if tracing_repo_name is None:
-                    tracing_repo_name = f"<unknown {repo_id}>"
+                tracing_repo_name: github_types.GitHubRepositoryNameForTracing
+                if tracing_repo_name_bin is None:
+                    tracing_repo_name = github_types.GitHubRepositoryNameUnknown(
+                        f"<unknown {repo_id}>"
+                    )
+                else:
+                    tracing_repo_name = typing.cast(
+                        github_types.GitHubRepositoryNameForTracing,
+                        tracing_repo_name_bin.decode(),
+                    )
             else:
-                tracing_repo_name = f"<unknown {repo_id}>"
+                tracing_repo_name = github_types.GitHubRepositoryNameUnknown(
+                    f"<unknown {repo_id}>"
+                )
 
             logger = daiquiri.getLogger(
                 __name__,
@@ -654,6 +666,7 @@ class StreamProcessor:
                         installation,
                         repo_id,
                         repo_name,
+                        tracing_repo_name,
                         source,
                         opened_pulls_by_repo[repo_id],
                         message[b"score"],
@@ -697,7 +710,7 @@ class StreamProcessor:
                             bucket_sources_key,
                             installation,
                             repo_id,
-                            repo_name,
+                            tracing_repo_name,
                             pull_number,
                             message_ids,
                             sources,
@@ -718,6 +731,7 @@ class StreamProcessor:
         installation: context.Installation,
         repo_id: github_types.GitHubRepositoryIdType,
         repo_name: github_types.GitHubRepositoryName,
+        tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
         source: context.T_PayloadEventSource,
         pulls: typing.List[github_types.GitHubPullRequest],
         score: typing.Optional[str] = None,
@@ -752,6 +766,7 @@ class StreamProcessor:
                 installation.owner_login,
                 repo_id,
                 repo_name,
+                tracing_repo_name,
                 pull_number,
                 source["event_type"],
                 source["data"],
@@ -766,7 +781,7 @@ class StreamProcessor:
         bucket_sources_key: worker_lua.BucketSourcesKeyType,
         installation: context.Installation,
         repo_id: github_types.GitHubRepositoryIdType,
-        repo_name: github_types.GitHubRepositoryName,
+        tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
         pull_number: github_types.GitHubPullRequestNumber,
         message_ids: typing.List[T_MessageID],
         sources: typing.List[context.T_PayloadEventSource],
@@ -787,7 +802,7 @@ class StreamProcessor:
 
         logger = daiquiri.getLogger(
             __name__,
-            gh_repo=repo_name,
+            gh_repo=tracing_repo_name,
             gh_owner=installation.owner_login,
             gh_pull=pull_number,
         )
@@ -797,7 +812,9 @@ class StreamProcessor:
                 bucket_org_key,
                 bucket_sources_key,
             ):
-                await run_engine(installation, repo_id, repo_name, pull_number, sources)
+                await run_engine(
+                    installation, repo_id, tracing_repo_name, pull_number, sources
+                )
             await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
             await worker_lua.remove_pull(
                 self.redis_stream,

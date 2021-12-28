@@ -60,6 +60,7 @@ async def push_pull(
     owner_login: github_types.GitHubLogin,
     repo_id: github_types.GitHubRepositoryIdType,
     repo_name: github_types.GitHubRepositoryName,
+    tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
     pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     scheduled_at: datetime.datetime,
     source: str,
@@ -76,7 +77,7 @@ async def push_pull(
             str(scheduled_at.timestamp()),
             source,
             score,
-            repo_name,
+            tracing_repo_name,
         ),
     )
 
