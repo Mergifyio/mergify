@@ -56,12 +56,9 @@ redis.call("ZADD", "streams", "NX", scheduled_at_timestamp, bucket_org_key)
 @tracer.wrap("stream_push_pull", span_type="worker")
 async def push_pull(
     redis: utils.RedisStream,
-    owner_id: github_types.GitHubAccountIdType,
-    owner_login: github_types.GitHubLogin,
-    repo_id: github_types.GitHubRepositoryIdType,
-    repo_name: github_types.GitHubRepositoryName,
+    bucket_org_key: BucketOrgKeyType,
+    bucket_sources_key: BucketSourcesKeyType,
     tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
-    pull_number: typing.Optional[github_types.GitHubPullRequestNumber],
     scheduled_at: datetime.datetime,
     source: str,
     score: str,
@@ -70,8 +67,8 @@ async def push_pull(
         redis,
         PUSH_PR_SCRIPT,
         (
-            f"bucket~{owner_id}~{owner_login}",
-            f"bucket-sources~{repo_id}~{repo_name}~{pull_number or 0}",
+            bucket_org_key,
+            bucket_sources_key,
         ),
         (
             str(scheduled_at.timestamp()),

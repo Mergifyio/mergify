@@ -188,14 +188,15 @@ async def push(
         if score is None:
             score = str(date.utcnow().timestamp())
 
+        bucket_org_key = worker_lua.BucketOrgKeyType(f"bucket~{owner_id}~{owner_login}")
+        bucket_sources_key = worker_lua.BucketSourcesKeyType(
+            f"bucket-sources~{repo_id}~{repo_name}~{pull_number or 0}"
+        )
         await worker_lua.push_pull(
             redis,
-            owner_id,
-            owner_login,
-            repo_id,
-            repo_name,
+            bucket_org_key,
+            bucket_sources_key,
             tracing_repo_name,
-            pull_number,
             scheduled_at,
             event,
             score,
