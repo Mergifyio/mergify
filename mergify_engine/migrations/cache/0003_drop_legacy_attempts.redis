@@ -1,0 +1,6 @@
+local keys = redis.call("HKEYS", "attempts")
+for idx, key in ipairs(keys) do
+    if (key:find("^pull~") ~= nil) then
+        redis.call("HDEL", "attempts", key)
+    end
+end
