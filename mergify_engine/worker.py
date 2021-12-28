@@ -575,7 +575,7 @@ class StreamProcessor:
                     repo_name,
                     pull_number,
                 ) = self._extract_infos_from_bucket_sources_key(bucket_sources_key)
-                if (repo_id, repo_name, pull_number) in need_retries_later:
+                if (repo_id, pull_number) in need_retries_later:
                     continue
                 break
             else:
@@ -703,7 +703,7 @@ class StreamProcessor:
                 except vcr_errors_CannotOverwriteExistingCassetteException:
                     raise
                 except (PullRetry, UnexpectedPullRetry):
-                    need_retries_later.add((repo_id, repo_name, pull_number))
+                    need_retries_later.add((repo_id, pull_number))
 
         statsd.histogram("engine.buckets.read_size", pulls_processed)  # type: ignore[no-untyped-call]
 
