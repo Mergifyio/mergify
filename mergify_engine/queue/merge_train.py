@@ -527,52 +527,9 @@ This pull request has been created by Mergify to speculatively check the mergeab
 You don't need to do anything. Mergify will close this pull request automatically when it is complete.
 """
 
-        if queue_rule is not None:
-            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
-            description += queue_rule.conditions.get_summary()
-
-        if show_queue:
-            table = [
-                "| | Pull request | Queue/Priority | Speculative checks | Queued",
-                "| ---: | :--- | :--- | :--- | :--- |",
-            ]
-            for i, (embarked_pull, car) in enumerate(self.train._iter_embarked_pulls()):
-                ctxt = await self.train.repository.get_pull_request_context(
-                    embarked_pull.user_pull_request_number
-                )
-                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pull/{embarked_pull.user_pull_request_number}"
-                try:
-                    fancy_priority = queue.PriorityAliases(
-                        embarked_pull.config["priority"]
-                    ).name
-                except ValueError:
-                    fancy_priority = str(embarked_pull.config["priority"])
-
-                speculative_checks = ""
-                if car is not None:
-                    if car.creation_state == "updated":
-                        speculative_checks = f"[in place]({pull_html_url})"
-                    elif car.creation_state == "created":
-                        speculative_checks = f"#{car.queue_pull_request_number}"
-
-                queued_at = date.pretty_datetime(embarked_pull.queued_at)
-                table.append(
-                    f"| {i + 1} "
-                    f"| {ctxt.pull['title']} ([#{embarked_pull.user_pull_request_number}]({pull_html_url})) "
-                    f"| {embarked_pull.config['name']}/{fancy_priority} "
-                    f"| {speculative_checks} "
-                    f"| {queued_at}"
-                    "|"
-                )
-
-            description += (
-                "\n**The following pull requests are queued:**\n"
-                + "\n".join(table)
-                + "\n"
-            )
-
-        description += "\n---\n\n"
-        description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
+        description += await self.train.generate_merge_queue_summary_footer(
+            queue_rule=queue_rule, show_queue=show_queue
+        )
         return description.strip()
 
     async def delete_pull(self, reason: typing.Optional[str]) -> None:
@@ -1183,6 +1140,14 @@ class Train(queue.QueueBase):
         self._cars = new_cars
         self._waiting_pulls = new_waiting_pulls + self._waiting_pulls
 
+    def find_embarked_pull(
+        self, pull_number: github_types.GitHubPullRequestNumber
+    ) -> typing.Optional[EmbarkedPullWithCar]:
+        return first.first(
+            self._iter_embarked_pulls(),
+            key=lambda c: c.embarked_pull.user_pull_request_number == pull_number,
+        )
+
     def _iter_embarked_pulls(
         self,
     ) -> typing.Iterator[EmbarkedPullWithCar]:
@@ -1583,10 +1548,7 @@ class Train(queue.QueueBase):
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
     ) -> queue.PullQueueConfig:
-        item = first.first(
-            self._iter_embarked_pulls(),
-            key=lambda c: c.embarked_pull.user_pull_request_number == pull_number,
-        )
+        item = self.find_embarked_pull(pull_number)
         if item is not None:
             return item.embarked_pull.config
 
@@ -1634,3 +1596,84 @@ class Train(queue.QueueBase):
             exclude_ref=exclude_ref,
         ):
             await train.remove_pull(ctxt)
+
+    async def generate_merge_queue_summary_footer(
+        self,
+        queue_rule: typing.Optional[
+            typing.Union[rules.EvaluatedQueueRule, rules.QueueRule]
+        ],
+        *,
+        show_queue: bool = True,
+    ) -> str:
+
+        description = ""
+        if queue_rule is not None:
+            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
+            description += queue_rule.conditions.get_summary()
+
+        if show_queue:
+            table = [
+                "| | Pull request | Queue/Priority | Speculative checks | Queued",
+                "| ---: | :--- | :--- | :--- | :--- |",
+            ]
+            for i, (embarked_pull, car) in enumerate(self._iter_embarked_pulls()):
+                ctxt = await self.repository.get_pull_request_context(
+                    embarked_pull.user_pull_request_number
+                )
+                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pull/{embarked_pull.user_pull_request_number}"
+                try:
+                    fancy_priority = queue.PriorityAliases(
+                        embarked_pull.config["priority"]
+                    ).name
+                except ValueError:
+                    fancy_priority = str(embarked_pull.config["priority"])
+
+                speculative_checks = ""
+                if car is not None:
+                    if car.creation_state == "updated":
+                        speculative_checks = f"[in place]({pull_html_url})"
+                    elif car.creation_state == "created":
+                        speculative_checks = f"#{car.queue_pull_request_number}"
+
+                queued_at = date.pretty_datetime(embarked_pull.queued_at)
+                table.append(
+                    f"| {i + 1} "
+                    f"| {ctxt.pull['title']} ([#{embarked_pull.user_pull_request_number}]({pull_html_url})) "
+                    f"| {embarked_pull.config['name']}/{fancy_priority} "
+                    f"| {speculative_checks} "
+                    f"| {queued_at}"
+                    "|"
+                )
+
+            description += (
+                "\n**The following pull requests are queued:**\n"
+                + "\n".join(table)
+                + "\n"
+            )
+
+        description += "\n---\n\n"
+        description += constants.MERGIFY_MERGE_QUEUE_PULL_REQUEST_DOC
+        return description
+
+    async def get_pull_summary(
+        self, ctxt: context.Context, queue_rule: rules.QueueRule
+    ) -> str:
+        ep = self.find_embarked_pull(ctxt.pull["number"])
+        if ep is None:
+            return ""
+        if ep.car is None:
+            description = f"{ctxt.pull['number']} is queued for merge."
+            description += await self.generate_merge_queue_summary_footer(
+                queue_rule=queue_rule
+            )
+            return description.strip()
+        else:
+            evaluated_pulls = await ep.car.get_pull_requests_to_evaluate()
+            queue_rule_evaluated = await queue_rule.get_pull_request_rule(
+                ctxt.repository,
+                ctxt.pull["base"]["ref"],
+                evaluated_pulls,
+                ctxt.log,
+                ctxt.has_been_refreshed_by_timer(),
+            )
+            return await ep.car.generate_merge_queue_summary(queue_rule_evaluated)
