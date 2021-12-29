@@ -52,6 +52,7 @@ pull_request_rules:
       - author=@devs
       - check-success=semantic-pull-request
       - label=hotfix
+      - title~=^fix
       - or:
           # We authorize hotfix to go through if they fix a sentry
           - body~=(?m)^Fixes MERGIFY-ENGINE-
@@ -74,6 +75,7 @@ pull_request_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
+      - "check-success=Rule: feature requirements (post_check)"
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
       - "#commits=1"
@@ -135,6 +137,7 @@ pull_request_rules:
       - check-success=docs
       - check-success=docker
       - check-success=heroku
+      - "check-success=Rule: feature requirements (post_check)"
       - "#approved-reviews-by=0"
       - "#changes-requested-reviews-by=0"
     actions:
@@ -173,18 +176,23 @@ pull_request_rules:
       comment:
         message: Your hotfix is failing CI @{{author}} 🥺
 
-  - name: release notes update
+  - name: feature requirements
     conditions:
       - or:
           - "-title~=^feat"
           - and:
-              - "title~=^feat"
-              - files~=^releasenotes/notes
+              - or:
+                  - label=Skip release note
+                  - files~=^releasenotes/notes
+              - or:
+                  - label=Skip documentation
+                  - files~=^doc/source
+              - body~=MRGY-
     actions:
       post_check:
         title: |
           {% if check_succeed %}
-          Release notes found.
+          Feature requirements are present.
           {% else %}
-          Release note missing.
+          Feature requirements are missing.
           {% endif %}
