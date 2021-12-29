@@ -432,19 +432,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
     async def _get_queue_summary(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> str:
-        car = typing.cast(merge_train.Train, q).get_car(ctxt)
-        if car is None:
-            return ""
-
-        evaluated_pulls = await car.get_pull_requests_to_evaluate()
-        queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-            ctxt.repository,
-            ctxt.pull["base"]["ref"],
-            evaluated_pulls,
-            ctxt.log,
-            ctxt.has_been_refreshed_by_timer(),
+        return await typing.cast(merge_train.Train, q).get_pull_summary(
+            ctxt, self.queue_rule
         )
-        return await car.generate_merge_queue_summary(queue_rule_evaluated)
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(
