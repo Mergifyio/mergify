@@ -11,17 +11,17 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
 import voluptuous
 
 from mergify_engine import check_api
-from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.actions import request_reviews
 from mergify_engine.clients import http
-from mergify_engine.dashboard import subscription
+from mergify_engine.tests.unit import conftest
 
 
 @pytest.mark.parametrize(
@@ -36,11 +36,11 @@ from mergify_engine.dashboard import subscription
         },
     ),
 )
-def test_config(config):
+def test_config(config: typing.Dict[str, typing.List[str]]) -> None:
     request_reviews.RequestReviewsAction.get_schema()(config)
 
 
-def test_random_reviewers():
+def test_random_reviewers() -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -62,7 +62,7 @@ def test_random_reviewers():
     assert reviewers == {"@foobaz", "@foobar"}
 
 
-def test_random_reviewers_no_weight():
+def test_random_reviewers_no_weight() -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -81,7 +81,7 @@ def test_random_reviewers_no_weight():
     assert reviewers == {"@foobaz", "@foobar"}
 
 
-def test_random_reviewers_count_bigger():
+def test_random_reviewers_count_bigger() -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 15,
@@ -103,7 +103,7 @@ def test_random_reviewers_count_bigger():
     assert reviewers == {"@foobar", "@foobaz", "sileht"}
 
 
-def test_random_config_too_much_count():
+def test_random_config_too_much_count() -> None:
     with pytest.raises(voluptuous.MultipleInvalid) as p:
         request_reviews.RequestReviewsAction.get_schema()(
             {
@@ -124,7 +124,7 @@ def test_random_config_too_much_count():
     )
 
 
-def test_get_reviewers():
+def test_get_reviewers() -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -152,88 +152,8 @@ def test_get_reviewers():
     assert reviewers == ({"jd"}, {"foobar"})
 
 
-async def prepare_context(client, redis_cache, subscribed=True):
-    sub = subscription.Subscription(
-        redis_cache,
-        123,
-        "sub or not to sub",
-        frozenset(
-            getattr(subscription.Features, f) for f in subscription.Features.__members__
-        )
-        if subscribed
-        else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
-    )
-
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "user/name",
-            "name": github_types.GitHubRepositoryName("name"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(installation_json, sub, client, redis_cache)
-    repository = context.Repository(installation, gh_repo)
-    return await context.Context.create(
-        repository,
-        {
-            "id": 12345,
-            "number": 123,
-            "state": None,
-            "mergeable_state": "ok",
-            "mergeable": True,
-            "merged_by": None,
-            "merged": None,
-            "merged_at": None,
-            "user": {"login": "jd"},
-            "requested_reviewers": [{"login": "jd"}, {"login": "sileht"}],
-            "requested_teams": [{"slug": "foobar"}, {"slug": "foobaz"}],
-            "base": {
-                "sha": "sha",
-                "ref": "main",
-                "user": {
-                    "login": {
-                        "Mergifyio",
-                    },
-                },
-                "repo": {
-                    "full_name": "Mergifyio/demo",
-                    "name": "demo",
-                    "private": False,
-                    "owner": {
-                        "login": "Mergifyio",
-                    },
-                },
-            },
-        },
-    )
-
-
 @pytest.mark.asyncio
-async def test_disabled(redis_cache):
+async def test_disabled(context_getter: conftest.ContextGetterFixture) -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -247,8 +167,7 @@ async def test_disabled(redis_cache):
             },
         },
     )
-    client = mock.MagicMock()
-    ctxt = await prepare_context(client, redis_cache, subscribed=False)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
     result = await action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Random request reviews are disabled"
@@ -259,7 +178,10 @@ async def test_disabled(redis_cache):
 
 
 @pytest.mark.asyncio
-async def test_team_permissions_missing(redis_cache):
+@pytest.mark.subscription
+async def test_team_permissions_missing(
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -279,7 +201,8 @@ async def test_team_permissions_missing(redis_cache):
             message="not found", response=mock.ANY, request=mock.ANY
         )
     )
-    ctxt = await prepare_context(client, redis_cache)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
     result = await action.run(ctxt, None)
     assert result.conclusion == check_api.Conclusion.FAILURE
     assert result.title == "Invalid requested teams"
@@ -291,7 +214,10 @@ async def test_team_permissions_missing(redis_cache):
 
 
 @pytest.mark.asyncio
-async def test_team_permissions_ok(redis_cache):
+@pytest.mark.subscription
+async def test_team_permissions_ok(
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
             "random_count": 2,
@@ -307,7 +233,8 @@ async def test_team_permissions_ok(redis_cache):
     )
     client = mock.MagicMock()
     client.get = mock.AsyncMock(return_value={})
-    ctxt = await prepare_context(client, redis_cache)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
     result = await action.run(ctxt, None)
     assert result.summary == ""
     assert result.title == "No new reviewers to request"

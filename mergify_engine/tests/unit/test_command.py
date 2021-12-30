@@ -21,12 +21,10 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.actions.backport import BackportAction
 from mergify_engine.actions.rebase import RebaseAction
-from mergify_engine.clients import github
-from mergify_engine.dashboard import subscription
 from mergify_engine.engine import commands_runner
+from mergify_engine.tests.unit import conftest
 
 
 EMPTY_CONFIG = rules.get_mergify_config(
@@ -117,125 +115,12 @@ defaults:
     }
 
 
-async def _create_context(
-    redis_cache: utils.RedisCache, client: github.AsyncGithubInstallationClient
-) -> context.Context:
-    sub = subscription.Subscription(
-        redis_cache,
-        123,
-        "",
-        frozenset({subscription.Features.PUBLIC_REPOSITORY}),
-        0,
-    )
-    gh_user = github_types.GitHubAccount(
-        {
-            "type": "User",
-            "id": github_types.GitHubAccountIdType(1),
-            "login": github_types.GitHubLogin("octocat"),
-            "avatar_url": "",
-        }
-    )
-
-    gh_owner = github_types.GitHubAccount(
-        {
-            "type": "User",
-            "id": github_types.GitHubAccountIdType(123),
-            "login": github_types.GitHubLogin("Mergifyio"),
-            "avatar_url": "",
-        }
-    )
-    gh_repo = github_types.GitHubRepository(
-        {
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("main"),
-            "id": github_types.GitHubRepositoryIdType(123),
-            "full_name": "user/ref",
-            "name": github_types.GitHubRepositoryName("demo"),
-            "private": False,
-            "owner": gh_owner,
-        }
-    )
-
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        sub,
-        client,
-        redis_cache,
-    )
-
-    repository = context.Repository(installation, gh_repo)
-
-    return await context.Context.create(
-        repository,
-        github_types.GitHubPullRequest(
-            {
-                "node_id": "42",
-                "locked": False,
-                "assignees": [],
-                "requested_reviewers": [],
-                "requested_teams": [],
-                "milestone": None,
-                "title": "",
-                "body": "",
-                "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-                "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-                "closed_at": None,
-                "id": github_types.GitHubPullRequestId(0),
-                "maintainer_can_modify": False,
-                "rebaseable": False,
-                "draft": False,
-                "merge_commit_sha": None,
-                "labels": [],
-                "number": github_types.GitHubPullRequestNumber(789),
-                "commits": 1,
-                "state": "open",
-                "html_url": "<html_url>",
-                "user": gh_user,
-                "merged": False,
-                "head": {
-                    "label": "Mergifyio:feature",
-                    "sha": github_types.SHAType("sha2"),
-                    "ref": github_types.GitHubRefType("feature"),
-                    "user": gh_owner,
-                    "repo": gh_repo,
-                },
-                "base": {
-                    "label": "Mergifyio:main",
-                    "sha": github_types.SHAType("sha1"),
-                    "ref": github_types.GitHubRefType("main"),
-                    "user": gh_owner,
-                    "repo": gh_repo,
-                },
-                "merged_by": None,
-                "merged_at": None,
-                "mergeable_state": "clean",
-                "mergeable": True,
-                "changed_files": 300,
-            }
-        ),
-        [],
-    )
-
-
 @pytest.mark.asyncio
 async def test_run_command_without_rerun_and_without_user(
-    redis_cache: utils.RedisCache,
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
 
-    client = mock.MagicMock()
-
-    ctxt = await _create_context(redis_cache, client)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
 
     with pytest.raises(RuntimeError) as error_msg:
         await commands_runner.handle(
@@ -249,13 +134,14 @@ async def test_run_command_without_rerun_and_without_user(
 
 @pytest.mark.asyncio
 async def test_run_command_with_rerun_and_without_user(
-    redis_cache: utils.RedisCache,
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
 
     client = mock.Mock()
     client.post = mock.AsyncMock()
 
-    ctxt = await _create_context(redis_cache, client)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
 
     await commands_runner.handle(
         ctxt=ctxt,
@@ -285,7 +171,7 @@ async def test_run_command_with_rerun_and_without_user(
             "Sorry but I didn't understand the command",
         ),
         (
-            1,
+            123,
             "nothing",
             "Sorry but I didn't understand the command",
         ),
@@ -308,12 +194,11 @@ async def test_run_command_with_rerun_and_without_user(
 )
 @pytest.mark.asyncio
 async def test_run_command_with_user(
-    user_id: int, permission: str, result: str, redis_cache: utils.RedisCache
+    user_id: int,
+    permission: str,
+    result: str,
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
-
-    client = mock.Mock()
-
-    ctxt = await _create_context(redis_cache, client)
 
     user = github_types.GitHubAccount(
         {
@@ -324,12 +209,16 @@ async def test_run_command_with_user(
         },
     )
 
+    client = mock.Mock()
     client.item = mock.AsyncMock()
     client.item.return_value = {
         "permission": permission,
         "user": user,
     }
     client.post = mock.AsyncMock()
+
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
 
     await commands_runner.handle(
         ctxt=ctxt,
@@ -352,12 +241,15 @@ async def test_run_command_with_user(
 
 
 @pytest.mark.asyncio
-async def test_run_command_with_wrong_arg(redis_cache: utils.RedisCache) -> None:
+async def test_run_command_with_wrong_arg(
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
 
     client = mock.Mock()
     client.post = mock.AsyncMock()
 
-    ctxt = await _create_context(redis_cache, client)
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
 
     await commands_runner.handle(
         ctxt=ctxt,

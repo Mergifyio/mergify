@@ -28,26 +28,32 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
+from mergify_engine.tests.unit import conftest
 
 
-async def fake_train_car_create_pull(inner_self, queue_rule):
-    inner_self.queue_pull_request_number = (
+async def fake_train_car_create_pull(
+    inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
+) -> None:
+    inner_self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
         inner_self.still_queued_embarked_pulls[-1].user_pull_request_number + 10
     )
 
 
-async def fake_train_car_update_user_pull(inner_self, queue_rule):
+async def fake_train_car_update_user_pull(
+    inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
+) -> None:
     pass
 
 
-async def fake_train_car_delete_pull(inner_self, reason):
+async def fake_train_car_delete_pull(
+    inner_self: merge_train.TrainCar, reason: str
+) -> None:
     pass
 
 
-@pytest.fixture
-def monkepatched_traincar(monkeypatch):
+@pytest.fixture(autouse=True)
+def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "mergify_engine.queue.merge_train.TrainCar.update_user_pull",
         fake_train_car_update_user_pull,
@@ -96,22 +102,22 @@ QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
 
 
 @pytest.fixture
-def fake_client():
+def fake_client() -> mock.Mock:
     branch = {"commit": {"sha": "sha1"}}
 
     def item_call(url, *args, **kwargs):
-        if url == "/repos/user/name/contents/.mergify.yml":
+        if url == "/repos/Mergifyio/mergify-engine/contents/.mergify.yml":
             return {
                 "type": "file",
                 "sha": "whatever",
                 "content": base64.b64encode(MERGIFY_CONFIG.encode()).decode(),
                 "path": ".mergify.yml",
             }
-        elif url == "repos/user/name/branches/branch":
+        elif url == "repos/Mergifyio/mergify-engine/branches/branch":
             return branch
 
         for i in range(40, 49):
-            if url.startswith(f"/repos/user/name/pulls/{i}"):
+            if url.startswith(f"/repos/Mergifyio/mergify-engine/pulls/{i}"):
                 return {"merged": True, "merge_commit_sha": f"sha{i}"}
 
         raise Exception(f"url not mocked: {url}")
@@ -125,86 +131,17 @@ def fake_client():
     return client
 
 
-async def fake_context(repository, number, **kwargs):
-    pull: github_types.GitHubPullRequest = {
-        "node_id": "42",
-        "locked": False,
-        "assignees": [],
-        "requested_reviewers": [],
-        "requested_teams": [],
-        "milestone": None,
-        "title": "awesome",
-        "body": "",
-        "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-        "closed_at": None,
-        "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-        "id": 123,
-        "maintainer_can_modify": True,
-        "user": {
-            "id": 123,
-            "type": "Orgs",
-            "login": "Mergifyio",
-            "avatar_url": "",
-        },
-        "labels": [],
-        "rebaseable": True,
-        "draft": False,
-        "merge_commit_sha": None,
-        "number": number,
-        "commits": 1,
-        "mergeable_state": "clean",
-        "mergeable": True,
-        "state": "open",
-        "changed_files": 1,
-        "head": {
-            "sha": "azertyu",
-            "label": "Mergifyio:feature-branch",
-            "ref": "feature-branch",
-            "repo": {
-                "id": 123,
-                "default_branch": "main",
-                "name": "mergify-engine",
-                "full_name": "Mergifyio/mergify-engine",
-                "archived": False,
-                "private": False,
-                "owner": {
-                    "id": 123,
-                    "type": "Orgs",
-                    "login": "Mergifyio",
-                    "avatar_url": "",
-                },
-                "url": "https://api.github.com/repos/Mergifyio/mergify-engine",
-                "html_url": "https://github.com/Mergifyio/mergify-engine",
-            },
-            "user": {
-                "id": 123,
-                "type": "Orgs",
-                "login": "Mergifyio",
-                "avatar_url": "",
-            },
-        },
-        "merged": False,
-        "merged_by": None,
-        "merged_at": None,
-        "html_url": "https://...",
-        "base": {
-            "label": "Mergifyio:branch",
-            "ref": "branch",
-            "repo": repository.repo,
-            "sha": "miaou",
-            "user": {
-                "id": 123,
-                "type": "Orgs",
-                "login": "Mergifyio",
-                "avatar_url": "",
-            },
-        },
-    }
-    pull.update(kwargs)
-    return await context.Context.create(repository, pull)
+@pytest.fixture
+def repository(
+    fake_repository: context.Repository, fake_client: mock.Mock
+) -> context.Repository:
+    fake_repository.installation.client = fake_client
+    return fake_repository
 
 
-def get_cars_content(train):
+def get_cars_content(
+    train: merge_train.Train,
+) -> typing.List[typing.List[github_types.GitHubPullRequestNumber]]:
     cars = []
     for car in train._cars:
         cars.append(
@@ -214,64 +151,20 @@ def get_cars_content(train):
     return cars
 
 
-def get_waiting_content(train):
+def get_waiting_content(
+    train: merge_train.Train,
+) -> typing.List[github_types.GitHubPullRequestNumber]:
     return [wp.user_pull_request_number for wp in train._waiting_pulls]
 
 
-@pytest.fixture
-def repository(redis_cache, fake_client):
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "user/name",
-            "name": github_types.GitHubRepositoryName("name"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        fake_client,
-        redis_cache,
-    )
-    return context.Repository(installation, gh_repo)
-
-
-def get_config(
-    queue_name: rules.QueueName, priority: int = 100
-) -> queue.PullQueueConfig:
+def get_config(queue_name: str, priority: int = 100) -> queue.PullQueueConfig:
     effective_priority = typing.cast(
         int,
         priority
         + QUEUE_RULES[queue_name].config["priority"] * queue.QUEUE_PRIORITY_OFFSET,
     )
     return queue.PullQueueConfig(
-        name=queue_name,
+        name=rules.QueueName(queue_name),
         strict_method="merge",
         update_method="merge",
         priority=priority,
@@ -283,198 +176,213 @@ def get_config(
 
 
 @pytest.mark.asyncio
-async def test_train_add_pull(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_add_pull(
+    context_getter: conftest.ContextGetterFixture,
+    repository: context.Repository,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five")
 
-    await t.add_pull(await fake_context(repository, 1), config)
+    await t.add_pull(await context_getter(1), config)
     await t.refresh()
     assert [[1]] == get_cars_content(t)
 
-    await t.add_pull(await fake_context(repository, 2), config)
+    await t.add_pull(await context_getter(2), config)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
 
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_middle_merged(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_middle_merged(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five")
-    await t.add_pull(await fake_context(repository, 1), config)
-    await t.add_pull(await fake_context(repository, 2), config)
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(1), config)
+    await t.add_pull(await context_getter(2), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(
-        await fake_context(repository, 2, merged=True, merge_commit_sha="new_sha1")
+        await context_getter(2, merged=True, merge_commit_sha="new_sha1")
     )
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_middle_not_merged(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_middle_not_merged(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("five", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("five", 100))
-    await t.add_pull(await fake_context(repository, 2), get_config("five", 1000))
+    await t.add_pull(await context_getter(1), get_config("five", 1000))
+    await t.add_pull(await context_getter(3), get_config("five", 100))
+    await t.add_pull(await context_getter(2), get_config("five", 1000))
 
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_head_not_merged(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_head_not_merged(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five")
 
-    await t.add_pull(await fake_context(repository, 1), config)
-    await t.add_pull(await fake_context(repository, 2), config)
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(1), config)
+    await t.add_pull(await context_getter(2), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    await t.remove_pull(await fake_context(repository, 1))
+    await t.remove_pull(await context_getter(1))
     await t.refresh()
     assert [[2], [2, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_head_merged(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_head_merged(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five")
 
-    await t.add_pull(await fake_context(repository, 1), config)
-    await t.add_pull(await fake_context(repository, 2), config)
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(1), config)
+    await t.add_pull(await context_getter(2), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     await t.remove_pull(
-        await fake_context(repository, 1, merged=True, merge_commit_sha="new_sha1")
+        await context_getter(1, merged=True, merge_commit_sha="new_sha1")
     )
     await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_add_remove_pull_idempotant(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_add_remove_pull_idempotant(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five", priority=0)
 
-    await t.add_pull(await fake_context(repository, 1), config)
-    await t.add_pull(await fake_context(repository, 2), config)
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(1), config)
+    await t.add_pull(await context_getter(2), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
     config = get_config("five", priority=10)
 
-    await t.add_pull(await fake_context(repository, 1), config)
+    await t.add_pull(await context_getter(1), config)
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_mutiple_queue(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_mutiple_queue(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config_two = get_config("two", priority=0)
     config_five = get_config("five", priority=0)
 
-    await t.add_pull(await fake_context(repository, 1), config_two)
-    await t.add_pull(await fake_context(repository, 2), config_two)
-    await t.add_pull(await fake_context(repository, 3), config_five)
-    await t.add_pull(await fake_context(repository, 4), config_five)
+    await t.add_pull(await context_getter(1), config_two)
+    await t.add_pull(await context_getter(2), config_two)
+    await t.add_pull(await context_getter(3), config_five)
+    await t.add_pull(await context_getter(4), config_five)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3, 4] == get_waiting_content(t)
 
     # Ensure we don't got over the train_size
-    await t.add_pull(await fake_context(repository, 5), config_two)
+    await t.add_pull(await context_getter(5), config_two)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [5, 3, 4] == get_waiting_content(t)
 
-    await t.add_pull(await fake_context(repository, 6), config_five)
-    await t.add_pull(await fake_context(repository, 7), config_five)
-    await t.add_pull(await fake_context(repository, 8), config_five)
-    await t.add_pull(await fake_context(repository, 9), config_five)
+    await t.add_pull(await context_getter(6), config_five)
+    await t.add_pull(await context_getter(7), config_five)
+    await t.add_pull(await context_getter(8), config_five)
+    await t.add_pull(await context_getter(9), config_five)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1], [1, 5]] == get_cars_content(
         t
     ), f"{get_cars_content(t)} {get_waiting_content(t)}"
     assert [3, 4, 6, 7, 8, 9] == get_waiting_content(t)
 
-    await t.remove_pull(await fake_context(repository, 1))
-    await t.remove_pull(await fake_context(repository, 5))
+    await t.remove_pull(await context_getter(1))
+    await t.remove_pull(await context_getter(5))
     await t.refresh()
     assert [[3], [3, 4], [3, 4, 6], [3, 4, 6, 7], [3, 4, 6, 7, 8]] == get_cars_content(
         t
     )
     assert [9] == get_waiting_content(t)
 
-    t = merge_train.Train(repository, "branch")
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
     assert [[3], [3, 4], [3, 4, 6], [3, 4, 6, 7], [3, 4, 6, 7, 8]] == get_cars_content(
         t
@@ -483,14 +391,16 @@ async def test_train_mutiple_queue(repository, monkepatched_traincar):
 
 
 @pytest.mark.asyncio
-async def test_train_remove_duplicates(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_duplicates(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 4), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("two", 1000))
+    await t.add_pull(await context_getter(2), get_config("two", 1000))
+    await t.add_pull(await context_getter(3), get_config("two", 1000))
+    await t.add_pull(await context_getter(4), get_config("two", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -518,57 +428,63 @@ async def test_train_remove_duplicates(repository, monkepatched_traincar):
 
 
 @pytest.mark.asyncio
-async def test_train_remove_end_wp(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_end_wp(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("one", 1000))
+    await t.add_pull(await context_getter(2), get_config("one", 1000))
+    await t.add_pull(await context_getter(3), get_config("one", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
 
-    await t.remove_pull(await fake_context(repository, 3))
+    await t.remove_pull(await context_getter(3))
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2] == get_waiting_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_first_wp(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_first_wp(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("one", 1000))
+    await t.add_pull(await context_getter(2), get_config("one", 1000))
+    await t.add_pull(await context_getter(3), get_config("one", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
 
-    await t.remove_pull(await fake_context(repository, 2))
+    await t.remove_pull(await context_getter(2))
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
 
 
 @pytest.mark.asyncio
-async def test_train_remove_last_cars(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_remove_last_cars(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("one", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("one", 1000))
+    await t.add_pull(await context_getter(2), get_config("one", 1000))
+    await t.add_pull(await context_getter(3), get_config("one", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
 
-    await t.remove_pull(await fake_context(repository, 1))
+    await t.remove_pull(await context_getter(1))
     await t.refresh()
     assert [[2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
@@ -576,20 +492,20 @@ async def test_train_remove_last_cars(repository, monkepatched_traincar):
 
 @pytest.mark.asyncio
 async def test_train_with_speculative_checks_decreased(
-    repository, monkepatched_traincar
-):
-    t = merge_train.Train(repository, "branch")
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("five", 1000)
-    await t.add_pull(await fake_context(repository, 1), config)
+    await t.add_pull(await context_getter(1), config)
 
     QUEUE_RULES["five"].config["speculative_checks"] = 2
 
-    await t.add_pull(await fake_context(repository, 2), config)
-    await t.add_pull(await fake_context(repository, 3), config)
-    await t.add_pull(await fake_context(repository, 4), config)
-    await t.add_pull(await fake_context(repository, 5), config)
+    await t.add_pull(await context_getter(2), config)
+    await t.add_pull(await context_getter(3), config)
+    await t.add_pull(await context_getter(4), config)
+    await t.add_pull(await context_getter(5), config)
 
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 4, 5]] == get_cars_content(
@@ -598,7 +514,7 @@ async def test_train_with_speculative_checks_decreased(
     assert [] == get_waiting_content(t)
 
     await t.remove_pull(
-        await fake_context(repository, 1, merged=True, merge_commit_sha="new_sha1")
+        await context_getter(1, merged=True, merge_commit_sha="new_sha1")
     )
 
     with mock.patch.object(
@@ -619,15 +535,14 @@ queue_rules:
 
 @pytest.mark.asyncio
 async def test_train_queue_config_change(
-    repository,
-    monkepatched_traincar,
-):
-    t = merge_train.Train(repository, "branch")
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("two", 1000))
+    await t.add_pull(await context_getter(2), get_config("two", 1000))
+    await t.add_pull(await context_getter(3), get_config("two", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -652,16 +567,16 @@ queue_rules:
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_config_deleted(
-    report_failure,
-    repository,
-    monkepatched_traincar,
-):
-    t = merge_train.Train(repository, "branch")
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("five", 1000))
+    await t.add_pull(await context_getter(1), get_config("two", 1000))
+    await t.add_pull(await context_getter(2), get_config("two", 1000))
+    await t.add_pull(await context_getter(3), get_config("five", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -686,15 +601,15 @@ queue_rules:
 
 @pytest.mark.asyncio
 async def test_train_priority_change(
-    repository,
-    monkepatched_traincar,
-):
-    t = merge_train.Train(repository, "branch")
+    repository: context.Repository,
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await fake_context(repository, 1), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 2), get_config("two", 1000))
-    await t.add_pull(await fake_context(repository, 3), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("two", 1000))
+    await t.add_pull(await context_getter(2), get_config("two", 1000))
+    await t.add_pull(await context_getter(3), get_config("two", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -706,7 +621,7 @@ async def test_train_priority_change(
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
     # update the position but update the prio
-    await t.add_pull(await fake_context(repository, 1), get_config("two", 2000))
+    await t.add_pull(await context_getter(1), get_config("two", 2000))
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
@@ -716,13 +631,21 @@ async def test_train_priority_change(
     )
 
 
-def test_train_batch_split():
+def test_train_batch_split(repository: context.Repository) -> None:
     now = datetime.datetime.utcnow()
-    t = merge_train.Train(repository, "branch")
-    p1_two = merge_train.EmbarkedPull(1, get_config("two"), now)
-    p2_two = merge_train.EmbarkedPull(2, get_config("two"), now)
-    p3_two = merge_train.EmbarkedPull(3, get_config("two"), now)
-    p4_five = merge_train.EmbarkedPull(4, get_config("five"), now)
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    p1_two = merge_train.EmbarkedPull(
+        github_types.GitHubPullRequestNumber(1), get_config("two"), now
+    )
+    p2_two = merge_train.EmbarkedPull(
+        github_types.GitHubPullRequestNumber(2), get_config("two"), now
+    )
+    p3_two = merge_train.EmbarkedPull(
+        github_types.GitHubPullRequestNumber(3), get_config("two"), now
+    )
+    p4_five = merge_train.EmbarkedPull(
+        github_types.GitHubPullRequestNumber(4), get_config("five"), now
+    )
 
     assert ([p1_two], [p2_two, p3_two, p4_five]) == t._get_next_batch(
         [p1_two, p2_two, p3_two, p4_five], "two", 1
@@ -741,17 +664,18 @@ def test_train_batch_split():
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_2x5(
-    report_failure,
-    repository,
-    monkepatched_traincar,
-):
-    t = merge_train.Train(repository, "branch")
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    fake_client: mock.Mock,
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     for i in range(41, 46):
-        await t.add_pull(await fake_context(repository, i), get_config("2x5", 1000))
+        await t.add_pull(await context_getter(i), get_config("2x5", 1000))
     for i in range(6, 20):
-        await t.add_pull(await fake_context(repository, i), get_config("2x5", 1000))
+        await t.add_pull(await context_getter(i), get_config("2x5", 1000))
 
     await t.refresh()
     assert [
@@ -799,14 +723,10 @@ async def test_train_queue_splitted_on_failure_2x5(
     # mark [41+42] as ready and merge it
     t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
     await t.save()
-    repository.installation.client.update_base_sha("sha41")
-    await t.remove_pull(
-        await fake_context(repository, 41, merged=True, merge_commit_sha="sha41")
-    )
-    repository.installation.client.update_base_sha("sha42")
-    await t.remove_pull(
-        await fake_context(repository, 42, merged=True, merge_commit_sha="sha42")
-    )
+    fake_client.update_base_sha("sha41")
+    await t.remove_pull(await context_getter(41, merged=True, merge_commit_sha="sha41"))
+    fake_client.update_base_sha("sha42")
+    await t.remove_pull(await context_getter(42, merged=True, merge_commit_sha="sha42"))
 
     # [43+44] fail, so it's not 45, but is it 43 or 44?
     await t.refresh()
@@ -821,7 +741,7 @@ async def test_train_queue_splitted_on_failure_2x5(
     # mark [43] as failure
     t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
     await t.save()
-    await t.remove_pull(await fake_context(repository, 43, merged=False))
+    await t.remove_pull(await context_getter(43, merged=False))
 
     # Train got cut after 43, and we restart from the begining
     await t.refresh()
@@ -837,17 +757,18 @@ async def test_train_queue_splitted_on_failure_2x5(
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_5x3(
-    report_failure,
-    repository,
-    monkepatched_traincar,
-):
-    t = merge_train.Train(repository, "branch")
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    context_getter: conftest.ContextGetterFixture,
+    fake_client: mock.Mock,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     for i in range(41, 47):
-        await t.add_pull(await fake_context(repository, i), get_config("5x3", 1000))
+        await t.add_pull(await context_getter(i), get_config("5x3", 1000))
     for i in range(7, 22):
-        await t.add_pull(await fake_context(repository, i), get_config("5x3", 1000))
+        await t.add_pull(await context_getter(i), get_config("5x3", 1000))
 
     await t.refresh()
     assert [
@@ -885,7 +806,7 @@ async def test_train_queue_splitted_on_failure_5x3(
     # mark [41] as failed
     t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
     await t.save()
-    await t.remove_pull(await fake_context(repository, 41, merged=False))
+    await t.remove_pull(await context_getter(41, merged=False))
 
     # nothing should move yet as we don't known yet if [41+42] is broken or not
     await t.refresh()
@@ -907,18 +828,12 @@ async def test_train_queue_splitted_on_failure_5x3(
     t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
     t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
     await t.save()
-    repository.installation.client.update_base_sha("sha42")
-    await t.remove_pull(
-        await fake_context(repository, 42, merged=True, merge_commit_sha="sha42")
-    )
-    repository.installation.client.update_base_sha("sha43")
-    await t.remove_pull(
-        await fake_context(repository, 43, merged=True, merge_commit_sha="sha43")
-    )
-    repository.installation.client.update_base_sha("sha44")
-    await t.remove_pull(
-        await fake_context(repository, 44, merged=True, merge_commit_sha="sha44")
-    )
+    fake_client.update_base_sha("sha42")
+    await t.remove_pull(await context_getter(42, merged=True, merge_commit_sha="sha42"))
+    fake_client.update_base_sha("sha43")
+    await t.remove_pull(await context_getter(43, merged=True, merge_commit_sha="sha43"))
+    fake_client.update_base_sha("sha44")
+    await t.remove_pull(await context_getter(44, merged=True, merge_commit_sha="sha44"))
 
     await t.refresh()
     assert [
@@ -948,14 +863,10 @@ async def test_train_queue_splitted_on_failure_5x3(
     assert len(t._cars[1].failure_history) == 1
     assert len(t._cars[2].failure_history) == 0
     # Merge 45 and 46
-    repository.installation.client.update_base_sha("sha45")
-    await t.remove_pull(
-        await fake_context(repository, 45, merged=True, merge_commit_sha="sha45")
-    )
-    repository.installation.client.update_base_sha("sha46")
-    await t.remove_pull(
-        await fake_context(repository, 46, merged=True, merge_commit_sha="sha46")
-    )
+    fake_client.update_base_sha("sha45")
+    await t.remove_pull(await context_getter(45, merged=True, merge_commit_sha="sha45"))
+    fake_client.update_base_sha("sha46")
+    await t.remove_pull(await context_getter(46, merged=True, merge_commit_sha="sha46"))
     await t.refresh()
     assert [
         [42, 43, 44, 45, 46, 7],
@@ -964,7 +875,7 @@ async def test_train_queue_splitted_on_failure_5x3(
     assert len(t._cars[0].failure_history) == 0
 
     # remove the failed 7
-    await t.remove_pull(await fake_context(repository, 7, merged=False))
+    await t.remove_pull(await context_getter(7, merged=False))
 
     # Train got cut after 43, and we restart from the begining
     await t.refresh()
@@ -979,30 +890,32 @@ async def test_train_queue_splitted_on_failure_5x3(
 
 
 @pytest.mark.asyncio
-async def test_train_no_interrupt_add_pull(repository, monkepatched_traincar):
-    t = merge_train.Train(repository, "branch")
+async def test_train_no_interrupt_add_pull(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
     config = get_config("noint")
 
-    await t.add_pull(await fake_context(repository, 1), config)
+    await t.add_pull(await context_getter(1), config)
     await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [] == get_waiting_content(t)
 
-    await t.add_pull(await fake_context(repository, 2), config)
+    await t.add_pull(await context_getter(2), config)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [] == get_waiting_content(t)
 
-    await t.add_pull(await fake_context(repository, 3), config)
+    await t.add_pull(await context_getter(3), config)
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
 
     # Inserting high prio didn't break started speculative checks, but the PR
     # move above other
-    await t.add_pull(await fake_context(repository, 4), get_config("noint", 20000))
+    await t.add_pull(await context_getter(4), get_config("noint", 20000))
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [4, 3] == get_waiting_content(t)

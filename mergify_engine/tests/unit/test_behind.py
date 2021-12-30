@@ -14,15 +14,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import typing
 from unittest import mock
 
 import pytest
 
-from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine.tests.unit import conftest
 
 
-def create_commit(sha=None):
+def create_commit(sha: github_types.SHAType) -> github_types.GitHubBranchCommit:
     return github_types.GitHubBranchCommit(
         {
             "sha": sha,
@@ -53,7 +54,7 @@ def commits_tree_generator(request):
     # O: mean old commit of base branch
     # P: mean another unknown branch
     commits = []
-    cur = create_commit()
+    cur = create_commit("whatever")
     tree = request.param
     behind = "U" not in tree
 
@@ -62,7 +63,7 @@ def commits_tree_generator(request):
         tree = tree[1:]
         if elem == "-":
             commits.append(cur)
-            cur = create_commit()
+            cur = create_commit("whatever")
             cur["parents"].append(commits[-1])
         elif elem == "U":
             cur["parents"].append(create_commit("base"))
@@ -77,60 +78,24 @@ def commits_tree_generator(request):
 
 
 @pytest.mark.asyncio
-async def test_pull_behind(commits_tree_generator, redis_cache):
+async def test_pull_behind(
+    commits_tree_generator: typing.Any, context_getter: conftest.ContextGetterFixture
+) -> None:
     expected, commits = commits_tree_generator
 
-    async def get_commits(*args, **kwargs):
+    async def get_commits(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        # /pulls/X/commits
         for c in commits:
             yield c
 
-    async def item(*args, **kwargs):
+    async def item(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        # /branch/#foo
         return {"commit": {"sha": "base"}}
 
     client = mock.Mock()
-    client.items.return_value = get_commits()  # /pulls/X/commits
+    client.items.return_value = get_commits()
+    client.item.return_value = item()
 
-    client.item.return_value = item()  # /branch/#foo
-
-    gh_owner = github_types.GitHubAccount(
-        {
-            "type": "User",
-            "id": github_types.GitHubAccountIdType(12345),
-            "login": github_types.GitHubLogin("CytopiaTeam"),
-            "avatar_url": "",
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(installation_json, {}, client, redis_cache)
-    repository = context.Repository(
-        installation, {"name": "name", "id": 123456, "private": False}
-    )
-    ctxt = await context.Context.create(
-        repository,
-        {
-            "number": 1,
-            "mergeable_state": "clean",
-            "mergeable": True,
-            "state": "open",
-            "merged": False,
-            "merged_at": None,
-            "merged_by": None,
-            "base": {
-                "ref": "#foo",
-                "repo": {"name": "foobar", "private": False},
-                "sha": "miaou",
-                "user": {"login": "jd"},
-            },
-        },
-        {},
-    )
-
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
     assert expected == await ctxt.is_behind
