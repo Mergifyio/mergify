@@ -186,7 +186,7 @@ pull_request_rules:
                   - files~=^releasenotes/notes
               - or:
                   - label=Skip documentation
-                  - files~=^doc/source
+                  - files~=^docs/source
               - body~=MRGY-
     actions:
       post_check:
