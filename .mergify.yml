@@ -187,7 +187,7 @@ pull_request_rules:
               - or:
                   - label=Skip documentation
                   - files~=^docs/source
-              - body~=MRGY-
+              - body~=MRGFY-
     actions:
       post_check:
         title: |
