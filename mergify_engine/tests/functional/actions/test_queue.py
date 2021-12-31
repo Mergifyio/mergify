@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import datetime
 import itertools
 import operator
 import time
@@ -2203,6 +2204,7 @@ DO NOT EDIT
                                 "config": {
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
+                                    "batch_max_wait_time": 0.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 1,
@@ -2224,6 +2226,7 @@ DO NOT EDIT
                                 "config": {
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
+                                    "batch_max_wait_time": 0.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 0,
@@ -2243,6 +2246,7 @@ DO NOT EDIT
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
                                     "batch_size": 1,
+                                    "batch_max_wait_time": 0.0,
                                     "checks_timeout": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
@@ -2914,6 +2918,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             priority=0,
             speculative_checks=5,
             batch_size=1,
+            batch_max_wait_time=datetime.timedelta(seconds=0),
             allow_inplace_checks=True,
             allow_checks_interruption=True,
             checks_timeout=None,
@@ -2987,6 +2992,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             priority=0,
             speculative_checks=5,
             batch_size=1,
+            batch_max_wait_time=datetime.timedelta(seconds=0),
             allow_inplace_checks=True,
             allow_checks_interruption=True,
             checks_timeout=None,
