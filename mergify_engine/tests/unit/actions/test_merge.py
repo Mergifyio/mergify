@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
@@ -23,64 +24,8 @@ from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.actions import merge
 from mergify_engine.actions import merge_base
-from mergify_engine.dashboard import subscription
 from mergify_engine.rules import conditions
-
-
-GH_OWNER = github_types.GitHubAccount(
-    {
-        "login": github_types.GitHubLogin("user"),
-        "id": github_types.GitHubAccountIdType(0),
-        "type": "User",
-        "avatar_url": "",
-    }
-)
-
-GH_REPO = github_types.GitHubRepository(
-    {
-        "full_name": "user/name",
-        "name": github_types.GitHubRepositoryName("name"),
-        "private": False,
-        "id": github_types.GitHubRepositoryIdType(0),
-        "owner": GH_OWNER,
-        "archived": False,
-        "url": "",
-        "html_url": "",
-        "default_branch": github_types.GitHubRefType("ref"),
-    }
-)
-PR = {
-    "number": 43,
-    "state": "unknown",
-    "mergeable_state": "ok",
-    "mergeable": True,
-    "merged_by": {"login": "me"},
-    "merged": False,
-    "merged_at": None,
-    "title": "My PR title",
-    "user": {"login": "user"},
-    "head": {"ref": "fork", "sha": "shasha", "repo": GH_REPO},
-    "base": {
-        "ref": "main",
-        "user": {"login": "user"},
-        "repo": GH_REPO,
-        "sha": "miaou",
-    },
-    "assignees": [],
-    "locked": False,
-    "labels": [],
-    "requested_reviewers": [],
-    "requested_teams": [],
-    "milestone": None,
-}
-GH_INSTALLATION = github_types.GitHubInstallation(
-    {
-        "id": github_types.GitHubInstallationIdType(12345),
-        "target_type": GH_OWNER["type"],
-        "permissions": {},
-        "account": GH_OWNER,
-    }
-)
+from mergify_engine.tests.unit import conftest
 
 
 @pytest.mark.parametrize(
@@ -118,7 +63,7 @@ is longer""",
 Authored-By: {{author}}
 on two lines""",
             "My PR title",
-            "Authored-By: user\non two lines",
+            "Authored-By: contributor\non two lines",
             "default",
         ),
         (
@@ -177,14 +122,11 @@ my title
     ],
 )
 @pytest.mark.asyncio
-async def test_merge_commit_message(body, title, message, mode):
-    pull = PR.copy()
-    pull["body"] = body
-    client = mock.MagicMock()
-    installation = context.Installation(GH_INSTALLATION, {}, client, None)
-    repository = context.Repository(installation, GH_REPO, 123)
-    repository._caches.branch_protections["main"] = None
-    ctxt = await context.Context.create(repository=repository, pull=pull)
+async def test_merge_commit_message(body, title, message, mode, context_getter):
+    ctxt = await context_getter(
+        github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
+    )
+    ctxt.repository._caches.branch_protections["main"] = None
     ctxt._caches.pull_statuses.set(
         [
             github_types.GitHubStatus(
@@ -229,15 +171,14 @@ on two lines"""
     ],
 )
 @pytest.mark.asyncio
-async def test_merge_commit_message_undefined(body):
-    pull = PR.copy()
-    pull["body"] = body
-    client = mock.MagicMock()
-    installation = context.Installation(GH_INSTALLATION, {}, client, None)
-    repository = context.Repository(installation, GH_REPO, 123)
-    pr = await context.Context.create(repository=repository, pull=pull)
+async def test_merge_commit_message_undefined(
+    body: str, context_getter: conftest.ContextGetterFixture
+) -> None:
+    ctxt = await context_getter(
+        github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
+    )
     with pytest.raises(context.RenderTemplateFailure) as x:
-        await pr.pull_request.get_commit_message()
+        await ctxt.pull_request.get_commit_message()
         assert str(x) == "foobar"
 
 
@@ -257,50 +198,27 @@ here is my message {{ and broken template
     ],
 )
 @pytest.mark.asyncio
-async def test_merge_commit_message_syntax_error(body, error, redis_cache):
-    pull = PR.copy()
-    pull["body"] = body
-    client = mock.MagicMock()
-    installation = context.Installation(GH_INSTALLATION, {}, client, redis_cache)
-    repository = context.Repository(installation, GH_REPO, 123)
-    pr = await context.Context.create(repository=repository, pull=pull)
+async def test_merge_commit_message_syntax_error(
+    body: str, error: str, context_getter: conftest.ContextGetterFixture
+) -> None:
+    ctxt = await context_getter(
+        github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
+    )
     with pytest.raises(context.RenderTemplateFailure) as rmf:
-        await pr.pull_request.get_commit_message()
+        await ctxt.pull_request.get_commit_message()
         assert str(rmf) == error
 
 
-def gen_config(priorities):
+def gen_config(priorities: typing.List[int]) -> typing.List[typing.Dict[str, int]]:
     return [{"priority": priority} for priority in priorities]
 
 
 @pytest.mark.asyncio
-async def test_queue_summary(redis_cache):
-    repository = mock.Mock(
-        get_pull_request_context=mock.AsyncMock(
-            return_value=mock.Mock(pull={"title": "foo"})
-        )
+async def test_queue_summary(context_getter: conftest.ContextGetterFixture) -> None:
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(0))
+    ctxt.repository.get_pull_request_context = mock.AsyncMock(  # type: ignore[assignment]
+        return_value=mock.Mock(pull={"title": "foo"})
     )
-    ctxt = mock.Mock(
-        repository=repository,
-        subscription=subscription.Subscription(
-            redis_cache,
-            123,
-            True,
-            "We're just testing",
-            frozenset({subscription.Features.PRIORITY_QUEUES}),
-        ),
-    )
-    ctxt.missing_feature_reason = subscription.Subscription.missing_feature_reason
-    ctxt.pull = {
-        "number": 0,
-        "base": {
-            "repo": {
-                "owner": {
-                    "login": "Mergifyio",
-                },
-            },
-        },
-    }
     q = mock.AsyncMock(installation_id=12345)
     q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     q.get_config.side_effect = gen_config(

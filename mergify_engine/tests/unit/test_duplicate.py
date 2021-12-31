@@ -18,24 +18,30 @@ from unittest import mock
 
 import pytest
 
-from mergify_engine import context
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
-from mergify_engine import utils
-from mergify_engine.dashboard import subscription
+from mergify_engine.tests.unit import conftest
 
 
 async def fake_get_github_pulls_from_sha(url, api_version=None):
     pr = {
         "number": 6,
         "base": {
-            "ref": "ref",
-            "sha": "sha",
-            "repo": {"full_name": "user/ref", "name": "name", "private": False},
+            "ref": "main",
+            "sha": "the-base-sha",
+            "repo": {
+                "full_name": "Mergifyio/mergify-engine",
+                "name": "mergify-engine",
+                "private": False,
+            },
         },
         "head": {
-            "ref": "fork",
-            "repo": {"full_name": "fork/other", "name": "other", "private": False},
+            "ref": "main",
+            "repo": {
+                "full_name": "contributor/mergify-engine",
+                "name": "mergify-engine",
+                "private": False,
+            },
         },
     }
     if url.endswith("commits/rebased_c1/pulls"):
@@ -53,39 +59,8 @@ async def fake_get_github_pulls_from_sha(url, api_version=None):
 @pytest.mark.asyncio
 async def test_get_commits_to_cherry_pick_rebase(
     commits: mock.PropertyMock,
-    redis_cache: utils.RedisCache,
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "user/name",
-            "name": github_types.GitHubRepositoryName("name"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
     c1 = github_types.CachedGitHubBranchCommit(
         {
             "sha": github_types.SHAType("c1f"),
@@ -108,107 +83,8 @@ async def test_get_commits_to_cherry_pick_rebase(
     client.auth.get_access_token.return_value = "<token>"
     client.items.side_effect = fake_get_github_pulls_from_sha
 
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-    ctxt = await context.Context.create(
-        repository,
-        {
-            "node_id": "42",
-            "locked": False,
-            "assignees": [],
-            "requested_reviewers": [],
-            "requested_teams": [],
-            "milestone": None,
-            "labels": [],
-            "draft": False,
-            "merge_commit_sha": github_types.SHAType(""),
-            "title": "",
-            "body": "",
-            "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "closed_at": None,
-            "commits": 1,
-            "rebaseable": False,
-            "maintainer_can_modify": False,
-            "id": github_types.GitHubPullRequestId(0),
-            "number": github_types.GitHubPullRequestNumber(6),
-            "merged": True,
-            "state": "closed",
-            "html_url": "<html_url>",
-            "changed_files": 1,
-            "base": {
-                "label": "",
-                "sha": github_types.SHAType("sha"),
-                "user": {
-                    "login": github_types.GitHubLogin("user"),
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-                "ref": github_types.GitHubRefType("ref"),
-                "repo": {
-                    "full_name": "user/ref",
-                    "name": github_types.GitHubRepositoryName("name"),
-                    "private": False,
-                    "id": github_types.GitHubRepositoryIdType(0),
-                    "owner": {
-                        "login": github_types.GitHubLogin("user"),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
-                    "archived": False,
-                    "url": "",
-                    "html_url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                },
-            },
-            "head": {
-                "label": "",
-                "sha": github_types.SHAType("sha"),
-                "ref": github_types.GitHubRefType("fork"),
-                "user": {
-                    "login": github_types.GitHubLogin("user"),
-                    "id": github_types.GitHubAccountIdType(0),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-                "repo": {
-                    "full_name": "fork/other",
-                    "name": github_types.GitHubRepositoryName("other"),
-                    "private": False,
-                    "archived": False,
-                    "url": "",
-                    "html_url": "",
-                    "default_branch": github_types.GitHubRefType(""),
-                    "id": github_types.GitHubRepositoryIdType(0),
-                    "owner": {
-                        "login": github_types.GitHubLogin("user"),
-                        "id": github_types.GitHubAccountIdType(0),
-                        "type": "User",
-                        "avatar_url": "",
-                    },
-                },
-            },
-            "user": {
-                "login": github_types.GitHubLogin("user"),
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "User",
-                "avatar_url": "",
-            },
-            "merged_by": None,
-            "merged_at": None,
-            "mergeable_state": "clean",
-            "mergeable": True,
-        },
-    )
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(6))
+    ctxt.repository.installation.client = client
 
     base_branch = github_types.GitHubBranchCommitParent(
         {"sha": github_types.SHAType("base_branch")}
@@ -252,7 +128,7 @@ async def test_get_commits_to_cherry_pick_rebase(
 @pytest.mark.asyncio
 async def test_get_commits_to_cherry_pick_merge(
     commits: mock.PropertyMock,
-    redis_cache: utils.RedisCache,
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
     c1 = github_types.CachedGitHubBranchCommit(
         {
@@ -279,116 +155,8 @@ async def test_get_commits_to_cherry_pick_merge(
     client = mock.Mock()
     client.auth.get_access_token.return_value = "<token>"
 
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "user/name",
-            "name": github_types.GitHubRepositoryName("name"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-    ctxt = await context.Context.create(
-        repository,
-        {
-            "node_id": "42",
-            "locked": False,
-            "assignees": [],
-            "requested_reviewers": [],
-            "requested_teams": [],
-            "milestone": None,
-            "number": github_types.GitHubPullRequestNumber(6),
-            "commits": 1,
-            "merged": True,
-            "state": "closed",
-            "html_url": "<html_url>",
-            "id": github_types.GitHubPullRequestId(0),
-            "maintainer_can_modify": True,
-            "labels": [],
-            "rebaseable": True,
-            "draft": True,
-            "merge_commit_sha": None,
-            "title": "foobar",
-            "body": "",
-            "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-            "closed_at": None,
-            "changed_files": 1,
-            "base": {
-                "label": "user:ref",
-                "sha": github_types.SHAType("sha"),
-                "ref": github_types.GitHubRefType("ref"),
-                "user": gh_owner,
-                "repo": github_types.GitHubRepository(
-                    {
-                        "full_name": "user/ref",
-                        "name": github_types.GitHubRepositoryName("name"),
-                        "private": False,
-                        "id": github_types.GitHubRepositoryIdType(0),
-                        "owner": gh_owner,
-                        "archived": False,
-                        "url": "",
-                        "html_url": "",
-                        "default_branch": github_types.GitHubRefType("ref"),
-                    }
-                ),
-            },
-            "head": {
-                "label": "user:ref",
-                "sha": github_types.SHAType("sha"),
-                "user": gh_owner,
-                "ref": github_types.GitHubRefType("fork"),
-                "repo": github_types.GitHubRepository(
-                    {
-                        "full_name": "fork/other",
-                        "name": github_types.GitHubRepositoryName("name"),
-                        "private": False,
-                        "id": github_types.GitHubRepositoryIdType(0),
-                        "owner": gh_owner,
-                        "archived": False,
-                        "url": "",
-                        "html_url": "",
-                        "default_branch": github_types.GitHubRefType("ref"),
-                    }
-                ),
-            },
-            "user": gh_owner,
-            "merged_at": None,
-            "merged_by": None,
-            "mergeable_state": "clean",
-            "mergeable": True,
-        },
-    )
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
 
     base_branch = github_types.CachedGitHubBranchCommit(
         {

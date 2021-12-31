@@ -26,12 +26,11 @@ from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.clients import http
-from mergify_engine.dashboard import subscription
 from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import conditions
 from mergify_engine.rules import get_mergify_config
+from mergify_engine.tests.unit import conftest
 
 
 def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
@@ -420,7 +419,9 @@ def test_jinja_with_wrong_syntax():
     ),
 )
 @pytest.mark.asyncio
-async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> None:
+async def test_get_mergify_config(
+    valid: str, fake_repository: context.Repository
+) -> None:
     async def item(
         *args: typing.Any, **kwargs: typing.Any
     ) -> github_types.GitHubContentFile:
@@ -435,49 +436,9 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
 
     client = mock.Mock()
     client.item.return_value = item()
+    fake_repository.installation.client = client
 
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("user"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "user/name",
-            "name": github_types.GitHubRepositoryName("name"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-
-    config_file = await repository.get_mergify_config_file()
+    config_file = await fake_repository.get_mergify_config_file()
     assert config_file is not None
     schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
@@ -485,7 +446,9 @@ async def test_get_mergify_config(valid: str, redis_cache: utils.RedisCache) -> 
 
 
 @pytest.mark.asyncio
-async def test_get_mergify_config_with_defaults(redis_cache: utils.RedisCache) -> None:
+async def test_get_mergify_config_with_defaults(
+    fake_repository: context.Repository,
+) -> None:
 
     config = """
 defaults:
@@ -518,47 +481,9 @@ pull_request_rules:
 
     client = mock.Mock()
     client.item.return_value = item()
+    fake_repository.installation.client = client
 
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("foobar"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "foobar/xyz",
-            "name": github_types.GitHubRepositoryName("xyz"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-    config_file = await repository.get_mergify_config_file()
+    config_file = await fake_repository.get_mergify_config_file()
     assert config_file is not None
 
     schema = get_mergify_config(config_file)
@@ -589,17 +514,10 @@ pull_request_rules:
 
     client = mock.Mock()
     client.item.return_value = item()
+    fake_repository.installation.client = client
 
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-    config_file = await repository.get_mergify_config_file()
+    fake_repository._caches.mergify_config.delete()
+    config_file = await fake_repository.get_mergify_config_file()
     assert config_file is not None
 
     schema = get_mergify_config(config_file)
@@ -613,7 +531,7 @@ pull_request_rules:
 
 @pytest.mark.asyncio
 async def test_get_mergify_config_location_from_cache(
-    redis_cache: utils.RedisCache,
+    fake_repository: context.Repository,
 ) -> None:
     client = mock.AsyncMock()
     client.item.side_effect = [
@@ -628,54 +546,22 @@ async def test_get_mergify_config_location_from_cache(
             }
         ),
     ]
-
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("foobar"),
-            "id": github_types.GitHubAccountIdType(0),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-    gh_repo = github_types.GitHubRepository(
-        {
-            "full_name": "foobar/xyz",
-            "name": github_types.GitHubRepositoryName("xyz"),
-            "private": False,
-            "id": github_types.GitHubRepositoryIdType(0),
-            "owner": gh_owner,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType("ref"),
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-
-    await repository.get_mergify_config_file()
+    fake_repository.installation.client = client
+    await fake_repository.get_mergify_config_file()
     assert client.item.call_count == 3
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foobar/xyz/contents/.mergify.yml", params={}),
-            mock.call("/repos/foobar/xyz/contents/.mergify/config.yml", params={}),
-            mock.call("/repos/foobar/xyz/contents/.github/mergify.yml", params={}),
+            mock.call(
+                "/repos/Mergifyio/mergify-engine/contents/.mergify.yml", params={}
+            ),
+            mock.call(
+                "/repos/Mergifyio/mergify-engine/contents/.mergify/config.yml",
+                params={},
+            ),
+            mock.call(
+                "/repos/Mergifyio/mergify-engine/contents/.github/mergify.yml",
+                params={},
+            ),
         ]
     )
 
@@ -690,12 +576,16 @@ async def test_get_mergify_config_location_from_cache(
             }
         ),
     ]
-    repository._caches = context.RepositoryCaches()
-    await repository.get_mergify_config_file()
+
+    fake_repository._caches = context.RepositoryCaches()
+    await fake_repository.get_mergify_config_file()
     assert client.item.call_count == 1
     client.item.assert_has_calls(
         [
-            mock.call("/repos/foobar/xyz/contents/.github/mergify.yml", params={}),
+            mock.call(
+                "/repos/Mergifyio/mergify-engine/contents/.github/mergify.yml",
+                params={},
+            ),
         ]
     )
 
@@ -720,7 +610,7 @@ async def test_get_mergify_config_location_from_cache(
 )
 @pytest.mark.asyncio
 async def test_get_mergify_config_invalid(
-    invalid: str, redis_cache: utils.RedisCache
+    invalid: str, fake_repository: context.Repository
 ) -> None:
     with pytest.raises(InvalidRules):
 
@@ -738,56 +628,14 @@ async def test_get_mergify_config_invalid(
 
         client = mock.Mock()
         client.item.return_value = item()
+        fake_repository.installation.client = client
 
-        gh_owner = github_types.GitHubAccount(
-            {
-                "login": github_types.GitHubLogin("foobar"),
-                "id": github_types.GitHubAccountIdType(0),
-                "type": "User",
-                "avatar_url": "",
-            }
-        )
-        gh_repo = github_types.GitHubRepository(
-            {
-                "full_name": "foobar/xyz",
-                "name": github_types.GitHubRepositoryName("xyz"),
-                "private": False,
-                "id": github_types.GitHubRepositoryIdType(0),
-                "owner": gh_owner,
-                "archived": False,
-                "url": "",
-                "html_url": "",
-                "default_branch": github_types.GitHubRefType("ref"),
-            }
-        )
-        installation_json = github_types.GitHubInstallation(
-            {
-                "id": github_types.GitHubInstallationIdType(12345),
-                "target_type": gh_owner["type"],
-                "permissions": {},
-                "account": gh_owner,
-            }
-        )
-
-        installation = context.Installation(
-            installation_json,
-            subscription.Subscription(
-                redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-            ),
-            client,
-            redis_cache,
-        )
-        repository = context.Repository(
-            installation,
-            gh_repo,
-        )
-
-        config_file = await repository.get_mergify_config_file()
+        config_file = await fake_repository.get_mergify_config_file()
         assert config_file is not None
         get_mergify_config(config_file)
 
 
-def test_user_configuration_schema():
+def test_user_configuration_schema() -> None:
     with pytest.raises(voluptuous.Invalid) as exc_info:
         rules.UserConfigurationSchema(rules.YamlSchema("- no\n* way"))
     assert str(exc_info.value) == "Invalid YAML at [line 2, column 2]"
@@ -991,7 +839,9 @@ def test_pull_request_rule_schema_invalid(invalid, match):
 
 
 @pytest.mark.asyncio
-async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
+async def test_get_pull_request_rule(
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
 
     client = mock.Mock()
 
@@ -1017,11 +867,11 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     ]
 
     async def client_item(url, *args, **kwargs):
-        if url == "/repos/another-jd/name/collaborators/sileht/permission":
+        if url == "/repos/Mergifyio/mergify-engine/collaborators/sileht/permission":
             return {"permission": "write"}
-        elif url == "/repos/another-jd/name/collaborators/jd/permission":
+        elif url == "/repos/Mergifyio/mergify-engine/collaborators/jd/permission":
             return {"permission": "write"}
-        elif url == "/repos/another-jd/name/branches/main/protection":
+        elif url == "/repos/Mergifyio/mergify-engine/branches/main/protection":
             raise http.HTTPNotFound(
                 message="boom", response=mock.Mock(), request=mock.Mock()
             )
@@ -1030,19 +880,19 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
     client.item.side_effect = client_item
 
     async def client_items(url, *args, **kwargs):
-        if url == "/repos/another-jd/name/pulls/1/reviews":
+        if url == "/repos/Mergifyio/mergify-engine/pulls/1/reviews":
             for r in get_reviews:
                 yield r
-        elif url == "/repos/another-jd/name/pulls/1/files":
+        elif url == "/repos/Mergifyio/mergify-engine/pulls/1/files":
             for f in get_files:
                 yield f
-        elif url == "/repos/another-jd/name/commits/<sha>/check-runs":
+        elif url == "/repos/Mergifyio/mergify-engine/commits/the-head-sha/check-runs":
             for c in get_checks:
                 yield c
-        elif url == "/repos/another-jd/name/commits/<sha>/status":
+        elif url == "/repos/Mergifyio/mergify-engine/commits/the-head-sha/status":
             for s in get_statuses:
                 yield s
-        elif url == "/orgs/another-jd/teams/my-reviewers/members":
+        elif url == "/orgs/Mergifyio/teams/my-reviewers/members":
             for tm in get_team_members:
                 yield tm
         else:
@@ -1050,99 +900,8 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     client.items.side_effect = client_items
 
-    gh_owner = github_types.GitHubAccount(
-        {
-            "login": github_types.GitHubLogin("another-jd"),
-            "id": github_types.GitHubAccountIdType(2644),
-            "type": "User",
-            "avatar_url": "",
-        }
-    )
-    gh_repo = github_types.GitHubRepository(
-        {
-            "id": github_types.GitHubRepositoryIdType(123321),
-            "name": github_types.GitHubRepositoryName("name"),
-            "full_name": "another-jd/name",
-            "private": False,
-            "archived": False,
-            "url": "",
-            "html_url": "",
-            "default_branch": github_types.GitHubRefType(""),
-            "owner": gh_owner,
-        }
-    )
-    installation_json = github_types.GitHubInstallation(
-        {
-            "id": github_types.GitHubInstallationIdType(12345),
-            "target_type": gh_owner["type"],
-            "permissions": {},
-            "account": gh_owner,
-        }
-    )
-
-    installation = context.Installation(
-        installation_json,
-        subscription.Subscription(
-            redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
-        ),
-        client,
-        redis_cache,
-    )
-    repository = context.Repository(installation, gh_repo)
-    ctxt = await context.Context.create(
-        repository,
-        github_types.GitHubPullRequest(
-            {
-                "node_id": "42",
-                "locked": False,
-                "assignees": [],
-                "requested_reviewers": [],
-                "requested_teams": [],
-                "milestone": None,
-                "id": github_types.GitHubPullRequestId(0),
-                "number": github_types.GitHubPullRequestNumber(1),
-                "commits": 1,
-                "html_url": "<html_url>",
-                "merge_commit_sha": None,
-                "maintainer_can_modify": True,
-                "rebaseable": True,
-                "state": "closed",
-                "updated_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-                "created_at": github_types.ISODateTimeType("2021-06-01T18:41:39Z"),
-                "closed_at": None,
-                "merged_by": None,
-                "merged_at": None,
-                "merged": False,
-                "draft": False,
-                "mergeable_state": "unstable",
-                "mergeable": True,
-                "labels": [],
-                "changed_files": 1,
-                "base": {
-                    "label": "repo",
-                    "ref": github_types.GitHubRefType("main"),
-                    "repo": gh_repo,
-                    "user": gh_owner,
-                    "sha": github_types.SHAType("mew"),
-                },
-                "head": {
-                    "label": "foo",
-                    "ref": github_types.GitHubRefType("myfeature"),
-                    "sha": github_types.SHAType("<sha>"),
-                    "repo": gh_repo,
-                    "user": gh_owner,
-                },
-                "title": "My awesome job",
-                "body": "",
-                "user": {
-                    "login": github_types.GitHubLogin("another-jd"),
-                    "id": github_types.GitHubAccountIdType(2644),
-                    "type": "User",
-                    "avatar_url": "",
-                },
-            }
-        ),
-    )
+    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
+    ctxt.repository.installation.client = client
 
     # Empty conditions
     pull_request_rules = rules.PullRequestRules(
@@ -1200,7 +959,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     pull_request_rules = pull_request_rule_from_list(
         [
-            {"name": "hello", "conditions": ["author:another-jd"], "actions": {}},
+            {"name": "hello", "conditions": ["author:contributor"], "actions": {}},
             {"name": "backport", "conditions": ["base:main"], "actions": {}},
         ]
     )
@@ -1359,7 +1118,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "default",
                 "conditions": [
-                    "approved-reviews-by=@another-jd/my-reviewers",
+                    "approved-reviews-by=@Mergifyio/my-reviewers",
                     "#approved-reviews-by>=2",
                 ],
                 "actions": {},
@@ -1396,7 +1155,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
             {
                 "name": "default",
                 "conditions": [
-                    "approved-reviews-by=@another-jd/my-reviewers",
+                    "approved-reviews-by=@Mergifyio/my-reviewers",
                     "#approved-reviews-by>=2",
                 ],
                 "actions": {},
@@ -1466,7 +1225,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
         [
             {
                 "name": "default",
-                "conditions": ["author~=^(user1|user2|another-jd)$"],
+                "conditions": ["author~=^(user1|user2|contributor)$"],
                 "actions": {},
             }
         ]
@@ -1482,7 +1241,7 @@ async def test_get_pull_request_rule(redis_cache: utils.RedisCache) -> None:
 
     # branch protection
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
-        if url == "/repos/another-jd/name/branches/main/protection":
+        if url == "/repos/Mergifyio/mergify-engine/branches/main/protection":
             return {
                 "required_status_checks": {"contexts": ["awesome-ci"]},
                 "required_linear_history": {"enabled": False},
