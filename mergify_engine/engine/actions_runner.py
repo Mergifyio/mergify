@@ -80,53 +80,37 @@ COMMIT_MESSAGE_MODE_DEPRECATION_SASS = """
 async def get_already_merged_summary(
     ctxt: context.Context, match: rules.RulesEvaluator
 ) -> str:
-    if not (
-        ctxt.pull["merged"]
-        and any(
-            (
-                s["event_type"] == "pull_request"
-                and typing.cast(github_types.GitHubEventPullRequest, s["data"])[
-                    "action"
-                ]
-                == "closed"
-                for s in ctxt.sources
-            )
-        )
-    ):
+    if not ctxt.pull["merged"]:
         return ""
 
-    action_merge_found_and_ran = False
-
-    for rule in match.matching_rules:
-        if "merge" in rule.actions:
-            # NOTE(sileht): Replace all -merged -closed by closed/merged and
-            # check it the rule still match if not it has been merged manually
-            custom_conditions = rule.conditions.copy()
-            for condition in custom_conditions.walk():
-                attr = condition.get_attribute_name()
-                if attr == "merged":
-                    condition.update("merged")
-                elif attr == "closed":
-                    condition.update("closed")
-
-            await custom_conditions([ctxt.pull_request])
-            if custom_conditions.match:
-                action_merge_found_and_ran = True
-
-    # We already have a fully detailled status in the rule associated with the
-    # action merge
-    if not action_merge_found_and_ran:
-        return ""
-
-    # NOTE(sileht): This looks impossible because the pull request hasn't been
-    # merged by our engine. If this pull request was a slice of another one,
-    # GitHub closes it automatically and put as merged_by the merger of the
-    # other one.
     if ctxt.pull["merged_by"] is None:
         merged_by = "???"
     else:
         merged_by = ctxt.pull["merged_by"]["login"]
+
     if merged_by == config.BOT_USER_LOGIN:
+        for rule in match.matching_rules:
+            if "merge" in rule.actions or "queue" in rule.actions:
+                # NOTE(sileht): Replace all -merged -closed by closed/merged and
+                # check it the rule still match if not it has been merged manually
+                custom_conditions = rule.conditions.copy()
+                for condition in custom_conditions.walk():
+                    attr = condition.get_attribute_name()
+                    if attr == "merged":
+                        condition.update("merged")
+                    elif attr == "closed":
+                        condition.update("closed")
+
+                await custom_conditions([ctxt.pull_request])
+                if custom_conditions.match:
+                    # We already have a fully detailled status in the rule
+                    # associated with the action queue/merge
+                    return ""
+
+        # NOTE(sileht): This looks impossible because the pull request hasn't been
+        # merged by our engine. If this pull request was a slice of another one,
+        # GitHub closes it automatically and put as merged_by the merger of the
+        # other one.
         return (
             "⚠️ The pull request has been closed by GitHub "
             "because its commits are also part of another pull request\n\n"
