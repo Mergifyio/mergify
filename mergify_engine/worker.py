@@ -453,6 +453,7 @@ class StreamProcessor:
                     self.owners_mapping[
                         installation.owner_id
                     ] = installation.owner_login
+                    owner_login_for_tracing = installation.owner_login
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
 
