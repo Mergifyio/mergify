@@ -47,7 +47,7 @@ Options
      - :ref:`data type template`
      - ``Pull request has been modified.``
      - The message to post when dismissing the review.
-   * - ``on``
+   * - ``when``
      - ``synchronize`` or ``always``
      - ``synchronize``
      - If set to ``synchronize``, the action will run only if the pull request commits changed.

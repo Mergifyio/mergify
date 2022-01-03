@@ -28,13 +28,13 @@ from mergify_engine.clients import http
 from mergify_engine.rules import types
 
 
-ON_SYNCHRONIZE = "synchronize"
-ON_ALWAYS = "always"
+WHEN_SYNCHRONIZE = "synchronize"
+WHEN_ALWAYS = "always"
 FROM_REQUESTED_REVIEWERS = "from_requested_reviewers"
 
 DEFAULT_MESSAGE = {
-    ON_SYNCHRONIZE: "Pull request has been modified.",
-    ON_ALWAYS: "Automatic dismiss reviews requested",
+    WHEN_SYNCHRONIZE: "Pull request has been modified.",
+    WHEN_ALWAYS: "Automatic dismiss reviews requested",
 }
 
 
@@ -61,8 +61,8 @@ class DismissReviewsAction(actions.Action):
         voluptuous.Required("message", default=None): voluptuous.Any(
             None, types.Jinja2
         ),
-        voluptuous.Required("on", default=ON_SYNCHRONIZE): voluptuous.Any(
-            ON_SYNCHRONIZE, ON_ALWAYS
+        voluptuous.Required("when", default=WHEN_SYNCHRONIZE): voluptuous.Any(
+            WHEN_SYNCHRONIZE, WHEN_ALWAYS
         ),
     }
 
@@ -71,7 +71,7 @@ class DismissReviewsAction(actions.Action):
     ) -> check_api.Result:
 
         if self.config["message"] is None:
-            message_raw = DEFAULT_MESSAGE[self.config["on"]]
+            message_raw = DEFAULT_MESSAGE[self.config["when"]]
         else:
             message_raw = typing.cast(str, self.config["message"])
 
@@ -84,7 +84,7 @@ class DismissReviewsAction(actions.Action):
                 str(rmf),
             )
 
-        if self.config["on"] == ON_SYNCHRONIZE and not ctxt.has_been_synchronized():
+        if self.config["when"] == WHEN_SYNCHRONIZE and not ctxt.has_been_synchronized():
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 "Nothing to do, pull request has not been synchronized",
@@ -97,7 +97,7 @@ class DismissReviewsAction(actions.Action):
         # As workaround we track in redis merge commit id
         # This is only true for method="rebase"
         if (
-            self.config["on"] == ON_SYNCHRONIZE
+            self.config["when"] == WHEN_SYNCHRONIZE
             and not await ctxt.has_been_synchronized_by_user()
         ):
             return check_api.Result(
