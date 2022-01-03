@@ -229,7 +229,7 @@ Unknown pull request attribute: Loser
                     "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "dismiss_reviews": {
-                            "on": "always",
+                            "when": "always",
                             "approved": "from_requested_reviewers",
                         }
                     },
