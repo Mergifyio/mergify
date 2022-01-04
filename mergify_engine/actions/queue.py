@@ -190,12 +190,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
                 )
-            await car.update_summaries(
-                status,
-                status,
-                queue_rule_evaluated,
-                unexpected_change=unexpected_changes,
-            )
+            await car.update_state(status, queue_rule_evaluated)
+            await car.update_summaries(status, unexpected_change=unexpected_changes)
             await q.save()
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():

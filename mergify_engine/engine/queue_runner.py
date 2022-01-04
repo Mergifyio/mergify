@@ -168,12 +168,8 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         event_types=[se["event_type"] for se in ctxt.sources],
     )
 
-    await car.update_summaries(
-        status,
-        real_status,
-        evaluated_queue_rule=evaluated_queue_rule,
-        unexpected_change=unexpected_changes,
-    )
+    await car.update_state(real_status, evaluated_queue_rule)
+    await car.update_summaries(status, unexpected_change=unexpected_changes)
     await train.save()
 
     if unexpected_changes:

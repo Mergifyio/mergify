@@ -2216,6 +2216,8 @@ DO NOT EDIT
                                 "in_place": True,
                                 "number": p3["number"],
                                 "started_at": mock.ANY,
+                                "checks": [],
+                                "evaluated_conditions": "- [ ] `status-success=continuous-integration/fast-ci`\n",
                             },
                         },
                         {
@@ -2957,7 +2959,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         assert tmp_pull["draft"]
 
         expected_table = f"| 1 | test_create_pull_basic: pull request n2 from fork ([#{p2['number']}]({p2['html_url']})) | foo/0 | #{tmp_pull['number']} | <fake_pretty_datetime()>|"
-        assert expected_table in await car.generate_merge_queue_summary(queue_rule)
+        assert expected_table in await car.generate_merge_queue_summary()
 
         await car.delete_pull(reason="testing deleted reason")
 
