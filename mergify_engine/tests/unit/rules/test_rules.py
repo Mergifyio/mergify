@@ -195,7 +195,7 @@ def test_pull_request_rule(valid):
         ),
         (
             {
-                "name": "not enought items or",
+                "name": "not enough items or",
                 "conditions": [{"or": ["label=foo"]}],
                 "actions": {},
             },
@@ -203,7 +203,7 @@ def test_pull_request_rule(valid):
         ),
         (
             {
-                "name": "not enought items and",
+                "name": "not enough items and",
                 "conditions": [{"and": []}],
                 "actions": {},
             },
