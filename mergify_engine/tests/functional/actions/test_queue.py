@@ -476,6 +476,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     ],
                     "speculative_checks": 2,
                     "batch_size": 2,
+                    "batch_max_wait_time": "0 s",
                 }
             ],
             "pull_request_rules": [
@@ -618,6 +619,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "batch_max_wait_time": "0 s",
                     "speculative_checks": 2,
                     "batch_size": 3,
                 }
@@ -744,6 +746,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     ],
                     "speculative_checks": 2,
                     "batch_size": 3,
+                    "batch_max_wait_time": "0 s",
                 }
             ],
             "pull_request_rules": [
@@ -2204,7 +2207,7 @@ DO NOT EDIT
                                 "config": {
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
-                                    "batch_max_wait_time": 0.0,
+                                    "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 1,
@@ -2228,7 +2231,7 @@ DO NOT EDIT
                                 "config": {
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
-                                    "batch_max_wait_time": 0.0,
+                                    "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
                                     "priority": 0,
@@ -2248,7 +2251,7 @@ DO NOT EDIT
                                     "allow_inplace_checks": True,
                                     "allow_checks_interruption": True,
                                     "batch_size": 1,
-                                    "batch_max_wait_time": 0.0,
+                                    "batch_max_wait_time": 30.0,
                                     "checks_timeout": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
