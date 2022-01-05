@@ -1441,13 +1441,34 @@ class Train(queue.QueueBase):
         elif missing_cars > 0 and self._waiting_pulls:
             # Not enough cars
             for _ in range(missing_cars):
-                pulls_to_check, self._waiting_pulls = self._get_next_batch(
+                pulls_to_check, remaining_pulls = self._get_next_batch(
                     self._waiting_pulls,
                     head.config["name"],
                     queue_rule.config["batch_size"],
                 )
+
                 if not pulls_to_check:
                     return
+
+                enough_to_batch = len(pulls_to_check) == queue_rule.config["batch_size"]
+                wait_enough_time_to_batch = (
+                    date.utcnow() - pulls_to_check[0].queued_at
+                    >= queue_rule.config["batch_max_wait_time"]
+                )
+                if not enough_to_batch and not wait_enough_time_to_batch:
+                    # Circular import
+                    from mergify_engine import delayed_refresh
+
+                    await delayed_refresh.plan_refresh_at_least_at(
+                        self.repository,
+                        pulls_to_check[0].user_pull_request_number,
+                        pulls_to_check[0].queued_at
+                        + queue_rule.config["batch_max_wait_time"],
+                    )
+
+                    return
+
+                self._waiting_pulls = remaining_pulls
 
                 # NOTE(sileht): still_queued_embarked_pulls is always in sync with self._current_base_sha.
                 # A TrainCar can be partially deleted and the next car may looks wierd as some parent PRs

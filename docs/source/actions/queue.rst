@@ -363,6 +363,12 @@ A ``queue_rules`` takes the following parameter:
        between 1 and 20.
        See :ref:`speculative checks`.
 
+   * - ``batch_max_wait_time``
+     - :ref:`Duration <duration>`
+     - 0 s
+     - |premium plan tag| The time to wait before creating the speculative check temporary pull request.
+       See :ref:`speculative checks`.
+
    * - ``checks_timeout``
      - :ref:`Duration <duration>`
      -

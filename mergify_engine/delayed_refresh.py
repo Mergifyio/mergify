@@ -34,6 +34,35 @@ LOG = daiquiri.getLogger(__name__)
 DELAYED_REFRESH_KEY = "delayed-refresh"
 
 
+def _redis_key(
+    repository: context.Repository, pull_number: github_types.GitHubPullRequestNumber
+) -> str:
+    return f"{repository.installation.owner_id}~{repository.installation.owner_login}~{repository.repo['id']}~{repository.repo['name']}~{pull_number}"
+
+
+async def _get_current_refresh_datetime(
+    repository: context.Repository,
+    pull_number: github_types.GitHubPullRequestNumber,
+) -> typing.Optional[datetime.datetime]:
+    score = await repository.installation.redis.zscore(
+        DELAYED_REFRESH_KEY, _redis_key(repository, pull_number)
+    )
+    if score is not None:
+        return date.fromtimestamp(float(score))
+    return None
+
+
+async def _set_current_refresh_datetime(
+    repository: context.Repository,
+    pull_number: github_types.GitHubPullRequestNumber,
+    at: datetime.datetime,
+) -> None:
+    await repository.installation.redis.zadd(
+        DELAYED_REFRESH_KEY,
+        **{_redis_key(repository, pull_number): at.timestamp()},
+    )
+
+
 async def plan_next_refresh(
     ctxt: context.Context,
     _rules: typing.Union[
@@ -41,14 +70,9 @@ async def plan_next_refresh(
     ],
     pull_request: context.BasePullRequest,
 ) -> None:
-    zset_subkey = f"{ctxt.repository.installation.owner_id}~{ctxt.repository.installation.owner_login}~{ctxt.repository.repo['id']}~{ctxt.repository.repo['name']}~{ctxt.pull['number']}"
-    best_bet: typing.Optional[datetime.datetime] = None
-
-    score = await ctxt.redis.zscore(DELAYED_REFRESH_KEY, zset_subkey)
-    if score is not None:
-        best_bet = date.fromtimestamp(float(score))
-        if best_bet < date.utcnow():
-            best_bet = None
+    best_bet = await _get_current_refresh_datetime(ctxt.repository, ctxt.pull["number"])
+    if best_bet is not None and best_bet < date.utcnow():
+        best_bet = None
 
     for rule in _rules:
         f = filter.NearDatetimeFilter(rule.conditions.extract_raw_filter_tree())
@@ -61,17 +85,33 @@ async def plan_next_refresh(
             best_bet = bet
 
     if best_bet is None or best_bet >= date.DT_MAX:
+        zset_subkey = _redis_key(ctxt.repository, ctxt.pull["number"])
         removed = await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)
         if removed is not None and removed > 0:
             ctxt.log.info("unplan to refresh pull request")
     else:
-        await ctxt.redis.zadd(
-            DELAYED_REFRESH_KEY,
-            **{zset_subkey: best_bet.timestamp()},
+        await _set_current_refresh_datetime(
+            ctxt.repository, ctxt.pull["number"], best_bet
         )
         ctxt.log.info(
             "plan to refresh pull request", refresh_planned_at=best_bet.isoformat()
         )
+
+
+async def plan_refresh_at_least_at(
+    repository: context.Repository,
+    pull_number: github_types.GitHubPullRequestNumber,
+    at: datetime.datetime,
+) -> None:
+    current = await _get_current_refresh_datetime(repository, pull_number)
+
+    if current is not None and current < at:
+        return
+
+    await _set_current_refresh_datetime(repository, pull_number, at)
+    repository.log.info(
+        "override plan to refresh pull request", refresh_planned_at=at.isoformat()
+    )
 
 
 async def send(

@@ -74,6 +74,7 @@ class QueueConfig(typing.TypedDict):
     priority: int
     speculative_checks: int
     batch_size: int
+    batch_max_wait_time: datetime.timedelta
     allow_inplace_checks: bool
     allow_checks_interruption: bool
     checks_timeout: typing.Optional[datetime.timedelta]
@@ -477,6 +478,13 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
     )
 
 
+def PositiveInterval(v: str) -> datetime.timedelta:
+    td = date.interval_from_string(v)
+    if td < datetime.timedelta(seconds=0):
+        raise voluptuous.Invalid("Interval must be positive")
+    return td
+
+
 def ChecksTimeout(v: str) -> datetime.timedelta:
     td = date.interval_from_string(v)
     if td < datetime.timedelta(seconds=60):
@@ -499,6 +507,9 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required("batch_size", default=1): voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
+                voluptuous.Required(
+                    "batch_max_wait_time", default="0 s"
+                ): voluptuous.Coerce(PositiveInterval),
                 voluptuous.Required("allow_inplace_checks", default=True): bool,
                 voluptuous.Required("allow_checks_interruption", default=True): bool,
                 voluptuous.Required(
