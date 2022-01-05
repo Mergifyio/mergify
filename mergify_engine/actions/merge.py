@@ -15,6 +15,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import enum
 import typing
 
@@ -147,6 +148,7 @@ class MergeAction(merge_base.MergeBaseAction):
                 "priority": 0,
                 "speculative_checks": 1,
                 "batch_size": 1,
+                "batch_max_wait_time": datetime.timedelta(seconds=0),
                 "allow_inplace_checks": True,
                 "allow_checks_interruption": True,
                 "checks_timeout": None,

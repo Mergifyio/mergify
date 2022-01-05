@@ -20,14 +20,17 @@ import sys
 import typing
 from unittest import mock
 
+from freezegun import freeze_time
 import pytest
 import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import delayed_refresh
 from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
+from mergify_engine import utils
 from mergify_engine.queue import merge_train
 from mergify_engine.tests.unit import conftest
 
@@ -49,6 +52,12 @@ async def fake_train_car_update_user_pull(
 async def fake_train_car_delete_pull(
     inner_self: merge_train.TrainCar, reason: str
 ) -> None:
+    pass
+
+
+@pytest.fixture(autouse=True)
+def autoload_redis(redis_stream: utils.RedisCache) -> None:
+    # Just always load redis_stream to load all redis scripts
     pass
 
 
@@ -93,6 +102,11 @@ queue_rules:
     speculative_checks: 2
     batch_size: 5
     allow_checks_interruption: False
+  - name: batch-wait-time
+    conditions: []
+    speculative_checks: 2
+    batch_size: 2
+    batch_max_wait_time: 5 m
 
 """
 
@@ -616,7 +630,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 41000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 51000
     )
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
@@ -627,7 +641,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 42000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 52000
     )
 
 
@@ -919,3 +933,43 @@ async def test_train_no_interrupt_add_pull(
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [4, 3] == get_waiting_content(t)
+
+
+@pytest.mark.asyncio
+async def test_train_batch_max_wait_time(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    with freeze_time("2021-09-22T08:00:00") as freezed_time:
+        t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+        await t.load()
+
+        config = get_config("batch-wait-time")
+
+        await t.add_pull(await context_getter(1), config)
+        await t.refresh()
+        assert [] == get_cars_content(t)
+        assert [1] == get_waiting_content(t)
+
+        # Enought PR to batch!
+        await t.add_pull(await context_getter(2), config)
+        await t.refresh()
+        assert [[1, 2]] == get_cars_content(t)
+        assert [] == get_waiting_content(t)
+
+        await t.add_pull(await context_getter(3), config)
+        await t.refresh()
+        assert [[1, 2]] == get_cars_content(t)
+        assert [3] == get_waiting_content(t)
+
+        d = await delayed_refresh._get_current_refresh_datetime(
+            repository, github_types.GitHubPullRequestNumber(3)
+        )
+        assert d is not None
+        assert d == freezed_time().replace(
+            tzinfo=datetime.timezone.utc
+        ) + datetime.timedelta(minutes=5)
+
+    with freeze_time("2021-09-22T08:05:02"):
+        await t.refresh()
+        assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
+        assert [] == get_waiting_content(t)

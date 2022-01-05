@@ -149,6 +149,7 @@ class Queues:
                                             "config": {
                                                 "priority": 100,
                                                 "batch_size": 1,
+                                                "batch_max_wait_time": 0,
                                                 "speculative_checks": 2,
                                                 "allow_inplace_checks": True,
                                                 "allow_checks_interruption": True,
@@ -171,6 +172,7 @@ class Queues:
                                             "config": {
                                                 "priority": 100,
                                                 "batch_size": 1,
+                                                "batch_max_wait_time": 0,
                                                 "speculative_checks": 2,
                                                 "allow_inplace_checks": True,
                                                 "allow_checks_interruption": True,
