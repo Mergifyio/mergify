@@ -22,6 +22,7 @@ from urllib import parse
 
 import daiquiri
 import first
+import pydantic
 import tenacity
 
 from mergify_engine import branch_updater
@@ -66,6 +67,11 @@ def is_base_branch_not_exists_exception(exc: BaseException) -> bool:
 
 class UnexpectedChange:
     pass
+
+
+class QueueRuleReport(typing.NamedTuple):
+    name: str
+    summary: str
 
 
 @dataclasses.dataclass
@@ -121,6 +127,40 @@ TrainCarState = typing.Literal[
 ]
 
 
+CheckStateT = typing.Literal[
+    "success",
+    "failure",
+    "error",
+    "cancelled",
+    "skipped",
+    "action_required",
+    "timed_out",
+    "pending",
+    "neutral",
+    "stale",
+]
+
+
+@pydantic.dataclasses.dataclass
+class QueueCheck:
+    name: str = dataclasses.field(metadata={"description": "Check name"})
+    description: str = dataclasses.field(metadata={"description": "Check description"})
+    url: typing.Optional[str] = dataclasses.field(
+        metadata={"description": "Check detail url"}
+    )
+    state: CheckStateT = dataclasses.field(metadata={"description": "Check state"})
+    avatar_url: typing.Optional[str] = dataclasses.field(
+        metadata={"description": "Check avatar_url"}
+    )
+
+    class Serialized(typing.TypedDict):
+        name: str
+        description: str
+        url: typing.Optional[str]
+        state: CheckStateT
+        avatar_url: typing.Optional[str]
+
+
 @dataclasses.dataclass
 class TrainCar:
     train: "Train" = dataclasses.field(repr=False)
@@ -138,6 +178,9 @@ class TrainCar:
         default_factory=list, repr=False
     )
     head_branch: typing.Optional[str] = None
+    last_checks: typing.List[QueueCheck] = dataclasses.field(default_factory=list)
+    last_evaluated_conditions: typing.Optional[str] = None
+    has_timed_out: bool = False
 
     class Serialized(typing.TypedDict):
         initial_embarked_pulls: typing.List[EmbarkedPull]
@@ -151,6 +194,9 @@ class TrainCar:
         # mymy can't parse recursive definition, yet
         failure_history: typing.List["TrainCar.Serialized"]  # type: ignore[misc]
         head_branch: typing.Optional[str]
+        last_checks: typing.List[QueueCheck.Serialized]
+        last_evaluated_conditions: typing.Optional[str]
+        has_timed_out: bool
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
@@ -164,6 +210,15 @@ class TrainCar:
             queue_pull_request_number=self.queue_pull_request_number,
             failure_history=[fh.serialized() for fh in self.failure_history],
             head_branch=self.head_branch,
+            last_checks=[
+                typing.cast(
+                    QueueCheck.Serialized,
+                    dataclasses.asdict(c),
+                )
+                for c in self.last_checks
+            ],
+            last_evaluated_conditions=self.last_evaluated_conditions,
+            has_timed_out=self.has_timed_out,
         )
 
     @classmethod
@@ -208,6 +263,11 @@ class TrainCar:
         else:
             creation_date = date.utcnow()
 
+        if "last_checks" in data:
+            last_checks = [QueueCheck(**c) for c in data["last_checks"]]
+        else:
+            last_checks = []
+
         car = cls(
             train,
             initial_embarked_pulls=initial_embarked_pulls,
@@ -222,6 +282,9 @@ class TrainCar:
             queue_pull_request_number=data["queue_pull_request_number"],
             failure_history=failure_history,
             head_branch=data.get("head_branch"),
+            last_checks=last_checks,
+            last_evaluated_conditions=data.get("last_evaluated_conditions"),
+            has_timed_out=data.get("has_timed_out", False),
         )
         if "head_branch" not in data:
             car.head_branch = car._get_pulls_branch_ref()
@@ -365,11 +428,8 @@ class TrainCar:
             ctxt.log,
             ctxt.has_been_refreshed_by_timer(),
         )
-        await self.update_summaries(
-            check_api.Conclusion.PENDING,
-            check_api.Conclusion.PENDING,
-            evaluated_queue_rule,
-        )
+        await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
+        await self.update_summaries(check_api.Conclusion.PENDING)
 
     def _get_pulls_branch_ref(self) -> str:
         return "-".join(
@@ -465,9 +525,7 @@ class TrainCar:
 
         try:
             title = f"merge-queue: embarking {self._get_embarked_refs()} together"
-            body = await self.generate_merge_queue_summary(
-                queue_rule, for_queue_pull_request=True
-            )
+            body = await self.generate_merge_queue_summary(for_queue_pull_request=True)
             tmp_pull = (
                 await self.train.repository.installation.client.post(
                     f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
@@ -496,17 +554,11 @@ class TrainCar:
             self.train.repository.log,
             False,
         )
-        await self.update_summaries(
-            check_api.Conclusion.PENDING,
-            check_api.Conclusion.PENDING,
-            evaluated_queue_rule,
-        )
+        await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
+        await self.update_summaries(check_api.Conclusion.PENDING)
 
     async def generate_merge_queue_summary(
         self,
-        queue_rule: typing.Optional[
-            typing.Union[rules.EvaluatedQueueRule, rules.QueueRule]
-        ],
         *,
         for_queue_pull_request: bool = False,
         show_queue: bool = True,
@@ -528,7 +580,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
 """
 
         description += await self.train.generate_merge_queue_summary_footer(
-            queue_rule=queue_rule, show_queue=show_queue
+            queue_rule_report=QueueRuleReport(
+                self.still_queued_embarked_pulls[0].config["name"],
+                self.last_evaluated_conditions or "",
+            ),
+            show_queue=show_queue,
         )
         return description.strip()
 
@@ -552,7 +608,6 @@ You don't need to do anything. Mergify will close this pull request automaticall
             ):
                 reason = f"✨ {reason}. The pull request {self._get_user_refs()} has been re-embarked. ✨"
                 body = await self.generate_merge_queue_summary(
-                    None,
                     for_queue_pull_request=True,
                     headline=reason,
                     show_queue=False,
@@ -641,16 +696,80 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     source="draft pull creation error",
                 )
 
+    async def update_state(
+        self,
+        checks_conclusion: check_api.Conclusion,
+        evaluated_queue_rule: rules.EvaluatedQueueRule,
+    ) -> None:
+        self.checks_conclusion = checks_conclusion
+        self.last_evaluated_conditions = evaluated_queue_rule.conditions.get_summary()
+        self.last_checks = []
+        self.has_timed_out = False
+
+        if checks_conclusion == check_api.Conclusion.FAILURE:
+            for condition in evaluated_queue_rule.conditions.walk():
+                if (
+                    condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
+                    and not condition.match
+                ):
+                    self.has_timed_out = True
+                    break
+
+        if self.creation_state == "created":
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    "car state is created, but queue_pull_request_number is None"
+                )
+
+            checked_ctxt = await self.train.repository.get_pull_request_context(
+                self.queue_pull_request_number
+            )
+        elif self.creation_state == "updated":
+            if len(self.still_queued_embarked_pulls) != 1:
+                raise RuntimeError("multiple embarked_pulls but state==updated")
+
+            checked_ctxt = await self.train.repository.get_pull_request_context(
+                self.still_queued_embarked_pulls[0].user_pull_request_number
+            )
+        else:
+            return
+
+        for check in await checked_ctxt.pull_check_runs:
+            # Don't copy Summary/Rule/Queue/... checks
+            if check["app_id"] == config.INTEGRATION_ID:
+                continue
+
+            output_title = ""
+            if check["output"] and check["output"]["title"]:
+                output_title = f" — {check['output']['title']}"
+
+            self.last_checks.append(
+                QueueCheck(
+                    name=f"{check['app_name']}/{check['name']}",
+                    description=output_title,
+                    avatar_url=check["app_avatar_url"],
+                    url=check["html_url"],
+                    state=check["conclusion"] or "pending",
+                )
+            )
+
+        for status in await checked_ctxt.pull_statuses:
+            self.last_checks.append(
+                QueueCheck(
+                    name=status["context"],
+                    description=status["description"],
+                    avatar_url=status["avatar_url"],
+                    url=status["target_url"],
+                    state=status["state"] or "pending",
+                )
+            )
+
     async def update_summaries(
         self,
         conclusion: check_api.Conclusion,
-        checks_conclusion: check_api.Conclusion,
-        evaluated_queue_rule: rules.EvaluatedQueueRule,
         *,
         unexpected_change: typing.Optional[UnexpectedChange] = None,
     ) -> None:
-        self.checks_conclusion = checks_conclusion
-
         refs = self._get_user_refs()
         if conclusion == check_api.Conclusion.SUCCESS:
             if len(self.initial_embarked_pulls) == 1:
@@ -672,18 +791,12 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     f"The pull requests {refs} cannot be merged and will be split"
                 )
 
-        checks_timeout_summary = ""
-        if conclusion == check_api.Conclusion.FAILURE:
-            for condition in evaluated_queue_rule.conditions.walk():
-                if (
-                    condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
-                    and not condition.match
-                ):
-                    checks_timeout_summary = "\n\n⏲️  The checks have timed out ⏲️"
-                    break
+        checks_timeout_summary = (
+            "\n\n⏲️  The checks have timed out ⏲️" if self.has_timed_out else ""
+        )
 
         queue_summary = "\n\nRequired conditions for merge:\n\n"
-        queue_summary += evaluated_queue_rule.conditions.get_summary()
+        queue_summary += self.last_evaluated_conditions or ""
 
         if self.failure_history:
             batch_failure_summary = f"\n\nThe pull request {self._get_user_refs()} is part of a speculative checks batch that previously failed:\n"
@@ -737,14 +850,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
             elif conclusion == check_api.Conclusion.PENDING:
                 if unexpected_change is not None:
                     headline = f"✨ Unexpected queue change: {unexpected_change}. The pull request {self._get_user_refs()} will be re-embarked soon. ✨"
-                elif checks_conclusion == check_api.Conclusion.FAILURE:
+                elif self.checks_conclusion == check_api.Conclusion.FAILURE:
                     if self.has_previous_car_status_succeeded():
                         headline = "🕵️  This combination of pull requests has failed checks. Mergify will split this batch to understand which pull request is responsible for the failure. 🕵️"
                     else:
                         headline = "🕵️ This combination of pull requests has failed checks. Mergify is waiting for other pull requests ahead in the queue to understand which one is responsible for the failure. 🕵️"
 
             body = await self.generate_merge_queue_summary(
-                evaluated_queue_rule,
                 for_queue_pull_request=True,
                 headline=headline,
                 show_queue=show_queue,
@@ -764,56 +876,30 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 )
             )
 
-            checks = await tmp_pull_ctxt.pull_check_runs
-            statuses = await tmp_pull_ctxt.pull_statuses
             checked_pull = self.queue_pull_request_number
         elif self.creation_state == "updated":
             if len(self.still_queued_embarked_pulls) != 1:
                 raise RuntimeError("multiple embarked_pulls but state==updated")
-            checks = await original_ctxts[0].pull_check_runs
-            statuses = await original_ctxts[0].pull_statuses
             checked_pull = self.still_queued_embarked_pulls[0].user_pull_request_number
         else:
-            checks = []
-            statuses = []
             checked_pull = github_types.GitHubPullRequestNumber(0)
 
-        if checks or statuses:
+        if self.last_checks:
             checks_copy_summary = (
                 "\n\nCheck-runs and statuses of the embarked "
                 f"pull request #{checked_pull}:\n\n<table>"
             )
-            for check in checks:
-                # Don't copy Summary/Rule/Queue/... checks
-                if check["app_id"] == config.INTEGRATION_ID:
-                    continue
-
-                output_title = ""
-                if check["output"] and check["output"]["title"]:
-                    output_title = f" — {check['output']['title']}"
-
-                check_icon_url = CHECK_ASSERTS.get(
-                    check["conclusion"], CHECK_ASSERTS["neutral"]
+            for qcheck in self.last_checks:
+                qcheck_icon_url = CHECK_ASSERTS.get(
+                    qcheck.state, CHECK_ASSERTS["neutral"]
                 )
 
                 checks_copy_summary += (
                     "<tr>"
-                    f'<td align="center" width="48" height="48"><img src="{check_icon_url}" width="16" height="16" /></td>'
-                    f'<td align="center" width="48" height="48"><img src="{check["app_avatar_url"]}&s=40" width="16" height="16" /></td>'
-                    f'<td><b>{check["app_name"]}/{check["name"]}</b>{output_title}</td>'
-                    f'<td><a href="{check["html_url"]}">details</a></td>'
-                    "</tr>"
-                )
-
-            for status in statuses:
-                status_icon_url = CHECK_ASSERTS[status["state"]]
-
-                checks_copy_summary += (
-                    "<tr>"
-                    f'<td align="center" width="48" height="48"><img src="{status_icon_url}" width="16" height="16" /></td>'
-                    f'<td align="center" width="48" height="48"><img src="{status["avatar_url"]}&s=40" width="16" height="16" /></td>'
-                    f'<td><b>{status["context"]}</b> — {status["description"]}</td>'
-                    f'<td><a href="{status["target_url"]}">details</a></td>'
+                    f'<td align="center" width="48" height="48"><img src="{qcheck_icon_url}" width="16" height="16" /></td>'
+                    f'<td align="center" width="48" height="48"><img src="{qcheck.avatar_url}&s=40" width="16" height="16" /></td>'
+                    f"<td><b>{qcheck.name}</b>{qcheck.description}</td>"
+                    f'<td><a href="{qcheck.url}">details</a></td>'
                     "</tr>"
                 )
             checks_copy_summary += "</table>\n"
@@ -1620,17 +1706,13 @@ class Train(queue.QueueBase):
 
     async def generate_merge_queue_summary_footer(
         self,
-        queue_rule: typing.Optional[
-            typing.Union[rules.EvaluatedQueueRule, rules.QueueRule]
-        ],
+        queue_rule_report: QueueRuleReport,
         *,
         show_queue: bool = True,
     ) -> str:
 
-        description = ""
-        if queue_rule is not None:
-            description += f"\n\n**Required conditions of queue** `{queue_rule.name}` **for merge:**\n\n"
-            description += queue_rule.conditions.get_summary()
+        description = f"\n\n**Required conditions of queue** `{queue_rule_report.name}` **for merge:**\n\n"
+        description += queue_rule_report.summary
 
         if show_queue:
             table = [
@@ -1679,22 +1761,19 @@ class Train(queue.QueueBase):
     async def get_pull_summary(
         self, ctxt: context.Context, queue_rule: rules.QueueRule
     ) -> str:
+        # NOTE(sileht): beware before using this method, car.update_state() must have been called earlier
+        # to have up2date informations
         ep = self.find_embarked_pull(ctxt.pull["number"])
         if ep is None:
             return ""
         if ep.car is None:
             description = f"{ctxt.pull['number']} is queued for merge."
             description += await self.generate_merge_queue_summary_footer(
-                queue_rule=queue_rule
+                queue_rule_report=QueueRuleReport(
+                    name=ep.embarked_pull.config["name"],
+                    summary=queue_rule.conditions.get_summary(),
+                )
             )
             return description.strip()
         else:
-            evaluated_pulls = await ep.car.get_pull_requests_to_evaluate()
-            queue_rule_evaluated = await queue_rule.get_pull_request_rule(
-                ctxt.repository,
-                ctxt.pull["base"]["ref"],
-                evaluated_pulls,
-                ctxt.log,
-                ctxt.has_been_refreshed_by_timer(),
-            )
-            return await ep.car.generate_merge_queue_summary(queue_rule_evaluated)
+            return await ep.car.generate_merge_queue_summary()

@@ -66,6 +66,12 @@ class SpeculativeCheckPullRequest:
             "description": "The timestamp when the speculative check has started for this pull request"
         }
     )
+    checks: typing.List[merge_train.QueueCheck] = dataclasses.field(
+        metadata={"description": "The list of pull request checks"}
+    )
+    evaluated_conditions: typing.Optional[str] = dataclasses.field(
+        metadata={"description": "The queue rule conditions evaluation report"}
+    )
 
 
 @pydantic.dataclasses.dataclass
@@ -101,7 +107,6 @@ class PullRequestQueued:
             "description": "The timestamp when the pull requested has entered in the queue"
         }
     )
-
     speculative_check_pull_request: typing.Optional[SpeculativeCheckPullRequest]
 
 
@@ -160,6 +165,8 @@ class Queues:
                                             "in_place": True,
                                             "number": 5678,
                                             "started_at": "2021-10-14T14:19:12+00:00",
+                                            "checks": [],
+                                            "evaluated_conditions": "",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -183,6 +190,8 @@ class Queues:
                                             "in_place": False,
                                             "number": 7899,
                                             "started_at": "2021-10-14T14:19:12+00:00",
+                                            "checks": [],
+                                            "evaluated_conditions": "",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -244,6 +253,8 @@ async def repository_queues(
                         in_place=True,
                         number=embarked_pull.user_pull_request_number,
                         started_at=car.creation_date,
+                        checks=car.last_checks,
+                        evaluated_conditions=car.last_evaluated_conditions,
                     )
                 elif car.creation_state == "created":
                     if car.queue_pull_request_number is None:
@@ -254,6 +265,8 @@ async def repository_queues(
                         in_place=False,
                         number=car.queue_pull_request_number,
                         started_at=car.creation_date,
+                        checks=car.last_checks,
+                        evaluated_conditions=car.last_evaluated_conditions,
                     )
                 elif car.creation_state == "failed":
                     speculative_check_pull_request = None
