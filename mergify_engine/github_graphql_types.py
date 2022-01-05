@@ -65,3 +65,6 @@ class GraphqlRepository(typing.TypedDict):
 
 class GraphqlReviewThreadsQuery(typing.TypedDict):
     repository: GraphqlRepository
+
+
+GraphqlSubscriptionState = typing.Literal["IGNORED", "SUBSCRIBED", "UNSUBRIBED"]
