@@ -93,14 +93,17 @@ queue_rules:
     conditions: []
     speculative_checks: 5
     batch_size: 3
+    batch_max_wait_time: 0 s
   - name: 2x5
     conditions: []
     speculative_checks: 2
     batch_size: 5
+    batch_max_wait_time: 0 s
   - name: noint
     conditions: []
     speculative_checks: 2
     batch_size: 5
+    batch_max_wait_time: 0 s
     allow_checks_interruption: False
   - name: batch-wait-time
     conditions: []

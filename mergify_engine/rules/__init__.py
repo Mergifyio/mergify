@@ -508,7 +508,7 @@ QueueRulesSchema = voluptuous.All(
                     int, voluptuous.Range(min=1, max=20)
                 ),
                 voluptuous.Required(
-                    "batch_max_wait_time", default="0 s"
+                    "batch_max_wait_time", default="30 s"
                 ): voluptuous.Coerce(PositiveInterval),
                 voluptuous.Required("allow_inplace_checks", default=True): bool,
                 voluptuous.Required("allow_checks_interruption", default=True): bool,
