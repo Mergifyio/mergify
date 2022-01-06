@@ -757,9 +757,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
             self.last_checks.append(
                 QueueCheck(
                     name=status["context"],
-                    description=status["description"],
-                    avatar_url=status["avatar_url"],
-                    url=status["target_url"],
+                    description=status["description"] or "",
+                    avatar_url=status["avatar_url"] or "",
+                    url=status["target_url"] or "",
                     state=status["state"] or "pending",
                 )
             )
