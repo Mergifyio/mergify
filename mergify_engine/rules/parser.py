@@ -403,6 +403,7 @@ def parse(v: str) -> typing.Any:
     ):
         if (
             parser == Parser.LOGIN_AND_TEAMS
+            and value
             and value[0] == "@"
             and op not in SIMPLE_OPERATORS
         ):
@@ -436,7 +437,7 @@ def parse(v: str) -> typing.Any:
                 if char in value:
                     raise ConditionParsingError("Invalid branch name")
         elif parser == Parser.LOGIN_AND_TEAMS:
-            if value[0] == "@":
+            if value and value[0] == "@":
                 if value.count("@") > 1 or value.count("/") > 1:
                     raise ConditionParsingError("Invalid team name")
                 valid_chars = GITHUB_LOGIN_CHARS
@@ -444,7 +445,7 @@ def parse(v: str) -> typing.Any:
                 valid_chars = GITHUB_LOGIN_CHARS
             for char in value:
                 if char not in valid_chars:
-                    if value[0] == "@":
+                    if value and value[0] == "@":
                         raise ConditionParsingError("Invalid GitHub team name")
                     else:
                         raise ConditionParsingError("Invalid GitHub login")

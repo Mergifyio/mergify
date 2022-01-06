@@ -472,6 +472,7 @@ now = datetime.datetime.fromisoformat("2012-01-14T20:32:00+00:00")
         ),
         ("body=b", {"=": ("body", "b")}),
         ("body=bb", {"=": ("body", "bb")}),
+        ("author=", {"=": ("author", "")}),
     ),
 )
 @freeze_time(now)
