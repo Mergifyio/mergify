@@ -306,7 +306,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if not await q.is_first_pull(ctxt):
             return False
 
-        if not await ctxt.is_behind:
+        if await ctxt.is_behind:
+            car = typing.cast(merge_train.Train, q).get_car(ctxt)
+            if car and car.creation_state == "updated":
+                return False
+        else:
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt.log, ctxt.repository, [ctxt.pull_request], rule
