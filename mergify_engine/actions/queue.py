@@ -148,15 +148,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         return None
 
-    async def run(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Result:
-        subscription_status = await self._subscription_status(ctxt)
-        if subscription_status:
-            return subscription_status
-
-        q = await merge_train.Train.from_context(ctxt)
-        car = q.get_car(ctxt)
+    async def _update_merge_queue_summary(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: merge_train.Train,
+        car: typing.Optional[merge_train.TrainCar],
+    ) -> None:
         if car and car.creation_state == "updated" and not ctxt.closed:
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
@@ -193,6 +191,17 @@ Then, re-embark the pull request into the merge queue by posting the comment
             await car.update_state(status, queue_rule_evaluated)
             await car.update_summaries(status, unexpected_change=unexpected_changes)
             await q.save()
+
+    async def run(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:
+        subscription_status = await self._subscription_status(ctxt)
+        if subscription_status:
+            return subscription_status
+
+        q = await merge_train.Train.from_context(ctxt)
+        car = q.get_car(ctxt)
+        await self._update_merge_queue_summary(ctxt, rule, q, car)
 
         if ctxt.user_refresh_requested() or ctxt.admin_refresh_requested():
             # NOTE(sileht): user ask a refresh, we just remove the previous state of this
@@ -246,14 +255,18 @@ Then, re-embark the pull request into the merge queue by posting the comment
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
         q = await merge_train.Train.from_context(ctxt)
+        car = q.get_car(ctxt)
+        await self._update_merge_queue_summary(ctxt, rule, q, car)
+
         ret = await self._cancel(ctxt, rule, q)
 
+        # The car may have been removed
+        newcar = q.get_car(ctxt)
         # NOTE(sileht): Only refresh if the car still exists
-        car = q.get_car(ctxt)
         if (
-            car
-            and car.creation_state == "created"
-            and car.queue_pull_request_number is not None
+            newcar
+            and newcar.creation_state == "created"
+            and newcar.queue_pull_request_number is not None
             and self.need_draft_pull_request_refresh()
             and not ctxt.has_been_only_refreshed()
         ):
@@ -266,7 +279,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ctxt.repository.installation.redis,
                     redis_stream,
                     ctxt.pull["base"]["repo"],
-                    pull_request_number=car.queue_pull_request_number,
+                    pull_request_number=newcar.queue_pull_request_number,
                     action="internal",
                     source="forward from queue action (cancel)",
                 )
@@ -395,9 +408,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 [ctxt.pull_request],
                 ctxt.log,
                 ctxt.has_been_refreshed_by_timer(),
-            )
-            await delayed_refresh.plan_next_refresh(
-                ctxt, [queue_rule_evaluated], ctxt.pull_request
             )
 
             # NOTE(sileht) check first if PR should be removed from the queue
