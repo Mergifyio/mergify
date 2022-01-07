@@ -319,9 +319,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if not await q.is_first_pull(ctxt):
             return False
 
+        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        if car is None:
+            return False
+
         if await ctxt.is_behind:
-            car = typing.cast(merge_train.Train, q).get_car(ctxt)
-            if car and car.creation_state == "updated":
+            if car.creation_state == "updated":
                 return False
         else:
             # NOTE(sileht) check first if PR should be removed from the queue
