@@ -190,6 +190,112 @@ class TestQueueAction(base.FunctionalTestBase):
         q = await merge_train.Train.from_context(ctxt)
         assert len(await q.get_pulls()) == 0
 
+    async def test_queue_inplace_interrupted(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [f"base={self.main_branch_name}", "label=queue"],
+                    "actions": {
+                        "queue": {"name": "default", "require_branch_protection": False}
+                    },
+                },
+            ],
+        }
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": [
+                    "continuous-integration/fake-ci",
+                ],
+            },
+            "required_linear_history": False,
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.setup_repo(yaml.dump(rules))
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        p1, _ = await self.create_pr()
+        await self.add_label(p1["number"], "queue")
+        await self.run_engine()
+
+        ctxt = context.Context(self.repository_ctxt, p1)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p1["base"]["sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p1["base"]["sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        # To force p1 to be rebased
+        p2, _ = await self.create_pr()
+        await self.merge_pull(p2["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        p2 = await self.get_pull(p2["number"])
+
+        ctxt = context.Context(self.repository_ctxt, p2)
+        q = await merge_train.Train.from_context(ctxt)
+        # base sha should have been updated
+        await self._assert_cars_contents(
+            q,
+            p2["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p2["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        # To force p1 to be rebased a second times
+        p3, _ = await self.create_pr()
+        await self.merge_pull(p3["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        p3 = await self.get_pull(p3["number"])
+
+        ctxt = context.Context(self.repository_ctxt, p3)
+        q = await merge_train.Train.from_context(ctxt)
+        # base sha should have been updated again
+        await self._assert_cars_contents(
+            q,
+            p3["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p3["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
