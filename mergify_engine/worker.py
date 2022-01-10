@@ -300,7 +300,10 @@ class SharedOrgBucketSelector:
     @staticmethod
     def get_shared_worker_id_for(org_bucket: bytes, worker_count: int) -> int:
         owner_id = org_bucket.split(b"~")[1]
-        return int(hashlib.md5(owner_id).hexdigest(), 16) % worker_count  # nosec
+        hashed = hashlib.md5(  # nosemgrep: rule:python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
+            owner_id
+        )
+        return int(hashed.hexdigest(), 16) % worker_count
 
     async def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
         owner_id = org_bucket.split(b"~")[1]
