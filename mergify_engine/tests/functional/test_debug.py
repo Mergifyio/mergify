@@ -119,7 +119,6 @@ pull_request_rules:
     - title~=pull request
   name: comment
 
-* QUEUES: 
 * TRAIN: 
 * PULL REQUEST:
 {{'approved-reviews-by': [],

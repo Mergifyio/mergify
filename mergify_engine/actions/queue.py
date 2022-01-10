@@ -15,10 +15,10 @@
 # under the License.
 import typing
 
-import daiquiri
 from first import first
 import voluptuous
 
+from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
@@ -29,6 +29,7 @@ from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import utils
 from mergify_engine.actions import merge_base
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import conditions
@@ -39,11 +40,14 @@ if typing.TYPE_CHECKING:
     from mergify_engine import rules
 
 
-LOG = daiquiri.getLogger(__name__)
-
-
 class QueueAction(merge_base.MergeBaseAction):
-    MESSAGE_ACTION_NAME = "Queue"
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        # FIXME(sileht): MRGFY-562
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
 
     UNQUEUE_DOCUMENTATION = f"""
 You can take a look at `{constants.MERGE_QUEUE_SUMMARY_NAME}` check runs for more details.
@@ -155,6 +159,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         q: merge_train.Train,
         car: typing.Optional[merge_train.TrainCar],
     ) -> None:
+
         if car and car.creation_state == "updated" and not ctxt.closed:
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
@@ -199,6 +204,33 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if subscription_status:
             return subscription_status
 
+        # FIXME(sileht): we should use the computed update_bot_account in TrainCar.update_pull(),
+        # not the original one
+        try:
+            await action_utils.render_bot_account(
+                ctxt,
+                self.config["update_bot_account"],
+                option_name="update_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message="Queue with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        try:
+            merge_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["merge_bot_account"],
+                option_name="merge_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message="Queue with `merge_bot_account` set is unavailable",
+                # NOTE(sileht): we don't allow admin, because if branch protection are
+                # enabled, but not enforced on admins, we may bypass them
+                required_permissions=["write", "maintain"],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
         await self._update_merge_queue_summary(ctxt, rule, q, car)
@@ -221,7 +253,31 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ),
                 )
 
-        ret = await self._run(ctxt, rule, q)
+        self._set_effective_priority(ctxt)
+
+        result = await self.merge_report(ctxt)
+        if result is None:
+            if await self._should_be_queued(ctxt, q):
+                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
+                try:
+                    if await self._should_be_merged(ctxt, rule, q):
+                        result = await self._merge(ctxt, rule, q, merge_bot_account)
+                    else:
+                        result = await self.get_queue_status(ctxt, rule, q)
+                except Exception:
+                    await q.remove_pull(ctxt)
+                    raise
+            else:
+                await q.remove_pull(ctxt)
+                result = check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    "The pull request has been removed from the queue",
+                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
+                    f"{self.UNQUEUE_DOCUMENTATION}",
+                )
+
+        if result.conclusion is not check_api.Conclusion.PENDING:
+            await q.remove_pull(ctxt)
 
         # NOTE(sileht): Only refresh if the car still exists and is the same as
         # before we run the action
@@ -249,16 +305,70 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     action="internal",
                     source="forward from queue action (run)",
                 )
-        return ret
+        return result
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
+        # FIXME(sileht): we should use the computed update_bot_account in TrainCar.update_pull(),
+        # not the original one
+        try:
+            await action_utils.render_bot_account(
+                ctxt,
+                self.config["update_bot_account"],
+                option_name="update_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message="Queue with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        try:
+            merge_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["merge_bot_account"],
+                option_name="merge_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message="Queue with `merge_bot_account` set is unavailable",
+                # NOTE(sileht): we don't allow admin, because if branch protection are
+                # enabled, but not enforced on admins, we may bypass them
+                required_permissions=["write", "maintain"],
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        self._set_effective_priority(ctxt)
+
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
         await self._update_merge_queue_summary(ctxt, rule, q, car)
 
-        ret = await self._cancel(ctxt, rule, q)
+        result = await self.merge_report(ctxt)
+        if result is None:
+            # We just rebase the pull request, don't cancel it yet if CIs are
+            # running. The pull request will be merged if all rules match again.
+            # if not we will delete it when we received all CIs termination
+            if await self._should_be_cancel(ctxt, rule, q):
+                result = actions.CANCELLED_CHECK_REPORT
+            else:
+                try:
+                    if await self._should_be_merged(ctxt, rule, q):
+                        # FIXME(sileht): this check is no more needed as we
+                        # always wait for pull_request_rule to match again before merging PR
+                        if await self._should_be_merged_during_cancel(ctxt, q):
+                            result = await self._merge(ctxt, rule, q, merge_bot_account)
+                        else:
+                            result = await self.get_queue_status(ctxt, rule, q)
+                    else:
+                        result = await self.get_queue_status(ctxt, rule, q)
+                except Exception:
+                    await q.remove_pull(ctxt)
+                    raise
+        elif not ctxt.closed:
+            result = actions.CANCELLED_CHECK_REPORT
+
+        if result.conclusion is not check_api.Conclusion.PENDING:
+            await q.remove_pull(ctxt)
 
         # The car may have been removed
         newcar = q.get_car(ctxt)
@@ -283,10 +393,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     action="internal",
                     source="forward from queue action (cancel)",
                 )
-        return ret
+        return result
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        self.config["strict"] = merge_base.StrictMergeParameter.ordered
         if not config.ALLOW_COMMIT_MESSAGE_OPTION:
             self.config["commit_message"] = "default"
 
@@ -297,6 +406,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         self.queue_count = len(mergify_config["queue_rules"])
         self.config["queue_config"] = self.queue_rule.config
+
+    def _set_effective_priority(self, ctxt: context.Context) -> None:
+        self.config["effective_priority"] = typing.cast(
+            int,
+            self.config["priority"]
+            + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
+        )
 
     async def _get_merge_queue_check(
         self, ctxt: context.Context
@@ -385,10 +501,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         return False
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
-        # NOTE(sileht): done by the train itself
-        return False
-
     async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
     ) -> bool:
@@ -442,12 +554,27 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         return True
 
-    async def _get_queue_summary(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> str:
-        return await typing.cast(merge_train.Train, q).get_pull_summary(
+    async def get_queue_status(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: typing.Optional[queue.QueueBase],
+    ) -> check_api.Result:
+        if q is None:
+            title = "The pull request will be merged soon"
+        else:
+            position = await q.get_position(ctxt)
+            if position is None:
+                ctxt.log.error("expected queued pull request not found in queue")
+                title = "The pull request is queued to be merged"
+            else:
+                _ord = utils.to_ordinal_numeric(position + 1)
+                title = f"The pull request is the {_ord} in the queue to be merged"
+
+        summary = await typing.cast(merge_train.Train, q).get_pull_summary(
             ctxt, self.queue_rule
         )
+        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(

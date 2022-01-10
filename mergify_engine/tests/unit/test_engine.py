@@ -22,11 +22,9 @@ from pytest_httpserver import httpserver
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import github_types
-from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.dashboard import subscription
-from mergify_engine.engine import actions_runner
 
 
 FAKE_MERGIFY_CONTENT = base64.b64encode(b"pull_request_rules:").decode()
@@ -612,56 +610,3 @@ async def test_configuration_initial(
         assert changed
 
     github_server.check_assertions()  # type: ignore [no-untyped-call]
-
-
-@pytest.mark.parametrize(
-    "raw_config,expected",
-    (
-        (
-            """
-pull_request_rules:
-  - name: nostrict
-    conditions: []
-    actions:
-      merge:
-""",
-            False,
-        ),
-        (
-            """
-pull_request_rules:
-  - name: strict true
-    conditions: []
-    actions:
-      merge:
-        strict: true
-""",
-            True,
-        ),
-        (
-            """
-pull_request_rules:
-  - name: strict smart
-    conditions: []
-    actions:
-      merge:
-        strict: smart+ordered
-""",
-            True,
-        ),
-    ),
-)
-def test_strict_mode_deprecation_message(raw_config: str, expected: bool) -> None:
-    file = context.MergifyConfigFile(
-        type="file",
-        content="whatever",
-        sha=github_types.SHAType("azertyuiop"),
-        path="whatever",
-        decoded_content=raw_config.encode(),
-    )
-
-    config = rules.get_mergify_config(file)
-    assert (
-        actions_runner._has_merge_action_with_strict_mode(config["pull_request_rules"])
-        is expected
-    )

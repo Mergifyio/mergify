@@ -810,15 +810,6 @@ unacceptable character #x0004: special characters are not allowed
             {
                 "name": "hello",
                 "conditions": [],
-                "actions": {"merge": {"strict": "yes"}},
-            },
-            r"expected bool for dictionary value @ "
-            r"data\[0\]\['actions'\]\['merge'\]\['strict'\]",
-        ),
-        (
-            {
-                "name": "hello",
-                "conditions": [],
                 "actions": {"review": {"message": "{{syntax error"}},
             },
             r"Template syntax error @ data\[0\]\['actions'\]\['review'\]\['message'\]\[line 1\]",
@@ -1510,7 +1501,7 @@ def test_default_with_no_pull_requests_rules():
 defaults:
   actions:
     merge:
-       strict: "smart"
+       merge_bot_account: "bot"
 """,
     )
 
