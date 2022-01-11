@@ -125,9 +125,6 @@ class QueueBase(abc.ABC):
         self,
         repository: github_types.GitHubRepository,
         source: str,
-        except_pull_request: typing.Optional[
-            github_types.GitHubPullRequestNumber
-        ] = None,
         additional_pull_request: typing.Optional[
             github_types.GitHubPullRequestNumber
         ] = None,
@@ -136,8 +133,6 @@ class QueueBase(abc.ABC):
         pulls = set(await self.get_pulls())
         if additional_pull_request:
             pulls.add(additional_pull_request)
-        if except_pull_request:
-            pulls.remove(except_pull_request)
 
         with utils.yaaredis_for_stream() as redis_stream:
             pipe = await redis_stream.pipeline()

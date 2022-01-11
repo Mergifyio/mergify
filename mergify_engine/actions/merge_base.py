@@ -14,67 +14,28 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import abc
-import enum
 import logging
 import re
 import typing
 
-import daiquiri
-
 from mergify_engine import actions
-from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import json as mergify_json
 from mergify_engine import queue
 from mergify_engine import rules
-from mergify_engine import utils
-from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import http
-from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
 
 
-LOG = daiquiri.getLogger(__name__)
-
-BRANCH_PROTECTION_FAQ_URL = (
-    "https://docs.mergify.com/faq/#"
-    "mergify-is-unable-to-merge-my-pull-request-due-to-"
-    "my-branch-protection-settings"
-)
-
 REQUIRED_STATUS_RE = re.compile(r'Required status check "([^"]*)" is expected.')
 FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository."
 FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
-
-
-class StrictMergeParameter(enum.Enum):
-    true = True
-    false = False
-    fasttrack = "smart+fasttrack"
-    ordered = "smart+ordered"
-
-
-mergify_json.register_type(StrictMergeParameter)
-
-
-def strict_merge_parameter(v):
-    if v == "smart":
-        return StrictMergeParameter.ordered
-    elif v == "smart+fastpath":
-        return StrictMergeParameter.fasttrack
-    else:
-        for _, member in StrictMergeParameter.__members__.items():
-            if v == member.value:
-                return member
-
-    raise ValueError(f"{v} is an unknown strict merge parameter")
 
 
 async def get_rule_checks_status_next(
@@ -222,288 +183,25 @@ async def get_rule_checks_status(
 
 
 class MergeBaseAction(actions.Action, abc.ABC):
-    flags = (
-        actions.ActionFlag.ALLOW_AS_ACTION
-        | actions.ActionFlag.ALWAYS_SEND_REPORT
-        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
-        # FIXME(sileht): MRGFY-562
-        # | actions.ActionFlag.ALWAYS_RUN
-    )
-
-    UNQUEUE_DOCUMENTATION = ""
-    MESSAGE_ACTION_NAME = "Merge"
-
-    @abc.abstractmethod
-    async def _should_be_queued(
-        self, ctxt: context.Context, q: queue.QueueBase
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def _should_be_merged_during_cancel(
-        self, ctxt: context.Context, q: queue.QueueBase
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def _should_be_merged(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def _should_be_synced(
-        self, ctxt: context.Context, q: queue.QueueBase
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def _get_queue_summary(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> str:
-        pass
-
     @abc.abstractmethod
     async def send_signal(self, ctxt: context.Context) -> None:
         pass
 
+    @abc.abstractmethod
     async def get_queue_status(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
-        is_behind: bool = False,
+        q: typing.Optional[queue.QueueBase],
     ) -> check_api.Result:
-
-        if self.config["strict"] in (
-            StrictMergeParameter.fasttrack,
-            StrictMergeParameter.ordered,
-        ):
-            position = await q.get_position(ctxt)
-            if position is None:
-                ctxt.log.error("expected queued pull request not found in queue")
-                title = "The pull request is queued to be merged"
-            else:
-                _ord = utils.to_ordinal_numeric(position + 1)
-                title = f"The pull request is the {_ord} in the queue to be merged"
-
-        elif self.config["strict"] is not StrictMergeParameter.false and is_behind:
-            title = "The pull request will be updated with its base branch soon"
-        else:
-            title = "The pull request will be merged soon"
-
-        summary = await self._get_queue_summary(ctxt, rule, q)
-
-        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
-
-    async def _run(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
-    ) -> check_api.Result:
-        try:
-            merge_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["merge_bot_account"],
-                option_name="merge_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `merge_bot_account` set is unavailable",
-                # NOTE(sileht): we don't allow admin, because if branch protection are
-                # enabled, but not enforced on admins, we may bypass them
-                required_permissions=["write", "maintain"],
-            )
-        except action_utils.RenderBotAccountFailure as e:
-            return check_api.Result(e.status, e.title, e.reason)
-
-        try:
-            update_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["update_bot_account"],
-                option_name="update_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `update_bot_account` set is unavailable",
-            )
-        except action_utils.RenderBotAccountFailure as e:
-            return check_api.Result(e.status, e.title, e.reason)
-
-        self._set_effective_priority(ctxt)
-
-        ctxt.log.info("merge/queue action with config", config=self.config)
-
-        report = await self.merge_report(ctxt)
-        if report is not None:
-            await q.remove_pull(ctxt)
-            return report
-
-        if self.config["strict"] in (
-            StrictMergeParameter.fasttrack,
-            StrictMergeParameter.ordered,
-        ):
-            if await self._should_be_queued(ctxt, q):
-                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
-            else:
-                await q.remove_pull(ctxt)
-                return check_api.Result(
-                    check_api.Conclusion.CANCELLED,
-                    "The pull request has been removed from the queue",
-                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
-                    f"{self.UNQUEUE_DOCUMENTATION}",
-                )
-
-        try:
-            if await self._should_be_merged(ctxt, rule, q):
-                result = await self._merge(
-                    ctxt, rule, q, merge_bot_account, update_bot_account
-                )
-            elif await self._should_be_synced(ctxt, q):
-                result = await self._sync_with_base_branch(
-                    ctxt, rule, q, update_bot_account
-                )
-            else:
-                result = await self.get_queue_status(
-                    ctxt, rule, q, is_behind=await ctxt.is_behind
-                )
-        except Exception:
-            await q.remove_pull(ctxt)
-            raise
-        if result.conclusion is not check_api.Conclusion.PENDING:
-            await q.remove_pull(ctxt)
-        return result
-
-    async def _cancel(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
-    ) -> check_api.Result:
-        try:
-            merge_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["merge_bot_account"],
-                option_name="merge_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `merge_bot_account` set is unavailable",
-                # NOTE(sileht): we don't allow admin, because if branch protection are
-                # enabled, but not enforced on admins, we may bypass them
-                required_permissions=["write", "maintain"],
-            )
-        except action_utils.RenderBotAccountFailure as e:
-            return check_api.Result(e.status, e.title, e.reason)
-
-        try:
-            update_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["update_bot_account"],
-                option_name="update_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message=f"{self.MESSAGE_ACTION_NAME} with `update_bot_account` set is unavailable",
-            )
-        except action_utils.RenderBotAccountFailure as e:
-            return check_api.Result(e.status, e.title, e.reason)
-
-        self._set_effective_priority(ctxt)
-
-        output = await self.merge_report(ctxt)
-        if output:
-            await q.remove_pull(ctxt)
-            if ctxt.closed:
-                return output
-            else:
-                return actions.CANCELLED_CHECK_REPORT
-
-        # We just rebase the pull request, don't cancel it yet if CIs are
-        # running. The pull request will be merged if all rules match again.
-        # if not we will delete it when we received all CIs termination
-        if self.config[
-            "strict"
-        ] is not StrictMergeParameter.false and not await self._should_be_cancel(
-            ctxt, rule, q
-        ):
-            try:
-                if await self._should_be_merged(ctxt, rule, q):
-                    if await self._should_be_merged_during_cancel(ctxt, q):
-                        result = await self._merge(
-                            ctxt, rule, q, merge_bot_account, update_bot_account
-                        )
-                    else:
-                        result = await self.get_queue_status(
-                            ctxt, rule, q, is_behind=await ctxt.is_behind
-                        )
-                elif await self._should_be_synced(ctxt, q):
-                    # Something got merged in the base branch in the meantime: rebase it again
-                    result = await self._sync_with_base_branch(
-                        ctxt, rule, q, update_bot_account
-                    )
-                else:
-                    result = await self.get_queue_status(
-                        ctxt, rule, q, is_behind=await ctxt.is_behind
-                    )
-            except Exception:
-                await q.remove_pull(ctxt)
-                raise
-            if result.conclusion is not check_api.Conclusion.PENDING:
-                await q.remove_pull(ctxt)
-            return result
-
-        await q.remove_pull(ctxt)
-
-        return actions.CANCELLED_CHECK_REPORT
-
-    def _set_effective_priority(self, ctxt: context.Context) -> None:
-        self.config["effective_priority"] = typing.cast(
-            int,
-            self.config["priority"]
-            + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
-        )
-
-    async def _sync_with_base_branch(
-        self,
-        ctxt: context.Context,
-        rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
-        update_bot_account: typing.Optional[github_types.GitHubLogin],
-    ) -> check_api.Result:
-        method = self.config["strict_method"]
-
-        try:
-            await branch_updater.update(
-                method,
-                ctxt,
-                subscription.Features.MERGE_BOT_ACCOUNT,
-                update_bot_account,
-            )
-        except branch_updater.BranchUpdateFailure as e:
-            # NOTE(sileht): Maybe the PR has been rebased and/or merged manually
-            # in the meantime. So double check that to not report a wrong status.
-            await ctxt.update()
-            output = await self.merge_report(ctxt)
-            if output:
-                return output
-            else:
-                await q.remove_pull(ctxt)
-                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    e.title,
-                    e.message,
-                )
-        else:
-            return await self.get_queue_status(ctxt, rule, q, is_behind=False)
+        pass
 
     async def _merge(
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
+        q: typing.Optional[queue.QueueBase],
         merge_bot_account: typing.Optional[github_types.GitHubLogin],
-        update_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
             method = self.config["method"]
@@ -564,9 +262,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
             if ctxt.pull["merged"]:
                 ctxt.log.info("merged in the meantime")
             else:
-                return await self._handle_merge_error(
-                    e, ctxt, rule, q, update_bot_account
-                )
+                return await self._handle_merge_error(e, ctxt, rule, q)
         else:
             await self.send_signal(ctxt)
             await ctxt.update()
@@ -587,8 +283,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         e: http.HTTPClientSideError,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: queue.QueueBase,
-        update_bot_account: typing.Optional[github_types.GitHubLogin],
+        q: typing.Optional[queue.QueueBase],
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
@@ -596,9 +291,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 status_code=e.status_code,
                 error_message=e.message,
             )
-            return await self.get_queue_status(
-                ctxt, rule, q, is_behind=await ctxt.is_behind
-            )
+            return await self.get_queue_status(ctxt, rule, q)
         elif "Base branch was modified" in e.message:
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
             # here, usually by something not merged by mergify. So we need sync it again
@@ -608,16 +301,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 status_code=e.status_code,
                 error_message=e.message,
             )
-            # FIXME(sileht): Not sure this code handles all cases, maybe we should just
-            # send a refresh to this PR to retry later
-            if await self._should_be_synced(ctxt, q):
-                return await self._sync_with_base_branch(
-                    ctxt, rule, q, update_bot_account
-                )
-            else:
-                return await self.get_queue_status(
-                    ctxt, rule, q, is_behind=await ctxt.is_behind
-                )
+            return await self.get_queue_status(ctxt, rule, q)
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):
@@ -706,7 +390,8 @@ class MergeBaseAction(actions.Action, abc.ABC):
             )
 
     async def merge_report(
-        self, ctxt: context.Context
+        self,
+        ctxt: context.Context,
     ) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
@@ -744,15 +429,6 @@ class MergeBaseAction(actions.Action, abc.ABC):
         #     conclusion = "failure"
         #     title = "Branch protection settings are blocking automatic merging"
         #     summary = ""
-        elif (
-            ctxt.pull["mergeable_state"] == "behind"
-            and self.config["strict"] is StrictMergeParameter.false
-        ):
-            # Strict mode has been enabled in branch protection but not in
-            # mergify
-            conclusion = check_api.Conclusion.FAILURE
-            title = "Branch protection setting 'strict' conflicts with Mergify configuration"
-            summary = ""
 
         elif (
             await self._is_branch_protection_linear_history_enabled(ctxt)

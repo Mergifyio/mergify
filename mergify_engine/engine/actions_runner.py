@@ -29,7 +29,6 @@ from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import merge_train
-from mergify_engine.queue import naive
 
 
 NOT_APPLICABLE_TEMPLATE = """<details>
@@ -37,25 +36,6 @@ NOT_APPLICABLE_TEMPLATE = """<details>
 %s
 </details>"""
 
-STRICT_MODE_DEPRECATION_GHES = """
-:bangbang: **Action Required** :bangbang:
-
-> **The configuration uses the deprecated `strict` mode of the merge action.**
-> This option will be removed on version 3.0.0.
-> For more information: https://blog.mergify.com/strict-mode-deprecation/
-
-"""
-
-
-STRICT_MODE_DEPRECATION_SASS = """
-:bangbang: **Action Required** :bangbang:
-
-> **The configuration uses the deprecated `strict` mode of the merge action.**
-> A brownout is planned for the whole December 6th, 2021 day.
-> This option will be removed on January 10th, 2022.
-> For more information: https://blog.mergify.com/strict-mode-deprecation/
-
-"""
 
 COMMIT_MESSAGE_MODE_DEPRECATION_GHES = """
 :bangbang: **Action Required** :bangbang:
@@ -137,23 +117,6 @@ async def gen_summary_rules(
     return summary
 
 
-def _has_merge_action_with_strict_mode(
-    pull_request_rules: rules.PullRequestRules,
-) -> bool:
-
-    return any(
-        action
-        for rule in pull_request_rules
-        for name, action in rule.actions.items()
-        if name == "merge"
-        and (
-            "strict" in action.raw_config
-            or "update_bot_account" in action.raw_config
-            or "strict_method" in action.raw_config
-        )
-    )
-
-
 def _has_merge_action_with_commit_message_mode(
     pull_request_rules: rules.PullRequestRules,
 ) -> typing.Optional[str]:
@@ -175,12 +138,6 @@ async def gen_summary(
 ) -> typing.Tuple[str, str]:
     summary = ""
     summary += await get_already_merged_summary(ctxt, match)
-
-    if _has_merge_action_with_strict_mode(pull_request_rules):
-        if config.is_saas():
-            summary += STRICT_MODE_DEPRECATION_SASS
-        else:
-            summary += STRICT_MODE_DEPRECATION_GHES
 
     summary_commit_message_deprecation = _has_merge_action_with_commit_message_mode(
         pull_request_rules
@@ -592,9 +549,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
                 ),
             )
 
-        if check_name.endswith(" (merge)"):
-            await naive.Queue.force_remove_pull(ctxt)
-        elif check_name.endswith(" (queue)"):
+        if check_name.endswith(" (queue)"):
             await merge_train.Train.force_remove_pull(ctxt)
 
 
