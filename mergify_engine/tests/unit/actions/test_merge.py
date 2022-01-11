@@ -13,18 +13,10 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import typing
-from unittest import mock
-
 import pytest
-import voluptuous
 
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine.actions import merge
-from mergify_engine.actions import merge_base
-from mergify_engine.rules import conditions
 from mergify_engine.tests.unit import conftest
 
 
@@ -207,68 +199,3 @@ async def test_merge_commit_message_syntax_error(
     with pytest.raises(context.RenderTemplateFailure) as rmf:
         await ctxt.pull_request.get_commit_message()
         assert str(rmf) == error
-
-
-def gen_config(priorities: typing.List[int]) -> typing.List[typing.Dict[str, int]]:
-    return [{"priority": priority} for priority in priorities]
-
-
-@pytest.mark.asyncio
-async def test_queue_summary(context_getter: conftest.ContextGetterFixture) -> None:
-    ctxt = await context_getter(github_types.GitHubPullRequestNumber(0))
-    ctxt.repository.get_pull_request_context = mock.AsyncMock(  # type: ignore[assignment]
-        return_value=mock.Mock(pull={"title": "foo"})
-    )
-    q = mock.AsyncMock(installation_id=12345)
-    q.get_pulls.return_value = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-    q.get_config.side_effect = gen_config(
-        [4000, 3000, 3000, 3000, 2000, 2000, 1000, 1000, 1000]
-    )
-    with mock.patch.object(merge.naive.Queue, "from_context", return_value=q):
-        action = merge.MergeAction(
-            voluptuous.Schema(merge.MergeAction.get_schema())({}), {}
-        )
-        assert """**Required conditions for merge:**
-
-
-**The following pull requests are queued:**
-| | Pull request | Priority |
-| ---: | :--- | :--- |
-| 1 | foo #1 | 4000 |
-| 2 | foo #2 | high |
-| 3 | foo #3 | high |
-| 4 | foo #4 | high |
-| 5 | foo #5 | medium |
-| 6 | foo #6 | medium |
-| 7 | foo #7 | low |
-| 8 | foo #8 | low |
-| 9 | foo #9 | low |
-
----
-
-""" + constants.MERGIFY_PULL_REQUEST_DOC == await action._get_queue_summary(
-            ctxt, mock.Mock(conditions=conditions.QueueRuleConditions([])), q
-        )
-
-
-@pytest.mark.parametrize(
-    "test_input, expected",
-    [
-        (True, merge_base.StrictMergeParameter.true),
-        (False, merge_base.StrictMergeParameter.false),
-        ("smart", merge_base.StrictMergeParameter.ordered),
-        ("smart+ordered", merge_base.StrictMergeParameter.ordered),
-        ("smart+fasttrack", merge_base.StrictMergeParameter.fasttrack),
-        ("smart+fastpath", merge_base.StrictMergeParameter.fasttrack),
-    ],
-)
-def test_strict_merge_parameter_ok(test_input, expected):
-    assert merge_base.strict_merge_parameter(test_input) == expected
-
-
-def test_strict_merge_parameter_fail():
-    with pytest.raises(
-        ValueError,
-        match="toto is an unknown strict merge parameter",
-    ):
-        merge_base.strict_merge_parameter("toto")

@@ -190,7 +190,6 @@ Schema = voluptuous.Schema(
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
             float
         ),
-        voluptuous.Required("ALLOW_MERGE_STRICT_MODE", default=True): CoercedBool,
         voluptuous.Required("ALLOW_COMMIT_MESSAGE_OPTION", default=True): CoercedBool,
         # For test suite only (eg: tox -erecord)
         voluptuous.Required(
@@ -290,7 +289,6 @@ TESTING_MERGIFY_TEST_1_ID: int
 TESTING_MERGIFY_TEST_2_ID: int
 TESTING_GPGKEY_SECRET: bytes
 TESTING_ID_GPGKEY_SECRET: str
-ALLOW_MERGE_STRICT_MODE: bool
 ALLOW_COMMIT_MESSAGE_OPTION: bool
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")

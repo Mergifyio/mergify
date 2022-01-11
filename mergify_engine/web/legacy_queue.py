@@ -67,26 +67,6 @@ async def queues(
         str, typing.Dict[str, typing.List[int]]
     ] = collections.defaultdict(dict)
     async for queue in redis_cache.scan_iter(
-        match=f"merge-queue~{owner_id}~*", count=10000
-    ):
-        _, _, repo_id, branch = queue.split("~")
-        if auth is not None:
-            # Check this token as access to this repository
-            async with github_client.AsyncGithubInstallationClient(auth=auth) as client:
-                try:
-                    await client.item(f"/repositories/{repo_id}")
-                except (
-                    http.HTTPNotFound,
-                    http.HTTPForbidden,
-                    http.HTTPUnauthorized,
-                ):
-                    continue
-
-        queues[repo_id][branch] = [
-            int(pull) async for pull, _ in redis_cache.zscan_iter(queue)
-        ]
-
-    async for queue in redis_cache.scan_iter(
         match=f"merge-trains~{owner_id}", count=10000
     ):
         trains_raw = await redis_cache.hgetall(queue)

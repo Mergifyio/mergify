@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 #
 # Copyright © 2020 Mergify SAS
 # Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
@@ -15,28 +14,23 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import datetime
 import enum
 import typing
 
-import daiquiri
 import voluptuous
 
+from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import signals
 from mergify_engine.actions import merge_base
+from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
-from mergify_engine.queue import naive
 from mergify_engine.rules import conditions
 from mergify_engine.rules import types
-
-
-LOG = daiquiri.getLogger(__name__)
 
 
 # NOTE(sileht): Sentinel object (eg: `marker = object()`) can't be expressed
@@ -48,13 +42,6 @@ class _UnsetMarker(enum.Enum):
 
 
 UnsetMarker: typing.Final = _UnsetMarker._MARKER
-
-DEPRECATED_STRICT_MODE = """The configuration uses the deprecated `strict` mode of the merge action.
-A brownout is planned for the whole December 6th, 2021 day.
-This option will be removed on January 10th, 2022.
-For more information: https://blog.mergify.com/strict-mode-deprecation/
-
-`%s` is invalid"""
 
 
 def DeprecatedOption(
@@ -71,7 +58,14 @@ def DeprecatedOption(
 
 
 class MergeAction(merge_base.MergeBaseAction):
-    MESSAGE_ACTION_NAME = "Merge"
+    flags = (
+        actions.ActionFlag.ALLOW_AS_ACTION
+        | actions.ActionFlag.ALWAYS_SEND_REPORT
+        | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
+        # FIXME(sileht): MRGFY-562
+        # enforce -merged/-closed in conditions requirements
+        # | actions.ActionFlag.ALWAYS_RUN
+    )
 
     validator_default = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
@@ -96,190 +90,63 @@ class MergeAction(merge_base.MergeBaseAction):
         ),
     }
 
-    validator_strict_mode = {
-        voluptuous.Required("strict", default=False): voluptuous.All(
-            voluptuous.Any(
-                bool, "smart", "smart+fastpath", "smart+fasttrack", "smart+ordered"
-            ),
-            voluptuous.Coerce(merge_base.strict_merge_parameter),
-            merge_base.StrictMergeParameter,
-        ),
-        voluptuous.Required("strict_method", default="merge"): voluptuous.Any(
-            "rebase", "merge"
-        ),
-        voluptuous.Required("update_bot_account", default=None): types.Jinja2WithNone,
-    }
-
-    validator_strict_mode_deprecated = {
-        voluptuous.Required("strict", default=UnsetMarker): DeprecatedOption(
-            DEPRECATED_STRICT_MODE, False
-        ),
-        voluptuous.Required("strict_method", default=UnsetMarker): DeprecatedOption(
-            DEPRECATED_STRICT_MODE, "merge"
-        ),
-        voluptuous.Required(
-            "update_bot_account", default=UnsetMarker
-        ): DeprecatedOption(DEPRECATED_STRICT_MODE, None),
-    }
-
     @classmethod
     def get_config_schema(
         cls, partial_validation: bool
     ) -> typing.Dict[typing.Any, typing.Any]:
         schema = cls.validator_default.copy()
-        if config.ALLOW_MERGE_STRICT_MODE:
-            schema.update(cls.validator_strict_mode)
-        else:
-            schema.update(cls.validator_strict_mode_deprecated)
         if config.ALLOW_COMMIT_MESSAGE_OPTION:
             schema.update(cls.validator_commit_message_mode)
         return schema
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        if not config.ALLOW_MERGE_STRICT_MODE:
-            self.config["strict"] = merge_base.StrictMergeParameter.false
-            self.config["strict_method"] = "merge"
-            self.config["update_bot_account"] = None
         if not config.ALLOW_COMMIT_MESSAGE_OPTION:
             self.config["commit_message"] = "default"
-
-        self.config["queue_config"] = rules.QueueConfig(
-            {
-                "priority": 0,
-                "speculative_checks": 1,
-                "batch_size": 1,
-                "batch_max_wait_time": datetime.timedelta(seconds=0),
-                "allow_inplace_checks": True,
-                "allow_checks_interruption": True,
-                "checks_timeout": None,
-            }
-        )
 
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
-        if self.config[
-            "priority"
-        ] != queue.PriorityAliases.medium.value and not ctxt.subscription.has_feature(
-            subscription.Features.PRIORITY_QUEUES
-        ):
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Merge with `priority` set is unavailable.",
-                ctxt.subscription.missing_feature_reason(
-                    ctxt.pull["base"]["repo"]["owner"]["login"]
-                ),
+        try:
+            merge_bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["merge_bot_account"],
+                option_name="merge_bot_account",
+                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+                missing_feature_message="Merge with `merge_bot_account` set is unavailable",
+                # NOTE(sileht): we don't allow admin, because if branch protection are
+                # enabled, but not enforced on admins, we may bypass them
+                required_permissions=["write", "maintain"],
             )
-        q = await naive.Queue.from_context(ctxt)
-        return await self._run(ctxt, rule, q)
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        if ctxt.pull["mergeable_state"] == "behind":
+            return check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Branch protection setting 'strict' is enabled, and the pull request is not up to date.",
+                "",
+            )
+
+        report = await self.merge_report(ctxt)
+        if report is not None:
+            return report
+
+        return await self._merge(ctxt, rule, None, merge_bot_account)
 
     async def cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
-        q = await naive.Queue.from_context(ctxt)
-        return await self._cancel(ctxt, rule, q)
+        return actions.CANCELLED_CHECK_REPORT
 
-    async def _should_be_synced(self, ctxt: context.Context, q: queue.QueueT) -> bool:
-        if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return await ctxt.is_behind and await q.is_first_pull(ctxt)
-        elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
-            return await ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.true:
-            return await ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.false:
-            return False
-        else:
-            raise RuntimeError("Unexpected strict")
-
-    async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
-        return True
-
-    async def _should_be_merged(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
-    ) -> bool:
-        if self.config["strict"] is merge_base.StrictMergeParameter.ordered:
-            return not await ctxt.is_behind and await q.is_first_pull(ctxt)
-        elif self.config["strict"] is merge_base.StrictMergeParameter.fasttrack:
-            return not await ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.true:
-            return not await ctxt.is_behind
-        elif self.config["strict"] is merge_base.StrictMergeParameter.false:
-            return True
-        else:
-            raise RuntimeError("Unexpected strict")
-
-    async def _should_be_merged_during_cancel(
-        self, ctxt: context.Context, q: queue.QueueBase
-    ) -> bool:
-        # NOTE(sileht): we prefer wait the engine to be retriggered and rerun run()
-        return False
-
-    async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> bool:
-        # It's closed, it's not going to change
-        if ctxt.closed:
-            return True
-
-        if await ctxt.has_been_synchronized_by_user():
-            return True
-
-        position = await q.get_position(ctxt)
-        if position is None:
-            return True
-
-        pull_rule_checks_status = await merge_base.get_rule_checks_status(
-            ctxt.log, ctxt.repository, [ctxt.pull_request], rule
-        )
-        return pull_rule_checks_status == check_api.Conclusion.FAILURE
-
-    async def _get_queue_summary(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
-    ) -> str:
-        pulls = await q.get_pulls()
-
-        if pulls and ctxt.pull["number"] == pulls[0] and await ctxt.is_behind:
-            summary = (
-                "The pull request base branch will be updated before being merged.\n\n"
-            )
-        else:
-            summary = ""
-
-        summary += "**Required conditions for merge:**\n\n"
-        summary += rule.conditions.get_summary()
-
-        if pulls:
-            table = [
-                "| | Pull request | Priority |",
-                "| ---: | :--- | :--- |",
-            ]
-            for i, pull_number in enumerate(pulls):
-                # TODO(sileht): maybe cache pull request title to avoid this lookup
-                q_pull_ctxt = await ctxt.repository.get_pull_request_context(
-                    pull_number
-                )
-                config = await q.get_config(pull_number)
-                try:
-                    fancy_priority = queue.PriorityAliases(config["priority"]).name
-                except ValueError:
-                    fancy_priority = str(config["priority"])
-
-                table.append(
-                    f"| {i + 1} "
-                    f"| {q_pull_ctxt.pull['title']} #{pull_number} "
-                    f"| {fancy_priority} "
-                    "|"
-                )
-
-            summary += (
-                "\n**The following pull requests are queued:**\n"
-                + "\n".join(table)
-                + "\n"
-            )
-
-        summary += "\n---\n\n"
-        summary += constants.MERGIFY_PULL_REQUEST_DOC
-        return summary
+    async def get_queue_status(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: typing.Optional[queue.QueueBase],
+    ) -> check_api.Result:
+        title = "The pull request will be merged soon"
+        summary = ""
+        return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(
@@ -287,8 +154,6 @@ class MergeAction(merge_base.MergeBaseAction):
             "action.merge",
             {
                 "merge_bot_account": bool(self.config["merge_bot_account"]),
-                "update_bot_account": bool(self.config["update_bot_account"]),
-                "strict": self.config["strict"].value,
                 "commit_message": self.config["commit_message"],
                 "commit_message_set": "commit_message" in self.raw_config,
             },
