@@ -1844,9 +1844,9 @@ DO NOT EDIT
         assert (
             check["output"]["title"] == "This pull request cannot be embarked for merge"
         )
-        assert (
-            check["output"]["summary"]
-            == "The merge-queue pull request can't be created\nDetails: `Merge conflict`"
+        assert check["output"]["summary"] == (
+            "The merge-queue pull request can't be created\n"
+            f"Details: `The pull request conflict with at least one of pull request ahead in queue: #{p1['number']}`"
         )
 
         # Merge the train
