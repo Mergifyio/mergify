@@ -518,6 +518,17 @@ class TrainCar:
                     )
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationPostponed(self) from e
+                elif "Merge conflict" in e.message:
+                    pull_requests_ahead = self.parent_pull_request_numbers[:]
+                    for ep in self.still_queued_embarked_pulls:
+                        if ep.user_pull_request_number == pull_number:
+                            break
+                        pull_requests_ahead.append(ep.user_pull_request_number)
+                    message = "The pull request conflict with at least one of pull request ahead in queue: "
+                    message += ", ".join([f"#{p}" for p in pull_requests_ahead])
+                    await self._set_creation_failure(message)
+                    await self._delete_branch()
+                    raise TrainCarPullRequestCreationFailure(self) from e
                 else:
                     await self._set_creation_failure(e.message)
                     await self._delete_branch()
