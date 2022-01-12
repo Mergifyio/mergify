@@ -519,6 +519,27 @@ enqueued pull requests.
             name: default
 
 
+.. _unqueue_notification:
+
+🤙 Get notified when a pull request is unexpectedly unqueued
+------------------------------------------------------------
+
+.. code-block:: yaml
+
+    - name: Notify author on queue failure
+      conditions:
+        - 'check-failure=Queue: Embarked in merge train'
+      actions:
+        comment:
+          message: >
+            Hey @{{ author }}, this pull request failed to merge and has been
+            dequeued from the merge train.  If you believe your PR failed in
+            the merge train because of a flaky test, requeue it by commenting
+            with `@mergifyio refresh`.
+            More details can be found on the `Queue: Embarked in merge train`
+            check-run.
+
+
 .. _merge-depends-on:
 
 ⛓️ Defining Pull Request Dependencies
