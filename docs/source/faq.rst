@@ -32,4 +32,4 @@ Be sure that Mergify did nothing on the pull request A if it told you so in the
 I see a rebase and force-push done by a member of the repository, but Mergify actually did it.
 ----------------------------------------------------------------------------------------------
 
-See :ref:`strict rebase`.
+See :ref:`update method rebase`.

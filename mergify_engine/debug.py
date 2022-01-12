@@ -35,7 +35,6 @@ from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
 from mergify_engine.engine import actions_runner
 from mergify_engine.queue import merge_train
-from mergify_engine.queue import naive
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -289,10 +288,6 @@ async def report(
                 typing.AsyncGenerator[github_types.GitHubBranch, None],
                 client.items(f"/repos/{owner_login}/{repo}/branches"),
             ):
-                # TODO(sileht): Add some informations on the train
-                q: queue.QueueBase = naive.Queue(repository, branch["name"])
-                await report_queue("QUEUES", q)
-
                 q = merge_train.Train(repository, branch["name"])
                 await q.load()
                 await report_queue("TRAIN", q)
@@ -311,8 +306,6 @@ async def report(
 
             # FIXME queues could also be printed if no pull number given
             # TODO(sileht): display train if any
-            q = await naive.Queue.from_context(ctxt)
-            print(f"* QUEUES: {', '.join([f'#{p}' for p in await q.get_pulls()])}")
             q = await merge_train.Train.from_context(ctxt)
             print(f"* TRAIN: {', '.join([f'#{p}' for p in await q.get_pulls()])}")
             print("* PULL REQUEST:")
