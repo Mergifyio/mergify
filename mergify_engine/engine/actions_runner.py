@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import base64
+import datetime
 import typing
 
 from datadog import statsd
@@ -23,6 +24,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import delayed_refresh
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -274,11 +276,18 @@ async def exec_action(
         # Forward those to worker
         if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
             raise
+        # NOTE(sileht): the action fails, this is a bug!!!, so just set the
+        # result as pending and retry in 5 minutes...
         ctxt.log.error("action failed", action=action, rule=rule, exc_info=True)
-        # TODO(sileht): extract sentry event id and post it, so
-        # we can track it easly
+        await delayed_refresh.plan_refresh_at_least_at(
+            ctxt.repository,
+            ctxt.pull["number"],
+            date.utcnow() + datetime.timedelta(minutes=5),
+        )
         return check_api.Result(
-            check_api.Conclusion.FAILURE, f"action '{action}' failed", ""
+            check_api.Conclusion.PENDING,
+            f"Action '{action}' has unexpectedly failed, Mergify team is working on it, the state will be refreshed automatically.",
+            "",
         )
 
 
