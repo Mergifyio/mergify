@@ -517,40 +517,51 @@ async def run_actions(
 
 async def cleanup_pending_actions_with_no_associated_rules(
     ctxt: context.Context,
-    match: rules.RulesEvaluator,
-    checks: typing.Dict[str, github_types.CachedGitHubCheckRun],
+    current_conclusions: typing.Dict[str, check_api.Conclusion],
     previous_conclusions: typing.Dict[str, check_api.Conclusion],
 ) -> None:
-    check_names = {
-        f"Rule: {rule.name} ({action})"
-        for rule in match.matching_rules
-        for action, action_obj in rule.actions.items()
-    }
-    removed_checks_to_cleanup = {
-        check_name
-        for check_name in previous_conclusions.keys()
-        if check_name not in check_names
-        and check_name.startswith("Rule: ")
-        and (check_name.endswith(" (queue)") or check_name.endswith(" (merge)"))
-        and check_name in checks
-        and checks[check_name]["conclusion"] is None
-    }
 
-    for check_name in removed_checks_to_cleanup:
+    check_to_cancel = set()
+    is_queued = False
+    was_queued = False
+    check_runs = [c["name"] for c in await ctxt.pull_engine_check_runs]
+
+    for check_name, conclusion in current_conclusions.items():
+        if (
+            check_name.endswith(" (queue)")
+            and conclusion == check_api.Conclusion.PENDING
+        ):
+            is_queued = True
+            break
+
+    for check_name, conclusion in previous_conclusions.items():
+        if check_name in current_conclusions:
+            continue
+
+        if (
+            check_name.endswith(" (queue)")
+            and conclusion == check_api.Conclusion.PENDING
+        ):
+            was_queued = True
+
+        if check_name in check_runs:
+            check_to_cancel.add(check_name)
+
+    for check_name in check_to_cancel:
         ctxt.log.info("action removal cleanup", check_name=check_name)
-        if check_name in checks:
-            await check_api.set_check_run(
-                ctxt,
-                check_name,
-                check_api.Result(
-                    check_api.Conclusion.CANCELLED,
-                    "The rule/action does not exists anymore",
-                    "",
-                ),
-            )
+        await check_api.set_check_run(
+            ctxt,
+            check_name,
+            check_api.Result(
+                check_api.Conclusion.CANCELLED,
+                "The rule/action does not exists anymore",
+                "",
+            ),
+        )
 
-        if check_name.endswith(" (queue)"):
-            await merge_train.Train.force_remove_pull(ctxt)
+    if not is_queued and was_queued:
+        ctxt.log.info("action removal cleanup, cleanup queue")
+        await merge_train.Train.force_remove_pull(ctxt)
 
 
 async def handle(
@@ -569,10 +580,10 @@ async def handle(
     previous_conclusions = load_conclusions(ctxt, summary_check)
 
     checks = {c["name"]: c for c in await ctxt.pull_engine_check_runs}
-    await cleanup_pending_actions_with_no_associated_rules(
-        ctxt, match, checks, previous_conclusions
-    )
     conclusions = await run_actions(ctxt, match, checks, previous_conclusions)
+    await cleanup_pending_actions_with_no_associated_rules(
+        ctxt, conclusions, previous_conclusions
+    )
     return await get_summary_check_result(
         ctxt,
         pull_request_rules,
