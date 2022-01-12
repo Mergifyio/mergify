@@ -51,7 +51,7 @@ async def have_unexpected_draft_pull_request_changes(
         in ["closed", "reopened"],
     )
     if unexpected_event:
-        ctxt.log.debug(
+        ctxt.log.info(
             "train car received an unexpected event",
             unexpected_event=unexpected_event,
         )
