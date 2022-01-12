@@ -85,3 +85,15 @@ def dumps(v: typing.Any) -> str:
 
 def loads(v: typing.Union[str, bytes]) -> typing.Any:
     return json.loads(v, object_hook=_decode)
+
+
+# NOTE(sileht): unused type we need to keep to always deserialization
+# of all payload stored in redis even we don't use it anymore
+class StrictMergeParameter(enum.Enum):
+    true = True
+    false = False
+    fasttrack = "smart+fasttrack"
+    ordered = "smart+ordered"
+
+
+register_type(StrictMergeParameter)
