@@ -38,6 +38,7 @@ from mergify_engine.tests.unit import conftest
 async def fake_train_car_create_pull(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
+    inner_self.creation_state = "created"
     inner_self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
         inner_self.still_queued_embarked_pulls[-1].user_pull_request_number + 10
     )
@@ -46,7 +47,7 @@ async def fake_train_car_create_pull(
 async def fake_train_car_update_user_pull(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
-    pass
+    inner_self.creation_state = "updated"
 
 
 async def fake_train_car_delete_pull(
@@ -80,6 +81,16 @@ def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
 
 MERGIFY_CONFIG = """
 queue_rules:
+  - name: 1x2
+    conditions: []
+    speculative_checks: 1
+    batch_size: 2
+    batch_max_wait_time: 0 s
+  - name: 1x5
+    conditions: []
+    speculative_checks: 1
+    batch_size: 5
+    batch_max_wait_time: 0 s
   - name: one
     conditions: []
     speculative_checks: 1
@@ -680,6 +691,148 @@ def test_train_batch_split(repository: context.Repository) -> None:
 
 @pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_splitted_on_failure_1x2(
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    fake_client: mock.Mock,
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    for i in range(41, 43):
+        await t.add_pull(await context_getter(i), get_config("1x2", 1000))
+    for i in range(6, 20):
+        await t.add_pull(await context_getter(i), get_config("1x2", 1000))
+
+    await t.refresh()
+    assert [[41, 42]] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    assert [[41, 42]] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+
+    await t.load()
+    await t.refresh()
+    assert [
+        [41],
+        [41, 42],
+    ] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 0
+    assert t._cars[0].creation_state == "updated"
+    assert t._cars[1].creation_state == "created"
+
+    # mark [41] as failed
+    t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    await t.remove_pull(await context_getter(41, merged=False))
+
+    # It's 41 fault, we restart the train on 42
+    await t.refresh()
+    assert [[42, 6]] == get_cars_content(t)
+    assert list(range(7, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 0
+    assert t._cars[0].creation_state == "created"  # type: ignore[comparison-overlap]
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_splitted_on_failure_1x5(
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    fake_client: mock.Mock,
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    for i in range(41, 46):
+        await t.add_pull(await context_getter(i), get_config("1x5", 1000))
+    for i in range(6, 20):
+        await t.add_pull(await context_getter(i), get_config("1x5", 1000))
+
+    await t.refresh()
+    assert [[41, 42, 43, 44, 45]] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    assert [[41, 42, 43, 44, 45]] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+
+    await t.load()
+    await t.refresh()
+    assert [
+        [41, 42],
+        [41, 42, 43, 44],
+        [41, 42, 43, 44, 45],
+    ] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "pending"
+    assert t._cars[2].creation_state == "created"
+
+    # mark [43+44] as failed
+    t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+
+    # nothing should move yet as we don't known yet if [41+42] is broken or not
+    await t.refresh()
+    assert [
+        [41, 42],
+        [41, 42, 43, 44],
+        [41, 42, 43, 44, 45],
+    ] == get_cars_content(t)
+    assert list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 1
+    assert len(t._cars[1].failure_history) == 1
+    assert len(t._cars[2].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "pending"
+    assert t._cars[2].creation_state == "created"
+
+    # mark [41+42] as ready and merge it
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    await t.save()
+    fake_client.update_base_sha("sha41")
+    await t.remove_pull(await context_getter(41, merged=True, merge_commit_sha="sha41"))
+    fake_client.update_base_sha("sha42")
+    await t.remove_pull(await context_getter(42, merged=True, merge_commit_sha="sha42"))
+
+    # [43+44] fail, so it's not 45, but is it 43 or 44?
+    await t.refresh()
+    assert [
+        [41, 42, 43],
+        [41, 42, 43, 44],
+    ] == get_cars_content(t)
+    assert [45] + list(range(6, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 2
+    assert len(t._cars[1].failure_history) == 1
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "pending"
+
+    # mark [43] as failure
+    t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
+    await t.save()
+    await t.remove_pull(await context_getter(43, merged=False))
+
+    # Train got cut after 43, and we restart from the begining
+    await t.refresh()
+    assert [[44, 45, 6, 7, 8]] == get_cars_content(t)
+    assert list(range(9, 20)) == get_waiting_content(t)
+    assert len(t._cars[0].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+
+
+@pytest.mark.asyncio
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_2x5(
     report_failure: mock.Mock,
     repository: context.Repository,
@@ -720,6 +873,9 @@ async def test_train_queue_splitted_on_failure_2x5(
     assert len(t._cars[0].failure_history) == 1
     assert len(t._cars[1].failure_history) == 1
     assert len(t._cars[2].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "created"
+    assert t._cars[2].creation_state == "created"
 
     # mark [43+44] as failed
     t._cars[1].checks_conclusion = check_api.Conclusion.FAILURE
@@ -736,6 +892,9 @@ async def test_train_queue_splitted_on_failure_2x5(
     assert len(t._cars[0].failure_history) == 1
     assert len(t._cars[1].failure_history) == 1
     assert len(t._cars[2].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "created"
+    assert t._cars[2].creation_state == "created"
 
     # mark [41+42] as ready and merge it
     t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
@@ -754,6 +913,8 @@ async def test_train_queue_splitted_on_failure_2x5(
     assert [45] + list(range(6, 20)) == get_waiting_content(t)
     assert len(t._cars[0].failure_history) == 2
     assert len(t._cars[1].failure_history) == 1
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "created"
 
     # mark [43] as failure
     t._cars[0].checks_conclusion = check_api.Conclusion.FAILURE
@@ -769,6 +930,8 @@ async def test_train_queue_splitted_on_failure_2x5(
     assert list(range(14, 20)) == get_waiting_content(t)
     assert len(t._cars[0].failure_history) == 0
     assert len(t._cars[1].failure_history) == 0
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "created"
 
 
 @pytest.mark.asyncio
