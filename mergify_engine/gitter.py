@@ -184,7 +184,13 @@ class Gitter(object):
             )
         except GitError:  # pragma: no cover
             self.logger.warning("git credential-cache exit fail")
-        await asyncio.to_thread(shutil.rmtree, self.tmp)
+
+        try:
+            await asyncio.to_thread(shutil.rmtree, self.tmp)
+        except OSError:
+            self.logger.warning(
+                "fail to cleanup git directory", path=self.tmp, exc_info=True
+            )
 
     async def configure(
         self, name: typing.Optional[str] = None, email: typing.Optional[str] = None
