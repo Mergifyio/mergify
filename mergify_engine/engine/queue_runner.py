@@ -26,29 +26,11 @@ from mergify_engine.queue import merge_train
 async def have_unexpected_draft_pull_request_changes(
     ctxt: context.Context, car: merge_train.TrainCar
 ) -> bool:
-    # NOTE(sileht): using base/sha here is safe as we control when we create
-    # the pull request, the sha was really the one the branch is based one. The
-    # chance the branch moved between the API calls that creates the PR is very
-    # low.
-    if ctxt.pull["base"]["sha"] != car.initial_current_base_sha:
-        ctxt.log.info(
-            "train car has an unexpected base sha change",
-            base_sha=ctxt.pull["base"]["sha"],
-            initial_current_base_sha=car.initial_current_base_sha,
-        )
-        return True
-
-    if await ctxt.has_been_synchronized_by_user():
-        ctxt.log.info(
-            "train car has unexpectedly been synchronized",
-        )
-        return True
-
     unexpected_event = first(
         (source for source in ctxt.sources),
         key=lambda s: s["event_type"] == "pull_request"
         and typing.cast(github_types.GitHubEventPullRequest, s["data"])["action"]
-        in ["closed", "reopened"],
+        in ["closed", "reopened", "synchronize"],
     )
     if unexpected_event:
         ctxt.log.info(
