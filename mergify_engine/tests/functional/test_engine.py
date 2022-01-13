@@ -625,7 +625,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ]
         assert "failure" == checks[0]["conclusion"]
         assert (
-            "Branch protection setting 'strict' conflicts with Mergify configuration"
+            "Branch protection setting 'strict' is enabled, and the pull request is not up to date."
             == checks[0]["output"]["title"]
         )
 
