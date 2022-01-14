@@ -409,9 +409,10 @@ class Repository(object):
     async def get_branch(
         self,
         branch_name: github_types.GitHubRefType,
+        bypass_cache: bool = False,
     ) -> github_types.GitHubBranch:
         branch = self._caches.branches.get(branch_name)
-        if branch is cache.Unset:
+        if branch is cache.Unset or bypass_cache:
             escaped_branch_name = parse.quote(branch_name, safe="")
             branch = typing.cast(
                 github_types.GitHubBranch,
@@ -1492,6 +1493,7 @@ class Context(object):
             "state",
             "mergeable",
             "mergeable_state",
+            "merge_commit_sha",
             "merged_by",
             "merged",
             "merged_at",

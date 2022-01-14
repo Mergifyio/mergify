@@ -621,7 +621,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         else:
             await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
 
-        if files:
+        if files is not None:
             await self._git_create_files(files)
         else:
             open(self.git.tmp + f"/test{self.pr_counter}", "wb").close()

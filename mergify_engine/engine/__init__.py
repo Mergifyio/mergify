@@ -67,38 +67,33 @@ async def _check_configuration_changes(
     if ctxt.pull["base"]["repo"]["default_branch"] != ctxt.pull["base"]["ref"]:
         return False
 
+    if ctxt.closed:
+        # merge_commit_sha is a merge between the PR and the base branch only when the pull request is open
+        # after it's None or the resulting commit of the pull request merge (maybe a rebase, squash, merge).
+        # As the PR is closed, we don't care about the config change detector.
+        return False
+
     config_file_to_validate: typing.Optional[context.MergifyConfigFile] = None
     preferred_filename = (
         None
         if current_mergify_config_file is None
         else current_mergify_config_file["path"]
     )
-    # NOTE(sileht): Just a shorcut to do two requests instead of three.
-    if ctxt.pull["changed_files"] <= 100:
-        for f in await ctxt.files:
-            if f["filename"] in context.Repository.MERGIFY_CONFIG_FILENAMES:
-                preferred_filename = f["filename"]
-                break
-        else:
-            return False
 
-    previous_mergify_config_file = None
+    # NOTE(sileht): pull.base.sha is unreliable as its the sha when the PR is
+    # open and not the merge-base/fork-point. So we compare the configuration from the base
+    # branch with the one of the merge commit. If the configuration is changed by the PR, they will be
+    # different.
     async for config_file in ctxt.repository.iter_mergify_config_files(
-        ref=ctxt.pull["base"]["sha"], preferred_filename=preferred_filename
-    ):
-        previous_mergify_config_file = config_file
-        break
-
-    async for config_file in ctxt.repository.iter_mergify_config_files(
-        ref=ctxt.pull["head"]["sha"], preferred_filename=preferred_filename
+        ref=ctxt.pull["merge_commit_sha"], preferred_filename=preferred_filename
     ):
         if (
-            previous_mergify_config_file is None
-            or config_file["path"] != previous_mergify_config_file["path"]
+            current_mergify_config_file is None
+            or config_file["path"] != current_mergify_config_file["path"]
         ):
             config_file_to_validate = config_file
             break
-        elif config_file["sha"] != previous_mergify_config_file["sha"]:
+        elif config_file["sha"] != current_mergify_config_file["sha"]:
             config_file_to_validate = config_file
             break
 
