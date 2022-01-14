@@ -209,6 +209,7 @@ class RuleConditionGroup:
     def copy(self) -> "RuleConditionGroup":
         return RuleConditionGroup(
             {self.operator: [c.copy() for c in self.conditions]},
+            description=self.description,
         )
 
     @staticmethod
