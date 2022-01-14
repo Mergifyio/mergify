@@ -1470,7 +1470,7 @@ class Train(queue.QueueBase):
                     # first car has finished and passed
                     if queue_rule.config["speculative_checks"] > 1 or pos == 0:
                         try:
-                            await self._create_car(queue_rule, self._cars[-1])
+                            await self._start_checking_car(queue_rule, self._cars[-1])
                         except (
                             TrainCarPullRequestCreationPostponed,
                             TrainCarPullRequestCreationFailure,
@@ -1518,7 +1518,7 @@ class Train(queue.QueueBase):
                 return
 
             try:
-                await self._create_car(queue_rule, self._cars[0])
+                await self._start_checking_car(queue_rule, self._cars[0])
             except TrainCarPullRequestCreationPostponed:
                 return
             except TrainCarPullRequestCreationFailure:
@@ -1629,7 +1629,7 @@ class Train(queue.QueueBase):
                 self._cars.append(car)
 
                 try:
-                    await self._create_car(queue_rule, car)
+                    await self._start_checking_car(queue_rule, car)
                 except TrainCarPullRequestCreationPostponed:
                     return
                 except TrainCarPullRequestCreationFailure:
@@ -1639,7 +1639,7 @@ class Train(queue.QueueBase):
                     # When this car will be removed the remaining one will be created
                     return
 
-    async def _create_car(
+    async def _start_checking_car(
         self,
         queue_rule: rules.QueueRule,
         car: TrainCar,
