@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestLabelAction(base.FunctionalTestBase):
-    async def test_label(self):
+    async def test_label_basic(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -27,8 +27,8 @@ class TestLabelAction(base.FunctionalTestBase):
                     "conditions": [f"base={self.main_branch_name}"],
                     "actions": {
                         "label": {
-                            "add": ["unstable", "foobar"],
-                            "remove": ["stable", "what"],
+                            "add": ["unstable", "foobar", "vector"],
+                            "remove": ["stable", "what", "remove-me"],
                         }
                     },
                 }
@@ -38,12 +38,17 @@ class TestLabelAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         p, _ = await self.create_pr()
+
+        # NOTE(sileht): We create first a label with a wrong case, GitHub
+        # label... you can't have a label twice with different case.
+        await self.add_label(p["number"], "vEcToR")
+        await self.add_label(p["number"], "ReMoVe-Me")
         await self.run_engine()
 
         pulls = await self.get_pulls()
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted(["unstable", "foobar"]),
+            sorted(["unstable", "foobar", "vEcToR"]),
             sorted(label["name"] for label in pulls[0]["labels"]),
         )
 
@@ -54,7 +59,7 @@ class TestLabelAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         self.assertEqual(1, len(pulls))
         self.assertEqual(
-            sorted(["unstable", "foobar"]),
+            sorted(["unstable", "foobar", "vEcToR"]),
             sorted(label["name"] for label in pulls[0]["labels"]),
         )
 
