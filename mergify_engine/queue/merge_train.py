@@ -1387,7 +1387,6 @@ class Train(queue.QueueBase):
         )
 
     async def _split_failed_batches(self, queue_rules: rules.QueueRules) -> None:
-        current_queue_position = 0
         if (
             len(self._cars) == 1
             and self._cars[0].checks_conclusion == check_api.Conclusion.FAILURE
@@ -1407,6 +1406,8 @@ class Train(queue.QueueBase):
                     )
             return
 
+        # NOTE(sileht): Looks for batch failure and split if needed
+        current_queue_position = 0
         for car in self._cars:
             current_queue_position += len(car.still_queued_embarked_pulls)
             if (
@@ -1442,10 +1443,13 @@ class Train(queue.QueueBase):
                 # We move this car later at the end to not retest it
                 del self._cars[-1]
 
+                # NOTE(sileht): if speculative_checks == 1 we split the batch
+                # in two parts, but check only the first one
+                parts = max(2, queue_rule.config["speculative_checks"])
+
                 parents: typing.List[EmbarkedPull] = []
-                for pulls in utils.split_list(
-                    car.still_queued_embarked_pulls[:-1],
-                    queue_rule.config["speculative_checks"],
+                for pos, pulls in enumerate(
+                    utils.split_list(car.still_queued_embarked_pulls[:-1], parts)
                 ):
                     self._cars.append(
                         TrainCar(
@@ -1460,17 +1464,22 @@ class Train(queue.QueueBase):
                     )
 
                     parents += pulls
-                    try:
-                        await self._create_car(queue_rule, self._cars[-1])
-                    except (
-                        TrainCarPullRequestCreationPostponed,
-                        TrainCarPullRequestCreationFailure,
-                    ):
-                        self.log.info(
-                            "failed to create draft pull request",
-                            car=car,
-                            exc_info=True,
-                        )
+                    # NOTE(sileht): if speculative_checks == 1 we must check
+                    # only the first car, keep the second one as pending.
+                    # _populate_cars() will create the second one, when the
+                    # first car has finished and passed
+                    if queue_rule.config["speculative_checks"] > 1 or pos == 0:
+                        try:
+                            await self._create_car(queue_rule, self._cars[-1])
+                        except (
+                            TrainCarPullRequestCreationPostponed,
+                            TrainCarPullRequestCreationFailure,
+                        ):
+                            self.log.info(
+                                "failed to create draft pull request",
+                                car=car,
+                                exc_info=True,
+                            )
 
                 # Update the car to pull that was part of the batch into parent, but keep
                 # the result as we already test it.
@@ -1486,6 +1495,38 @@ class Train(queue.QueueBase):
                     self.repository.repo, source="batch got split"
                 )
                 break
+
+        # NOTE(sileht): speculative_checks=1 may create car without the
+        # attached draft pull request if this car become the first, it means
+        # the previous car has been merged and we can start testing it
+        if (
+            self._cars
+            and len(self._cars[0].failure_history) > 0
+            and self._cars[0].creation_state == "pending"
+        ):
+            queue_name = self._cars[0].still_queued_embarked_pulls[0].config["name"]
+            try:
+                queue_rule = queue_rules[queue_name]
+            except KeyError:
+                # We just need to wait the pull request has been removed from
+                # the queue by the action
+                self.log.info(
+                    "can't start testing second half of a failed batch TrainCar, queue rule does not exist anymore",
+                    queue_rules=queue_rules,
+                    queue_name=queue_name,
+                )
+                return
+
+            try:
+                await self._create_car(queue_rule, self._cars[0])
+            except TrainCarPullRequestCreationPostponed:
+                return
+            except TrainCarPullRequestCreationFailure:
+                # NOTE(sileht): We posted failure merge-queue check-run on
+                # car.user_pull_request_number and refreshed it, so it will be removed
+                # from the train soon. We don't need to create remaining cars now.
+                # When this car will be removed the remaining one will be created
+                return
 
     async def _populate_cars(self, queue_rules: rules.QueueRules) -> None:
         if self._cars and (
