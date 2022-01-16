@@ -268,7 +268,7 @@ async def repository_queues(
                         checks=car.last_checks,
                         evaluated_conditions=car.last_evaluated_conditions,
                     )
-                elif car.creation_state == "failed":
+                elif car.creation_state in ("failed", "pending"):
                     speculative_check_pull_request = None
                 else:
                     raise RuntimeError(
