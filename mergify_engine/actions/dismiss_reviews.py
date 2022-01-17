@@ -58,9 +58,7 @@ class DismissReviewsAction(actions.Action):
             [types.GitHubLogin],
             FROM_REQUESTED_REVIEWERS,
         ),
-        voluptuous.Required("message", default=None): voluptuous.Any(
-            None, types.Jinja2
-        ),
+        voluptuous.Required("message", default=None): types.Jinja2WithNone,
         voluptuous.Required("when", default=WHEN_SYNCHRONIZE): voluptuous.Any(
             WHEN_SYNCHRONIZE, WHEN_ALWAYS
         ),
