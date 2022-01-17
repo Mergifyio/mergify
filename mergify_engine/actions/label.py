@@ -44,13 +44,15 @@ class LabelAction(actions.Action):
     ) -> check_api.Result:
         labels_changed = False
 
-        pull_labels = {label["name"] for label in ctxt.pull["labels"]}
+        pull_labels = {label["name"].lower() for label in ctxt.pull["labels"]}
 
         if self.config["add"]:
             for label in self.config["add"]:
                 await ctxt.repository.ensure_label_exists(label)
 
-            missing_labels = set(self.config["add"]) - pull_labels
+            missing_labels = {
+                label.lower() for label in self.config["add"]
+            } - pull_labels
             if missing_labels:
                 await ctxt.client.post(
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/labels",
@@ -58,13 +60,11 @@ class LabelAction(actions.Action):
                 )
                 labels_changed = True
                 labels_by_name = {
-                    _l["name"]: _l for _l in await ctxt.repository.get_labels()
+                    _l["name"].lower(): _l for _l in await ctxt.repository.get_labels()
                 }
                 ctxt.pull["labels"].extend(
                     [labels_by_name[label_name] for label_name in missing_labels]
                 )
-
-        pull_labels = {label["name"] for label in ctxt.pull["labels"]}
 
         if self.config["remove_all"]:
             if ctxt.pull["labels"]:
@@ -75,8 +75,9 @@ class LabelAction(actions.Action):
                 labels_changed = True
 
         elif self.config["remove"]:
+            pull_labels = {label["name"].lower() for label in ctxt.pull["labels"]}
             for label in self.config["remove"]:
-                if label in pull_labels:
+                if label.lower() in pull_labels:
                     label_escaped = parse.quote(label, safe="")
                     try:
                         await ctxt.client.delete(
@@ -91,7 +92,9 @@ class LabelAction(actions.Action):
                         )
                         continue
                     ctxt.pull["labels"] = [
-                        _l for _l in ctxt.pull["labels"] if _l["name"] != label
+                        _l
+                        for _l in ctxt.pull["labels"]
+                        if _l["name"].lower() != label.lower()
                     ]
                     labels_changed = True
 

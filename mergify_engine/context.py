@@ -683,8 +683,8 @@ class Repository(object):
 
     async def ensure_label_exists(self, label_name: str) -> None:
         labels = await self.get_labels()
-        names = [label["name"] for label in labels]
-        if label_name not in names:
+        names = [label["name"].lower() for label in labels]
+        if label_name.lower() not in names:
             color = f"{random.randrange(16 ** 6):06x}"  # nosec
             try:
                 resp = await self.installation.client.post(
