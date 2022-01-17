@@ -89,7 +89,7 @@ GIT_MESSAGE_TO_EXCEPTION: typing.Dict[
 
 @dataclasses.dataclass
 class Gitter(object):
-    logger: logging.LoggerAdapter
+    logger: "logging.LoggerAdapter[logging.Logger]"
     tmp: typing.Optional[str] = None
 
     # Worker timeout at 5 minutes, so ensure subprocess return before
