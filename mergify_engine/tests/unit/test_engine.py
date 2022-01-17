@@ -69,12 +69,12 @@ GH_PULL = github_types.GitHubPullRequest(
         "maintainer_can_modify": False,
         "rebaseable": False,
         "draft": False,
-        "merge_commit_sha": None,
+        "merge_commit_sha": github_types.SHAType("base-sha"),
         "labels": [],
         "number": github_types.GitHubPullRequestNumber(6),
-        "merged": True,
+        "merged": False,
         "commits": 1,
-        "state": "closed",
+        "state": "open",
         "html_url": "<html_url>",
         "base": {
             "label": "",
@@ -205,24 +205,10 @@ async def test_configuration_changed(
         ),
         status=200,
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
-        ),
-        status=200,
-    )
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -309,24 +295,10 @@ async def test_configuration_duplicated(
         ),
         status=200,
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
-        ),
-        status=200,
-    )
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -341,12 +313,12 @@ async def test_configuration_duplicated(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_data(status=404)
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -433,24 +405,10 @@ async def test_configuration_not_changed(
         ),
         status=200,
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
-        ),
-        status=200,
-    )
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {
@@ -465,12 +423,12 @@ async def test_configuration_not_changed(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_data(status=404)
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_data(status=404)
 
     github_server.expect_oneshot_request(
@@ -548,20 +506,7 @@ async def test_configuration_initial(
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_data(status=404)
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_data(status=404)
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["base"]["sha"]},
-    ).respond_with_data(status=404)
-
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["head"]["sha"]},
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
     ).respond_with_json(
         github_types.GitHubContentFile(
             {

@@ -92,6 +92,54 @@ expected alphabetic or numeric character, but found"""
             }
         ]
 
+    async def test_no_configuration_changed_with_weird_base_sha(self):
+        # Test special case where the configuration is changed around the a
+        # pull request creation.
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "conditions": ["base=main"],
+                    "actions": {
+                        "comment": {"message": "hello"},
+                    },
+                },
+            ],
+        }
+        # config has been update in the meantime
+        await self.setup_repo(yaml.dump({"pull_request_rules": []}))
+        with open(self.git.tmp + "/.mergify.yml", "wb") as f:
+            f.write(yaml.dump(rules).encode())
+        await self.git("add", ".mergify.yml")
+        await self.git("commit", "--no-edit", "-m", "conf update")
+        await self.git("push", "--quiet", "origin", self.main_branch_name)
+        await self.run_engine()
+
+        await self.git("branch", "save-point")
+        # Create a PR on outdated repo to get a wierd base.sha
+        await self.git("reset", "--hard", "HEAD^", "--")
+        # Create a lot of file to ignore optimization
+        p, _ = await self.create_pr(
+            git_tree_ready=True, files={f"f{i}": "data" for i in range(0, 160)}
+        )
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        await self.run_engine()
+
+        await self.git("checkout", "save-point", "-b", self.main_branch_name)
+        with open(self.git.tmp + "/.mergify.yml", "wb") as f:
+            f.write(yaml.dump({}).encode())
+        await self.git("add", ".mergify.yml")
+        await self.git("commit", "--no-edit", "-m", "conf update")
+        await self.git("push", "--quiet", "origin", self.main_branch_name)
+        await self.run_engine()
+
+        # we didn't change the pull request no configuration must be detected
+        p = await self.get_pull(p["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["output"]["title"] == "no rules match, no planned actions"
+
     async def test_invalid_configuration_in_pull_request(self):
         rules = {
             "pull_request_rules": [
