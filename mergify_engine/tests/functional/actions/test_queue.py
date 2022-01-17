@@ -25,6 +25,7 @@ from freezegun import freeze_time
 import pytest
 import yaml
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
@@ -571,6 +572,23 @@ class TestQueueAction(base.FunctionalTestBase):
                 ),
             ],
         )
+
+        await self.create_status(tmp_pull)
+        await self.run_engine()
+
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+        p1 = await self.get_pull(p1["number"])
+        # ensure the MERGE QUEUE SUMMARY succeed
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        )
+        assert check["conclusion"] == check_api.Conclusion.SUCCESS.value
 
     async def test_batch_queue(self):
         rules = {

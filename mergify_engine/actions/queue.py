@@ -323,20 +323,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
-        try:
-            merge_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["merge_bot_account"],
-                option_name="merge_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Queue with `merge_bot_account` set is unavailable",
-                # NOTE(sileht): we don't allow admin, because if branch protection are
-                # enabled, but not enforced on admins, we may bypass them
-                required_permissions=["write", "maintain"],
-            )
-        except action_utils.RenderBotAccountFailure as e:
-            return check_api.Result(e.status, e.title, e.reason)
-
         self._set_effective_priority(ctxt)
 
         q = await merge_train.Train.from_context(ctxt)
@@ -351,19 +337,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             if await self._should_be_cancel(ctxt, rule, q):
                 result = actions.CANCELLED_CHECK_REPORT
             else:
-                try:
-                    if await self._should_be_merged(ctxt, rule, q):
-                        # FIXME(sileht): this check is no more needed as we
-                        # always wait for pull_request_rule to match again before merging PR
-                        if await self._should_be_merged_during_cancel(ctxt, q):
-                            result = await self._merge(ctxt, rule, q, merge_bot_account)
-                        else:
-                            result = await self.get_queue_status(ctxt, rule, q)
-                    else:
-                        result = await self.get_queue_status(ctxt, rule, q)
-                except Exception:
-                    await q.remove_pull(ctxt)
-                    raise
+                result = await self.get_queue_status(ctxt, rule, q)
         elif not ctxt.closed:
             result = actions.CANCELLED_CHECK_REPORT
 
@@ -439,66 +413,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if car is None:
             return False
 
-        if await ctxt.is_behind:
-            if car.creation_state == "updated":
-                return False
-        else:
-            # NOTE(sileht) check first if PR should be removed from the queue
-            pull_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt.log, ctxt.repository, [ctxt.pull_request], rule
-            )
-            if pull_rule_checks_status == check_api.Conclusion.FAILURE:
-                return False
-
-            # NOTE(sileht): if the pull request rules are pending we wait their
-            # match before checking queue rules states, in case of one
-            # condition suddently unqueue the pull request.
-            # TODO(sileht): we may want to make this behavior configurable as
-            # people having slow/long CI running only on pull request rules, we
-            # may want to merge it before it finishes.
-            elif pull_rule_checks_status == check_api.Conclusion.PENDING:
-                return False
-
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt.repository,
-                ctxt.pull["base"]["ref"],
-                [ctxt.pull_request],
-                ctxt.log,
-                ctxt.has_been_refreshed_by_timer(),
-            )
-            if queue_rule_evaluated.conditions.match:
-                return True
-
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         if check:
             return (
                 check_api.Conclusion(check["conclusion"])
                 == check_api.Conclusion.SUCCESS
             )
-        return False
-
-    async def _should_be_merged_during_cancel(
-        self, ctxt: context.Context, q: queue.QueueBase
-    ) -> bool:
-        # NOTE(sileht):
-        # * The pull request have been queued (pull_request_rule has match once)
-        # * we rebased the head pull request
-        # * _should_be_cancel didn't remove the pull from the queue because
-        #   nothing external of queue_rule unmatch
-        # * queue rule conditions all match
-        # * We are good to not wait user CIs list pull_request_rule but only in
-        #   queue_rule
-        car = typing.cast(merge_train.Train, q).get_car(ctxt)
-        if car and car.creation_state == "updated":
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt.repository,
-                ctxt.pull["base"]["ref"],
-                [ctxt.pull_request],
-                ctxt.log,
-                ctxt.has_been_refreshed_by_timer(),
-            )
-            return queue_rule_evaluated.conditions.match
-
         return False
 
     async def _should_be_cancel(
