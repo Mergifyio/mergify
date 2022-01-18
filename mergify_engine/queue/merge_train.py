@@ -1819,7 +1819,7 @@ class Train(queue.QueueBase):
         if ep is None:
             return ""
         if ep.car is None:
-            description = f"{ctxt.pull['number']} is queued for merge."
+            description = f"#{ctxt.pull['number']} is queued for merge."
             description += await self.generate_merge_queue_summary_footer(
                 queue_rule_report=QueueRuleReport(
                     name=ep.embarked_pull.config["name"],
