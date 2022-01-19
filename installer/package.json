@@ -28,20 +28,20 @@
     },
     "extends": [
       "airbnb",
+      "plugin:import/recommended",
       "plugin:import/errors",
       "plugin:import/warnings"
-    ],
-    "plugins": [
-      "eslint-plugin-import-order-alphabetical"
     ],
     "rules": {
       "import/order": [
         "error",
         {
-          "newlines-between": "always-and-inside-groups"
+          "newlines-between": "always-and-inside-groups",
+          "alphabetize": {
+            "order": "asc"
+          }
         }
       ],
-      "import-order-alphabetical/order": "error",
       "jsx-a11y/click-events-have-key-events": "off",
       "jsx-a11y/no-static-element-interactions": "off",
       "jsx-a11y/no-autofocus": "off",
@@ -66,7 +66,6 @@
     "eslint": "^8.7.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-plugin-import": "^2.25.4",
-    "eslint-plugin-import-order-alphabetical": "^1.0.1",
     "eslint-plugin-jsx-a11y": "^6.5.1",
     "eslint-plugin-react": "^7.28.0",
     "eslint-plugin-react-hooks": "^4.3.0"
