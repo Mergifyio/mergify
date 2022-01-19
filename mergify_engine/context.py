@@ -284,7 +284,9 @@ class Repository(object):
     _caches: RepositoryCaches = dataclasses.field(
         default_factory=RepositoryCaches, repr=False
     )
-    log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
+    log: "logging.LoggerAdapter[logging.Logger]" = dataclasses.field(
+        init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self.log = daiquiri.getLogger(
@@ -765,7 +767,9 @@ class Context(object):
     sources: typing.List[T_PayloadEventSource] = dataclasses.field(default_factory=list)
     configuration_changed: bool = False
     pull_request: "PullRequest" = dataclasses.field(init=False, repr=False)
-    log: logging.LoggerAdapter = dataclasses.field(init=False, repr=False)
+    log: "logging.LoggerAdapter[logging.Logger]" = dataclasses.field(
+        init=False, repr=False
+    )
 
     _caches: ContextCaches = dataclasses.field(
         default_factory=ContextCaches, repr=False

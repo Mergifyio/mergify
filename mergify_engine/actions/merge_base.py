@@ -39,7 +39,7 @@ FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
 
 async def get_rule_checks_status_next(
-    log: logging.LoggerAdapter,
+    log: "logging.LoggerAdapter[logging.Logger]",
     repository: context.Repository,
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
@@ -77,7 +77,7 @@ async def get_rule_checks_status_next(
 
 
 async def get_rule_checks_status_legacy(
-    log: logging.LoggerAdapter,
+    log: "logging.LoggerAdapter[logging.Logger]",
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
 ) -> check_api.Conclusion:
@@ -117,7 +117,7 @@ async def get_rule_checks_status_legacy(
 
 
 async def get_rule_checks_status(
-    log: logging.LoggerAdapter,
+    log: "logging.LoggerAdapter[logging.Logger]",
     repository: context.Repository,
     pulls: typing.List[context.BasePullRequest],
     rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],

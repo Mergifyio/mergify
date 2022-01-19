@@ -98,7 +98,7 @@ async def stop_pending_yaaredis_tasks() -> None:
         task
         for task in asyncio.all_tasks()
         if (
-            task.get_coro().__qualname__
+            task.get_coro().__qualname__  # type: ignore[union-attr]
             == "ConnectionPool.disconnect_on_idle_time_exceeded"
         )
     ]

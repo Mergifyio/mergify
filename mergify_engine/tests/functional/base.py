@@ -75,7 +75,10 @@ class Record(typing.TypedDict):
 
 class GitterRecorder(gitter.Gitter):
     def __init__(
-        self, logger: logging.LoggerAdapter, cassette_library_dir: str, suffix: str
+        self,
+        logger: "logging.LoggerAdapter[logging.Logger]",
+        cassette_library_dir: str,
+        suffix: str,
     ) -> None:
         super(GitterRecorder, self).__init__(logger)
         self.cassette_path = os.path.join(cassette_library_dir, f"git-{suffix}.json")
@@ -522,7 +525,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         LOG.log(42, "RUNNING ENGINE")
         await self._async_run_workers(timeout)
 
-    def get_gitter(self, logger: logging.LoggerAdapter) -> GitterRecorder:
+    def get_gitter(
+        self, logger: "logging.LoggerAdapter[logging.Logger]"
+    ) -> GitterRecorder:
         self.git_counter += 1
         return GitterRecorder(logger, self.cassette_library_dir, str(self.git_counter))
 

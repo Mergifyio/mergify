@@ -80,7 +80,7 @@ def setup() -> None:
         mergify_engine_signals.__path__, mergify_engine_signals.__name__ + "."
     ):
         try:
-            SIGNALS[mod.name] = importlib.import_module(mod.name).Signal()  # type: ignore
+            SIGNALS[mod.name] = importlib.import_module(mod.name).Signal()
         except ImportError:
             LOG.error("failed to load signal: %s", mod.name, exc_info=True)
 

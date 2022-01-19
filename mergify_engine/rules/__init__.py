@@ -123,7 +123,7 @@ class QueueRule:
         repository: context.Repository,
         ref: github_types.GitHubRefType,
         pulls: typing.List[context.BasePullRequest],
-        logger: logging.LoggerAdapter,
+        logger: "logging.LoggerAdapter[logging.Logger]",
         log_schedule_details: bool,
     ) -> EvaluatedQueueRule:
         extra_conditions = await conditions.get_branch_protection_conditions(
@@ -205,7 +205,7 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         repository: context.Repository,
         pulls: typing.List[context.BasePullRequest],
         hide_rule: bool,
-        logger: logging.LoggerAdapter,
+        logger: "logging.LoggerAdapter[logging.Logger]",
         log_schedule_details: bool,
     ) -> "GenericRulesEvaluator[T_Rule, T_EvaluatedRule]":
         self = cls(rules)
