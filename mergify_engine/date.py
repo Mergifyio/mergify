@@ -187,12 +187,11 @@ class Time:
         if isinstance(obj, datetime.datetime):
             return obj
         elif isinstance(obj, Time):
-            return ref.replace(
+            return ref.astimezone(obj.tzinfo).replace(
                 minute=obj.minute,
                 hour=obj.hour,
                 second=0,
                 microsecond=0,
-                tzinfo=obj.tzinfo,
             )
         else:
             raise ValueError(f"Unsupport comparaison type: {type(obj)}")
