@@ -111,6 +111,7 @@ def test_time_compare():
         assert date.Time(13, 15, utc) < date.Time(15, 15, utc)
         assert date.Time(15, 0, utc) > date.Time(5, 0, utc)
 
+        # TZ that endup the same day
         zone = zoneinfo.ZoneInfo("Europe/Paris")
         assert date.Time(10, 0, zone) < date.utcnow()
         assert date.Time(18, 45, zone) > date.utcnow()
@@ -118,6 +119,18 @@ def test_time_compare():
         assert date.utcnow() > date.Time(10, 0, zone)
         assert date.utcnow() < date.Time(18, 45, zone)
         assert date.utcnow() == date.Time(13, 15, zone)
+        assert date.Time(13, 15, zone) == date.Time(13, 15, zone)
+        assert date.Time(13, 15, zone) < date.Time(15, 15, zone)
+        assert date.Time(15, 0, zone) > date.Time(5, 0, zone)
+
+        # TZ that endup the next day GMT + 13
+        zone = zoneinfo.ZoneInfo("Pacific/Auckland")
+        assert date.Time(0, 2, zone) < date.utcnow()
+        assert date.Time(2, 9, zone) > date.utcnow()
+        assert date.Time(1, 15, zone) == date.utcnow()
+        assert date.utcnow() > date.Time(0, 2, zone)
+        assert date.utcnow() < date.Time(2, 9, zone)
+        assert date.utcnow() == date.Time(1, 15, zone)
         assert date.Time(13, 15, zone) == date.Time(13, 15, zone)
         assert date.Time(13, 15, zone) < date.Time(15, 15, zone)
         assert date.Time(15, 0, zone) > date.Time(5, 0, zone)
