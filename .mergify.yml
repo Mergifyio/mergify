@@ -16,7 +16,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py310
+      - check-success=test
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -26,7 +26,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py310
+      - check-success=test
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -37,7 +37,7 @@ queue_rules:
     conditions:
       - check-success=requirements
       - check-success=pep8
-      - check-success=py310
+      - check-success=test
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -71,7 +71,7 @@ pull_request_rules:
       - check-success=semantic-pull-request
       - check-success=requirements
       - check-success=pep8
-      - check-success=py310
+      - check-success=test
       - check-success=docs
       - check-success=docker
       - check-success=heroku
@@ -94,9 +94,9 @@ pull_request_rules:
       - "#commits=1"
     actions:
       queue:
+        name: lowprio
         method: rebase
         commit_message_template: null
-        name: lowprio
 
   - name: dependabot conflict fixer
     conditions:
@@ -119,12 +119,6 @@ pull_request_rules:
       dismiss_reviews:
         # Do not remove approval for core devs
         approved: False
-  - name: auto add wip
-    conditions:
-      - title~=^(wip|WIP).*
-    actions:
-      label:
-        add: ["work-in-progress"]
   - name: request review
     conditions:
       - -author=dependabot[bot]
@@ -133,7 +127,7 @@ pull_request_rules:
       - -closed
       - check-success=requirements
       - check-success=pep8
-      - check-success=py310
+      - check-success=test
       - check-success=docs
       - check-success=docker
       - check-success=heroku
