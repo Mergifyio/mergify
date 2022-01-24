@@ -115,7 +115,15 @@ async def _check_configuration_changes(
             ),
         )
     else:
-        # Nothing to notify here, this is done within the global summary
+        await check_api.set_check_run(
+            ctxt,
+            "Configuration changed",
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="The new Mergify configuration is valid",
+                summary="This pull request has to be merged manually",
+            ),
+        )
         pass
     return True
 
@@ -299,7 +307,7 @@ async def run(
                 if event["action"] in ("opened", "synchronize"):
                     return check_api.Result(
                         check_api.Conclusion.FAILURE,
-                        title="The Mergify configuration is invalid",
+                        title="The current Mergify configuration is invalid",
                         summary=str(e),
                         annotations=e.get_annotations(e.filename),
                     )
