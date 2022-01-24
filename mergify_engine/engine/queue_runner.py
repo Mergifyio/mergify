@@ -45,19 +45,25 @@ async def have_unexpected_draft_pull_request_changes(
 async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
     # FIXME: Maybe create a command to force the retesting to put back the PR in the queue?
 
-    if ctxt.closed:
-        ctxt.log.info(
-            "train car temporary pull request has been closed", sources=ctxt.sources
-        )
-        return
-
     train = await merge_train.Train.from_context(ctxt)
 
     car = train.get_car_by_tmp_pull(ctxt)
     if not car:
-        ctxt.log.warning(
-            "train car not found for an opened merge queue pull request",
-            sources=ctxt.sources,
+        if ctxt.closed:
+            ctxt.log.info(
+                "train car temporary pull request has been closed", sources=ctxt.sources
+            )
+        else:
+            ctxt.log.warning(
+                "train car not found for an opened merge queue pull request",
+                sources=ctxt.sources,
+            )
+
+        return
+
+    if car.checks_conclusion != check_api.Conclusion.PENDING and ctxt.closed:
+        ctxt.log.info(
+            "train car temporary pull request has been closed", sources=ctxt.sources
         )
         return
 
