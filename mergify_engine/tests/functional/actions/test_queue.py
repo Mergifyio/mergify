@@ -2011,6 +2011,89 @@ DO NOT EDIT
         assert pulls[0]["number"] == p1["number"]
         await self._assert_cars_contents(q, None, [])
 
+    async def test_batch_cant_create_tmp_pull_request(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "batch_size": 2,
+                    "speculative_checks": 1,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+        p1, _ = await self.create_pr(files={"conflicts": "well"})
+        p2, _ = await self.create_pr(files={"conflicts": "boom"})
+        p3, _ = await self.create_pr()
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.run_engine(3)
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 4, [p["number"] for p in pulls]
+
+        tmp_mq = pulls[0]
+        assert tmp_mq["number"] not in [p1["number"], p2["number"], p3["number"]]
+
+        # Check only p1 and p3 are in the train
+        ctxt_p1 = context.Context(self.repository_ctxt, p1)
+        q = await merge_train.Train.from_context(ctxt_p1)
+        await self._assert_cars_contents(
+            q,
+            p1["base"]["sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p3["number"]],
+                    [],
+                    p1["base"]["sha"],
+                    "created",
+                    tmp_mq["number"],
+                ),
+            ],
+        )
+
+        # Ensure p2 status is updated with the failure
+        p2 = await self.get_pull(p2["number"])
+        ctxt_p2 = context.Context(self.repository_ctxt, p2)
+        check = first(
+            await ctxt_p2.pull_engine_check_runs,
+            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        )
+        assert (
+            check["output"]["title"] == "This pull request cannot be embarked for merge"
+        )
+        assert check["output"]["summary"] == (
+            "The merge-queue pull request can't be created\n"
+            f"Details: `The pull request conflict with at least one of pull request ahead in queue: #{p1['number']}`"
+        )
+
+        # Merge the train
+        await self.create_status(tmp_mq)
+        await self.run_engine()
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+
+        # Only p2 is remaining and not in train
+        pulls = await self.get_pulls()
+        assert len(pulls) == 1
+        assert pulls[0]["number"] == p2["number"]
+
+        await self._assert_cars_contents(q, None, [])
+
     async def test_queue_cant_create_tmp_pull_request(self):
         rules = {
             "queue_rules": [
