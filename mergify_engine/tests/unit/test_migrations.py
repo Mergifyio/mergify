@@ -15,13 +15,10 @@
 import typing
 from unittest import mock
 
-import pytest
-
 from mergify_engine import migrations
 from mergify_engine import utils
 
 
-@pytest.mark.asyncio
 async def test_0001_merge_train_hash(
     redis_cache: utils.RedisCache,
 ) -> None:
@@ -55,7 +52,6 @@ async def test_0001_merge_train_hash(
         assert await redis_cache.hgetall(train) == expected_trains[owner_id]
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.migrations._run_scripts")
 async def test_legacy_stamps(
     _: mock.Mock,
@@ -67,7 +63,6 @@ async def test_legacy_stamps(
     assert await redis_cache.get("migration-stamps") == "1"
 
 
-@pytest.mark.asyncio
 async def test_0002_pull_request_sha_number(
     redis_cache: utils.RedisCache,
 ) -> None:
@@ -91,7 +86,6 @@ async def test_0002_pull_request_sha_number(
         assert key == "migration-stamps" or key.startswith("summary-sha~")
 
 
-@pytest.mark.asyncio
 async def test_0003_attempts(
     redis_cache: utils.RedisCache,
 ) -> None:

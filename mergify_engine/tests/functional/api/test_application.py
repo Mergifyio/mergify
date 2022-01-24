@@ -22,7 +22,6 @@ from mergify_engine import config
 from mergify_engine.tests.functional import conftest as func_conftest
 
 
-@pytest.mark.asyncio
 @pytest.mark.recorder
 async def test_api_application(
     mergify_web_client: httpx.AsyncClient,

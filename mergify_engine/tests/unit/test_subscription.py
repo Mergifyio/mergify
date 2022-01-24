@@ -9,7 +9,6 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
 
-@pytest.mark.asyncio
 async def test_init(redis_cache):
     subscription.Subscription(
         redis_cache,
@@ -19,7 +18,6 @@ async def test_init(redis_cache):
     )
 
 
-@pytest.mark.asyncio
 async def test_dict(redis_cache):
     owner_id = 1234
     sub = subscription.Subscription(
@@ -44,7 +42,6 @@ async def test_dict(redis_cache):
         },
     ),
 )
-@pytest.mark.asyncio
 async def test_save_sub(features, redis_cache):
     owner_id = 1234
     sub = subscription.Subscription(
@@ -61,7 +58,6 @@ async def test_save_sub(features, redis_cache):
     assert rsub == sub
 
 
-@pytest.mark.asyncio
 @mock.patch.object(subscription.Subscription, "_retrieve_subscription_from_db")
 async def test_subscription_db_unavailable(
     retrieve_subscription_from_db_mock, redis_cache
@@ -117,7 +113,6 @@ async def test_subscription_db_unavailable(
     retrieve_subscription_from_db_mock.assert_called_once()
 
 
-@pytest.mark.asyncio
 async def test_unknown_sub(redis_cache):
     sub = await subscription.Subscription._retrieve_subscription_from_cache(
         redis_cache, 98732189
@@ -125,7 +120,6 @@ async def test_unknown_sub(redis_cache):
     assert sub is None
 
 
-@pytest.mark.asyncio
 async def test_from_dict_unknown_features(redis_cache):
     assert subscription.Subscription.from_dict(
         redis_cache,
@@ -143,7 +137,6 @@ async def test_from_dict_unknown_features(redis_cache):
     )
 
 
-@pytest.mark.asyncio
 async def test_active_feature(redis_cache):
     sub = subscription.Subscription(
         redis_cache,
@@ -173,7 +166,6 @@ async def test_active_feature(redis_cache):
     assert sub.has_feature(subscription.Features.PRIORITY_QUEUES) is False
 
 
-@pytest.mark.asyncio
 async def test_subscription_on_premise_valid(
     redis_cache: utils.RedisCache,
     httpserver: httpserver.HTTPServer,
@@ -207,7 +199,6 @@ async def test_subscription_on_premise_valid(
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_subscription_on_premise_wrong_token(
     redis_cache: utils.RedisCache,
     httpserver: httpserver.HTTPServer,
@@ -230,7 +221,6 @@ async def test_subscription_on_premise_wrong_token(
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_subscription_on_premise_invalid_sub(
     redis_cache: utils.RedisCache,
     httpserver: httpserver.HTTPServer,

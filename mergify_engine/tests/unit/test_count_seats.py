@@ -75,7 +75,6 @@ def test_seats_renamed_account_repo() -> None:
     assert repos == {repo1, repo2}
 
 
-@pytest.mark.asyncio
 async def test_send_seats(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request(
         "/on-premise/report",
@@ -102,7 +101,6 @@ for filename in os.listdir(_EVENT_DIR):
 
 
 @freeze_time("2011-11-11")
-@pytest.mark.asyncio
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
 async def test_store_active_users(event_type, event, redis_cache):
     await count_seats.store_active_users(redis_cache, event_type, event)
@@ -138,7 +136,6 @@ async def test_store_active_users(event_type, event, redis_cache):
 
 
 @freeze_time("2011-11-11")
-@pytest.mark.asyncio
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
 async def test_get_usage(event_type, event, redis_cache):
     await (count_seats.store_active_users(redis_cache, event_type, event))

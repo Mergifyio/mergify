@@ -115,7 +115,6 @@ defaults:
     }
 
 
-@pytest.mark.asyncio
 async def test_run_command_without_rerun_and_without_user(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
@@ -132,7 +131,6 @@ async def test_run_command_without_rerun_and_without_user(
     assert "user must be set if rerun is false" in str(error_msg.value)
 
 
-@pytest.mark.asyncio
 async def test_run_command_with_rerun_and_without_user(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
@@ -192,7 +190,6 @@ async def test_run_command_with_rerun_and_without_user(
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_run_command_with_user(
     user_id: int,
     permission: str,
@@ -240,7 +237,6 @@ async def test_run_command_with_user(
     assert result in client.post.call_args_list[0][1]["json"]["body"]
 
 
-@pytest.mark.asyncio
 async def test_run_command_with_wrong_arg(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:

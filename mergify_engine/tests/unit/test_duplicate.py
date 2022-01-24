@@ -16,8 +16,6 @@
 import typing
 from unittest import mock
 
-import pytest
-
 from mergify_engine import duplicate_pull
 from mergify_engine import github_types
 from mergify_engine.tests.unit import conftest
@@ -56,7 +54,6 @@ async def fake_get_github_pulls_from_sha(url, api_version=None):
     "mergify_engine.context.Context.commits",
     new_callable=mock.PropertyMock,
 )
-@pytest.mark.asyncio
 async def test_get_commits_to_cherry_pick_rebase(
     commits: mock.PropertyMock,
     context_getter: conftest.ContextGetterFixture,
@@ -125,7 +122,6 @@ async def test_get_commits_to_cherry_pick_rebase(
     "mergify_engine.context.Context.commits",
     new_callable=mock.PropertyMock,
 )
-@pytest.mark.asyncio
 async def test_get_commits_to_cherry_pick_merge(
     commits: mock.PropertyMock,
     context_getter: conftest.ContextGetterFixture,

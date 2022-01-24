@@ -152,7 +152,6 @@ def test_get_reviewers() -> None:
     assert reviewers == ({"jd"}, {"foobar"})
 
 
-@pytest.mark.asyncio
 async def test_disabled(context_getter: conftest.ContextGetterFixture) -> None:
     action = request_reviews.RequestReviewsAction.get_schema()(
         {
@@ -177,7 +176,6 @@ async def test_disabled(context_getter: conftest.ContextGetterFixture) -> None:
     )
 
 
-@pytest.mark.asyncio
 @pytest.mark.subscription
 async def test_team_permissions_missing(
     context_getter: conftest.ContextGetterFixture,
@@ -213,7 +211,6 @@ async def test_team_permissions_missing(
         assert error in result.summary
 
 
-@pytest.mark.asyncio
 @pytest.mark.subscription
 async def test_team_permissions_ok(
     context_getter: conftest.ContextGetterFixture,

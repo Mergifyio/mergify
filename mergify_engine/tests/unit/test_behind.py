@@ -77,7 +77,6 @@ def commits_tree_generator(request):
     return behind, commits
 
 
-@pytest.mark.asyncio
 async def test_pull_behind(
     commits_tree_generator: typing.Any, context_getter: conftest.ContextGetterFixture
 ) -> None:

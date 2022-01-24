@@ -254,7 +254,6 @@ def fake_client() -> mock.Mock:
         ),
     ),
 )
-@pytest.mark.asyncio
 async def test_get_rule_checks_status(
     conditions: typing.Any,
     conclusion: check_api.Conclusion,

@@ -49,7 +49,6 @@ def create_testing_router() -> None:
     api_root.app.include_router(router)
 
 
-@pytest.mark.asyncio
 async def test_api_auth_unknown_path(
     mergify_web_client: httpx.AsyncClient,
 ) -> None:
@@ -59,7 +58,6 @@ async def test_api_auth_unknown_path(
     assert r.json() == {"detail": "Not Found"}
 
 
-@pytest.mark.asyncio
 @pytest.mark.recorder
 async def test_api_auth(
     mergify_web_client: httpx.AsyncClient,
@@ -73,7 +71,6 @@ async def test_api_auth(
     assert r.json()["user_login"] == config.TESTING_ORGANIZATION_NAME
 
 
-@pytest.mark.asyncio
 @pytest.mark.recorder
 async def test_api_auth_invalid_token(
     mergify_web_client: httpx.AsyncClient,
@@ -110,7 +107,6 @@ async def test_api_auth_invalid_token(
     assert r.json() == {"detail": "Forbidden"}
 
 
-@pytest.mark.asyncio
 async def test_api_auth_no_token(
     mergify_web_client: httpx.AsyncClient,
     dashboard: func_conftest.DashboardFixture,

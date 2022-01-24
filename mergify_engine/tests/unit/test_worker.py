@@ -136,7 +136,6 @@ class InstallationMatcher:
         return self.owner == installation.owner_login
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -241,7 +240,6 @@ async def test_worker_legacy_push(
     )
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -324,7 +322,6 @@ async def test_worker_with_waiting_tasks(
     )
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.worker.run_engine")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
@@ -460,7 +457,6 @@ async def test_worker_expanded_events(
     )
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -532,7 +528,6 @@ async def test_worker_with_one_task(
     )
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -551,7 +546,6 @@ async def test_consume_unexisting_stream(
     assert len(run_engine.mock_calls) == 0
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -623,7 +617,6 @@ async def test_consume_good_stream(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
@@ -758,7 +751,6 @@ async def test_stream_processor_retrying_pull(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
@@ -856,7 +848,6 @@ async def test_stream_processor_retrying_stream_recovered(
     assert logger.info.mock_calls[0].args == ("failed to process org bucket, retrying",)
 
 
-@pytest.mark.asyncio
 @mock.patch.object(worker, "LOG")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
@@ -957,7 +948,6 @@ async def test_stream_processor_retrying_stream_failure(
     assert 1 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
@@ -1002,7 +992,6 @@ async def test_stream_processor_pull_unexpected_error(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1091,7 +1080,6 @@ async def test_stream_processor_date_scheduling(
     assert received == [wanted_owner_id, unwanted_owner_id]
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 async def test_worker_drop_bucket(
     get_subscription, redis_stream, redis_cache, logger_checker
@@ -1138,7 +1126,6 @@ async def test_worker_drop_bucket(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 async def test_worker_debug_report(
     get_subscription, redis_stream, redis_cache, logger_checker
@@ -1164,7 +1151,6 @@ async def test_worker_debug_report(
     await worker.async_status()
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1196,7 +1182,6 @@ async def test_stream_processor_retrying_after_read_error(
             await worker.run_engine(installation, 123, "repo", 1234, [])
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1239,7 +1224,6 @@ async def test_stream_processor_ignore_503(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1309,7 +1293,6 @@ async def test_worker_with_multiple_workers(
     assert 200 == len(run_engine.mock_calls)
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1363,7 +1346,6 @@ async def test_worker_reschedule(
     assert planned_for > planned_for_rescheduled
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
@@ -1395,7 +1377,6 @@ async def test_worker_stuck_shutdown(
     await run_worker(test_timeout=2, shutdown_timeout=1)
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")

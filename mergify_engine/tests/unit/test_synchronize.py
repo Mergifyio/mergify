@@ -16,14 +16,11 @@
 
 from unittest import mock
 
-import pytest
-
 from mergify_engine import check_api
 from mergify_engine import github_types
 from mergify_engine.tests.unit import conftest
 
 
-@pytest.mark.asyncio
 async def test_summary_synchronization_cache(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:

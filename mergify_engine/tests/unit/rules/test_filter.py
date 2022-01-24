@@ -25,8 +25,6 @@ from mergify_engine.rules import filter
 from mergify_engine.rules import parser
 
 
-pytestmark = pytest.mark.asyncio
-
 UTC = datetime.timezone.utc
 
 

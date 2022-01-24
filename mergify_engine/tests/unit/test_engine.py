@@ -16,7 +16,6 @@
 
 import base64
 
-import pytest
 from pytest_httpserver import httpserver
 
 from mergify_engine import context
@@ -170,7 +169,6 @@ CHECK_RUN = github_types.GitHubCheckRun(
 BASE_URL = f"/repos/{GH_OWNER['login']}/{GH_REPO['name']}"
 
 
-@pytest.mark.asyncio
 async def test_configuration_changed(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
@@ -259,7 +257,6 @@ async def test_configuration_changed(
     github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_configuration_duplicated(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
@@ -370,7 +367,6 @@ async def test_configuration_duplicated(
     github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_configuration_not_changed(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,
@@ -470,7 +466,6 @@ async def test_configuration_not_changed(
     github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_configuration_initial(
     github_server: httpserver.HTTPServer,
     redis_cache: utils.RedisCache,

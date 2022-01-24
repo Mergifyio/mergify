@@ -16,8 +16,6 @@
 
 from unittest import mock
 
-import pytest
-
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import github_types
@@ -26,7 +24,6 @@ from mergify_engine.queue import merge_train
 from mergify_engine.tests.unit import conftest
 
 
-@pytest.mark.asyncio
 async def test_cleanup_pending_actions_with_no_associated_rules(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:

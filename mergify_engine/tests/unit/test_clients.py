@@ -30,7 +30,6 @@ from mergify_engine.clients import http
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_installation_token_with_owner_id(
     httpserver: httpserver.HTTPServer,
 ) -> None:
@@ -82,7 +81,6 @@ async def test_client_installation_token_with_owner_id(
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
     with mock.patch(
         "mergify_engine.config.GITHUB_REST_API_URL",
@@ -127,7 +125,6 @@ async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> None:
     owner_id = github_types.GitHubAccountIdType(12345)
     owner_login = github_types.GitHubLogin("owner")
@@ -170,7 +167,6 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_client_HTTP_400(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_oneshot_request("/").respond_with_json(
         {"message": "This is an 4XX error"}, status=400
@@ -188,7 +184,6 @@ async def test_client_HTTP_400(httpserver: httpserver.HTTPServer) -> None:
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_client_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/").respond_with_data("This is an 5XX error", status=500)
 
@@ -207,7 +202,6 @@ async def test_client_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_client_temporary_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_oneshot_request("/").respond_with_data(
         "This is an 5XX error", status=500
@@ -229,7 +223,6 @@ async def test_client_temporary_HTTP_500(httpserver: httpserver.HTTPServer) -> N
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_client_connection_error() -> None:
     async with http.AsyncClient() as client:
         with pytest.raises(http.RequestError):
@@ -260,14 +253,12 @@ async def _do_test_client_retry_429(
     httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
-@pytest.mark.asyncio
 async def test_client_retry_429_retry_after_as_seconds(
     httpserver: httpserver.HTTPServer,
 ) -> None:
     await _do_test_client_retry_429(httpserver, "3", 3)
 
 
-@pytest.mark.asyncio
 async def test_client_retry_429_retry_after_as_absolute_date(
     httpserver: httpserver.HTTPServer,
 ) -> None:
@@ -276,7 +267,6 @@ async def test_client_retry_429_retry_after_as_absolute_date(
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/user/12345/installation").respond_with_json(
         {
@@ -321,7 +311,6 @@ async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/user/12345/installation").respond_with_data(
         "This is an 5XX error", status=500
@@ -350,7 +339,6 @@ async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/user/12345/installation").respond_with_json(
         {"message": "Repository not found"}, status=404
@@ -370,7 +358,6 @@ async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -> None:
     httpserver.expect_request("/user/12345/installation").respond_with_data(
         status=301,
@@ -394,7 +381,6 @@ async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-@pytest.mark.asyncio
 async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> None:
 
     abuse_message = (
