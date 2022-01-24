@@ -8,7 +8,6 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import application
 
 
-@pytest.mark.asyncio
 async def test_init(redis_cache):
     application.Application(
         redis_cache,
@@ -32,7 +31,6 @@ async def test_init(redis_cache):
     )
 
 
-@pytest.mark.asyncio
 async def test_save_apikey_scoped(redis_cache):
     api_access_key = "a" * 32
     api_secret_key = "s" * 32
@@ -70,7 +68,6 @@ async def test_save_apikey_scoped(redis_cache):
     assert app is None
 
 
-@pytest.mark.asyncio
 async def test_save_apikey_unscoped(redis_cache):
     api_access_key = "a" * 32
     api_secret_key = "s" * 32
@@ -97,7 +94,6 @@ async def test_save_apikey_unscoped(redis_cache):
     assert app is None
 
 
-@pytest.mark.asyncio
 async def test_update_apikey(redis_cache):
     api_access_key = "a" * 32
     api_secret_key = "s" * 32
@@ -151,7 +147,6 @@ async def test_update_apikey(redis_cache):
     assert expected_app == rapp
 
 
-@pytest.mark.asyncio
 @mock.patch.object(application.Application, "_retrieve_from_db")
 async def test_application_db_unavailable(retrieve_from_db_mock, redis_cache):
     api_access_key = "a" * 32
@@ -220,7 +215,6 @@ async def test_application_db_unavailable(retrieve_from_db_mock, redis_cache):
     retrieve_from_db_mock.assert_called_once()
 
 
-@pytest.mark.asyncio
 async def test_unknown_app(redis_cache):
     app = await application.Application._retrieve_from_cache(
         redis_cache, "whatever", "secret", None
@@ -228,7 +222,6 @@ async def test_unknown_app(redis_cache):
     assert app is None
 
 
-@pytest.mark.asyncio
 async def test_application_tokens_via_env(monkeypatch, redis_cache):
     api_access_key1 = "1" * 32
     api_secret_key1 = "1" * 32

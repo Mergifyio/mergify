@@ -7,7 +7,6 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import user_tokens
 
 
-@pytest.mark.asyncio
 async def test_init(redis_cache):
     user_tokens.UserTokens(redis_cache, 123, [])
 
@@ -28,7 +27,6 @@ async def test_init(redis_cache):
         ],
     ),
 )
-@pytest.mark.asyncio
 async def test_save_ut(users, redis_cache):
     owner_id = 1234
     ut = user_tokens.UserTokens(
@@ -42,7 +40,6 @@ async def test_save_ut(users, redis_cache):
     assert ut == rut
 
 
-@pytest.mark.asyncio
 @mock.patch.object(user_tokens.UserTokens, "_retrieve_from_db")
 async def test_user_tokens_db_unavailable(retrieve_from_db_mock, redis_cache):
     owner_id = 1234
@@ -91,13 +88,11 @@ async def test_user_tokens_db_unavailable(retrieve_from_db_mock, redis_cache):
     retrieve_from_db_mock.assert_called_once()
 
 
-@pytest.mark.asyncio
 async def test_unknown_ut(redis_cache):
     tokens = await user_tokens.UserTokens._retrieve_from_cache(redis_cache, 98732189)
     assert tokens is None
 
 
-@pytest.mark.asyncio
 async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
     ut = await user_tokens.UserTokensOnPremise.get(redis_cache, 123)
 

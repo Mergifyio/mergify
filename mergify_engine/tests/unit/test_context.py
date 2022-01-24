@@ -27,7 +27,6 @@ from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
 
-@pytest.mark.asyncio
 async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
@@ -196,7 +195,6 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 7
 
 
-@pytest.mark.asyncio
 async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
@@ -318,7 +316,6 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 7
 
 
-@pytest.mark.asyncio
 async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
@@ -569,7 +566,6 @@ def a_pull_request() -> github_types.GitHubPullRequest:
     )
 
 
-@pytest.mark.asyncio
 async def test_context_depends_on(a_pull_request):
     a_pull_request[
         "body"
@@ -596,14 +592,12 @@ footer
     assert ctxt.get_depends_on() == [42, 48, 50, 123, 456, 457, 789]
 
 
-@pytest.mark.asyncio
 async def test_context_body_null(a_pull_request):
     a_pull_request["body"] = None
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert await ctxt._get_consolidated_data("body") == ""
 
 
-@pytest.mark.asyncio
 async def test_context_body_html(a_pull_request):
     a_pull_request["title"] = "chore(deps-dev): update flake8 requirement from <4 to <5"
     a_pull_request[
@@ -711,7 +705,6 @@ You can trigger Dependabot actions by commenting on this PR:
     ) == (expected_title, expected_body)
 
 
-@pytest.mark.asyncio
 async def test_context_body_section(a_pull_request):
     a_pull_request[
         "title"
@@ -757,7 +750,6 @@ Fixes MRGFY-XXX"""
     )
 
 
-@pytest.mark.asyncio
 async def test_context_unexisting_section(a_pull_request):
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert (
@@ -769,7 +761,6 @@ async def test_context_unexisting_section(a_pull_request):
     )
 
 
-@pytest.mark.asyncio
 async def test_context_unexisting_section_with_templated_default(a_pull_request):
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert (
@@ -781,7 +772,6 @@ async def test_context_unexisting_section_with_templated_default(a_pull_request)
     )
 
 
-@pytest.mark.asyncio
 async def test_context_body_section_with_template(a_pull_request):
     a_pull_request[
         "body"

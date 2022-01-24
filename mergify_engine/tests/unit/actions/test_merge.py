@@ -113,7 +113,6 @@ my title
         ("Here's my message", "My PR title (#43)", "Here's my message", "title+body"),
     ],
 )
-@pytest.mark.asyncio
 async def test_merge_commit_message(body, title, message, mode, context_getter):
     ctxt = await context_getter(
         github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
@@ -162,7 +161,6 @@ on two lines"""
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_merge_commit_message_undefined(
     body: str, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -189,7 +187,6 @@ here is my message {{ and broken template
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_merge_commit_message_syntax_error(
     body: str, error: str, context_getter: conftest.ContextGetterFixture
 ) -> None:

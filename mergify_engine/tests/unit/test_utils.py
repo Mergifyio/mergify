@@ -135,7 +135,6 @@ def test_split_list():
     ]
 
 
-@pytest.mark.asyncio
 async def test_refresh_with_pull_request_number(
     redis_stream: utils.RedisStream,
     redis_cache: utils.RedisCache,

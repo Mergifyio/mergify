@@ -49,7 +49,6 @@ def fake_expander(v: str) -> typing.List[str]:
     return ["foo", "bar"]
 
 
-@pytest.mark.asyncio
 async def test_expanders():
     rc = conditions.RuleCondition("author=@team")
     rc.partial_filter.value_expanders["author"] = fake_expander
@@ -75,7 +74,6 @@ class FakeQueuePullRequest:
         return self.attrs[fancy_name]
 
 
-@pytest.mark.asyncio
 async def test_multiple_pulls_to_match():
     c = conditions.QueueRuleConditions(
         [
@@ -418,7 +416,6 @@ def test_jinja_with_wrong_syntax():
         ),
     ),
 )
-@pytest.mark.asyncio
 async def test_get_mergify_config(
     valid: str, fake_repository: context.Repository
 ) -> None:
@@ -445,7 +442,6 @@ async def test_get_mergify_config(
     assert "pull_request_rules" in schema
 
 
-@pytest.mark.asyncio
 async def test_get_mergify_config_with_defaults(
     fake_repository: context.Repository,
 ) -> None:
@@ -529,7 +525,6 @@ pull_request_rules:
     assert comment == {"message": "I really love Mergify", "bot_account": "AutoBot"}
 
 
-@pytest.mark.asyncio
 async def test_get_mergify_config_location_from_cache(
     fake_repository: context.Repository,
 ) -> None:
@@ -608,7 +603,6 @@ async def test_get_mergify_config_location_from_cache(
         ),
     ),
 )
-@pytest.mark.asyncio
 async def test_get_mergify_config_invalid(
     invalid: str, fake_repository: context.Repository
 ) -> None:
@@ -829,7 +823,6 @@ def test_pull_request_rule_schema_invalid(invalid, match):
         pull_request_rule_from_list([invalid])
 
 
-@pytest.mark.asyncio
 async def test_get_pull_request_rule(
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
@@ -1543,7 +1536,6 @@ Invalid GitHub login
     )
 
 
-@pytest.mark.asyncio
 async def test_queue_rules_summary():
     schema = voluptuous.Schema(
         voluptuous.All(
@@ -1673,7 +1665,6 @@ async def test_queue_rules_summary():
     )
 
 
-@pytest.mark.asyncio
 @freeze_time("2021-09-22T08:00:05", tz_offset=0)
 async def test_rules_conditions_schedule():
     pulls = [

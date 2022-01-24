@@ -74,7 +74,6 @@ pull_request_rules:
         ),
     ],
 )
-@pytest.mark.asyncio
 async def test_get_already_merged_summary(
     merged_by: str,
     raw_config: str,

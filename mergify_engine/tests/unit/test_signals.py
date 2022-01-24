@@ -14,14 +14,11 @@
 
 from unittest import mock
 
-import pytest
-
 from mergify_engine import github_types
 from mergify_engine import signals
 from mergify_engine.tests.unit import conftest
 
 
-@pytest.mark.asyncio
 async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
     assert len(signals.SIGNALS) == 0
     signals.setup()

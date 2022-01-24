@@ -22,7 +22,6 @@ import pytest
 from mergify_engine import gitter
 
 
-@pytest.mark.asyncio
 async def test_gitter(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LANG", "C")
     git = gitter.Gitter(mock.Mock())

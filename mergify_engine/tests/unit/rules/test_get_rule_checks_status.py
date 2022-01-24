@@ -18,7 +18,6 @@ import typing
 from unittest import mock
 
 from freezegun import freeze_time
-import pytest
 import voluptuous
 
 from mergify_engine import check_api
@@ -66,7 +65,6 @@ class FakeQueuePullRequest:
         self.attrs["status-failure"] = self.attrs.get("check-failure", [])  # type: ignore
 
 
-@pytest.mark.asyncio
 async def test_rules_conditions_update():
     pulls = [
         FakeQueuePullRequest(
@@ -141,7 +139,6 @@ async def assert_queue_rule_checks_status(conds, pull, expected_state):
     assert state == expected_state
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_basic(logger_checker):
     pull = FakeQueuePullRequest(
         {
@@ -192,7 +189,6 @@ async def test_rules_checks_basic(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_with_and_or(logger_checker):
     pull = FakeQueuePullRequest(
         {
@@ -266,7 +262,6 @@ async def test_rules_checks_with_and_or(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_with_negative_conditions1(logger_checker):
     pull = FakeQueuePullRequest(
         {
@@ -317,7 +312,6 @@ async def test_rules_checks_status_with_negative_conditions1(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_with_negative_conditions2():
     pull = FakeQueuePullRequest(
         {
@@ -368,7 +362,6 @@ async def test_rules_checks_status_with_negative_conditions2():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_with_negative_conditions3(logger_checker):
     pull = FakeQueuePullRequest(
         {
@@ -419,7 +412,6 @@ async def test_rules_checks_status_with_negative_conditions3(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_with_or_conditions():
     pull = FakeQueuePullRequest(
         {
@@ -482,7 +474,6 @@ async def test_rules_checks_status_with_or_conditions():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_expected_failure():
     pull = FakeQueuePullRequest(
         {
@@ -523,7 +514,6 @@ async def test_rules_checks_status_expected_failure():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_regular():
     pull = FakeQueuePullRequest(
         {
@@ -576,7 +566,6 @@ async def test_rules_checks_status_regular():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_regex():
     pull = FakeQueuePullRequest(
         {
@@ -629,7 +618,6 @@ async def test_rules_checks_status_regex():
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
 
-@pytest.mark.asyncio
 @freeze_time("2021-09-22T08:00:05", tz_offset=0)
 async def test_rules_conditions_schedule():
     pulls = [
@@ -675,7 +663,6 @@ async def test_rules_conditions_schedule():
     )
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_depop(logger_checker):
     pull = FakeQueuePullRequest(
         {
@@ -781,7 +768,6 @@ async def test_rules_checks_status_depop(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-@pytest.mark.asyncio
 async def test_rules_checks_status_ceph(logger_checker):
     pull = FakeQueuePullRequest(
         {

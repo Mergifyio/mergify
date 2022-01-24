@@ -69,7 +69,6 @@ async def _do_test_event_to_pull_check_run(
     assert pulls == expected_pulls
 
 
-@pytest.mark.asyncio
 async def test_event_to_pull_check_run_forked_repo(
     redis_cache: utils.RedisCache,
 ) -> None:
@@ -78,7 +77,6 @@ async def test_event_to_pull_check_run_forked_repo(
     )
 
 
-@pytest.mark.asyncio
 async def test_event_to_pull_check_run_same_repo(redis_cache: utils.RedisCache) -> None:
     await _do_test_event_to_pull_check_run(
         redis_cache, "check_run.event_from_same_repo.json", [409]
@@ -95,7 +93,6 @@ for filename in os.listdir(_EVENT_DIR):
 
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
 @mock.patch("mergify_engine.worker.push")
-@pytest.mark.asyncio
 async def test_filter_and_dispatch(
     worker_push: mock.Mock,
     event_type: github_types.GitHubEventType,

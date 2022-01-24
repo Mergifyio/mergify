@@ -23,7 +23,6 @@ from mergify_engine.dashboard import subscription
 from mergify_engine.tests.functional import conftest as func_conftest
 
 
-@pytest.mark.asyncio
 async def test_fixture_mergify_web_client(
     mergify_web_client: httpx.AsyncClient,
 ) -> None:
@@ -31,7 +30,6 @@ async def test_fixture_mergify_web_client(
     assert r.status_code == 404
 
 
-@pytest.mark.asyncio
 @pytest.mark.recorder
 async def test_fixture_recorder() -> None:
     async with github.AsyncGithubClient(auth=github_app.GithubBearerAuth()) as client:
@@ -41,7 +39,6 @@ async def test_fixture_recorder() -> None:
         assert r.json()["owner"]["login"] == config.TESTING_ORGANIZATION_NAME
 
 
-@pytest.mark.asyncio
 async def test_fixture_dashboard(dashboard: func_conftest.DashboardFixture) -> None:
     assert dashboard.subscription.features == frozenset(
         {subscription.Features.PUBLIC_REPOSITORY}

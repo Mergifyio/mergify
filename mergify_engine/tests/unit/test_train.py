@@ -203,7 +203,6 @@ def get_config(queue_name: str, priority: int = 100) -> queue.PullQueueConfig:
     )
 
 
-@pytest.mark.asyncio
 async def test_train_add_pull(
     context_getter: conftest.ContextGetterFixture,
     repository: context.Repository,
@@ -238,7 +237,6 @@ async def test_train_add_pull(
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_middle_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -259,7 +257,6 @@ async def test_train_remove_middle_merged(
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_middle_not_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -278,7 +275,6 @@ async def test_train_remove_middle_not_merged(
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_head_not_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -298,7 +294,6 @@ async def test_train_remove_head_not_merged(
     assert [[2], [2, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_head_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -320,7 +315,6 @@ async def test_train_remove_head_merged(
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_add_remove_pull_idempotant(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -358,7 +352,6 @@ async def test_train_add_remove_pull_idempotant(
     assert [[1], [1, 3]] == get_cars_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_mutiple_queue(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -418,7 +411,6 @@ async def test_train_mutiple_queue(
     assert [9] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_duplicates(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -455,7 +447,6 @@ async def test_train_remove_duplicates(
     assert [3, 4] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_end_wp(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -476,7 +467,6 @@ async def test_train_remove_end_wp(
     assert [2] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_first_wp(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -497,7 +487,6 @@ async def test_train_remove_first_wp(
     assert [3] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_remove_last_cars(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -518,7 +507,6 @@ async def test_train_remove_last_cars(
     assert [3] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_with_speculative_checks_decreased(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -561,7 +549,6 @@ queue_rules:
     assert [4, 5] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_queue_config_change(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -592,7 +579,6 @@ queue_rules:
     assert [2, 3] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_config_deleted(
     report_failure: mock.Mock,
@@ -627,7 +613,6 @@ queue_rules:
     assert len(report_failure.mock_calls) == 1
 
 
-@pytest.mark.asyncio
 async def test_train_priority_change(
     repository: context.Repository,
     context_getter: conftest.ContextGetterFixture,
@@ -689,7 +674,6 @@ def test_train_batch_split(repository: context.Repository) -> None:
     )
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_1x2(
     report_failure: mock.Mock,
@@ -739,7 +723,6 @@ async def test_train_queue_splitted_on_failure_1x2(
     assert t._cars[0].creation_state == "created"  # type: ignore[comparison-overlap]
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_1x5(
     report_failure: mock.Mock,
@@ -831,7 +814,6 @@ async def test_train_queue_splitted_on_failure_1x5(
     assert t._cars[0].creation_state == "created"
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_2x5(
     report_failure: mock.Mock,
@@ -934,7 +916,6 @@ async def test_train_queue_splitted_on_failure_2x5(
     assert t._cars[1].creation_state == "created"
 
 
-@pytest.mark.asyncio
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
 async def test_train_queue_splitted_on_failure_5x3(
     report_failure: mock.Mock,
@@ -1069,7 +1050,6 @@ async def test_train_queue_splitted_on_failure_5x3(
     assert [] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_no_interrupt_add_pull(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -1101,7 +1081,6 @@ async def test_train_no_interrupt_add_pull(
     assert [4, 3] == get_waiting_content(t)
 
 
-@pytest.mark.asyncio
 async def test_train_batch_max_wait_time(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
