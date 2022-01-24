@@ -119,7 +119,7 @@ async def _check_configuration_changes(
             ctxt,
             "Configuration changed",
             check_api.Result(
-                check_api.Conclusion.FAILURE,
+                check_api.Conclusion.SUCCESS,
                 title="The new Mergify configuration is valid",
                 summary="This pull request has to be merged manually",
             ),

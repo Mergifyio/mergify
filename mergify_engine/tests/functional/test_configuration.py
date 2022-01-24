@@ -17,6 +17,7 @@ from unittest import mock
 
 import yaml
 
+from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.tests.functional import base
@@ -59,6 +60,7 @@ class TestConfiguration(base.FunctionalTestBase):
             "* required key not provided @ pull_request_rules → item 0 → conditions"
         )
         conf_change_check = checks[1]
+        assert conf_change_check["conclusion"] == check_api.Conclusion.SUCCESS.value
         assert (
             conf_change_check["output"]["title"]
             == "The new Mergify configuration is valid"
