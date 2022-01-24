@@ -23,6 +23,47 @@ from mergify_engine.tests.functional import base
 
 
 class TestConfiguration(base.FunctionalTestBase):
+    async def test_invalid_configuration_fixed_by_pull_request(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "wrong key": 123,
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        rules["pull_request_rules"] = [
+            {
+                "name": "foobar",
+                "conditions": ["label!=wip"],
+                "actions": {"merge": {}},
+            }
+        ]
+        p, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        summary_check = checks[0]
+        assert (
+            summary_check["output"]["title"]
+            == "The current Mergify configuration is invalid"
+        )
+        assert summary_check["output"]["summary"] == (
+            "* extra keys not allowed @ pull_request_rules → item 0 → wrong key\n"
+            "* required key not provided @ pull_request_rules → item 0 → actions\n"
+            "* required key not provided @ pull_request_rules → item 0 → conditions"
+        )
+        conf_change_check = checks[1]
+        assert (
+            conf_change_check["output"]["title"]
+            == "The new Mergify configuration is valid"
+        )
+
     async def test_invalid_configuration_in_repository(self):
         rules = {
             "pull_request_rules": [
@@ -41,7 +82,9 @@ class TestConfiguration(base.FunctionalTestBase):
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
-        assert check["output"]["title"] == "The Mergify configuration is invalid"
+        assert (
+            check["output"]["title"] == "The current Mergify configuration is invalid"
+        )
         assert check["output"]["summary"] == (
             "* extra keys not allowed @ pull_request_rules → item 0 → wrong key\n"
             "* required key not provided @ pull_request_rules → item 0 → actions\n"
@@ -58,7 +101,9 @@ class TestConfiguration(base.FunctionalTestBase):
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         check = checks[0]
-        assert check["output"]["title"] == "The Mergify configuration is invalid"
+        assert (
+            check["output"]["title"] == "The current Mergify configuration is invalid"
+        )
         # Use startswith because the message has some weird \x00 char
         assert check["output"]["summary"].startswith(
             """Invalid YAML @ line 3, column 2
@@ -241,7 +286,9 @@ expected alphabetic or numeric character, but found"""
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
         assert summary is not None
-        assert summary["output"]["title"] == "The Mergify configuration is invalid"
+        assert (
+            summary["output"]["title"] == "The current Mergify configuration is invalid"
+        )
         assert (
             summary["output"]["summary"]
             == "extra keys not allowed @ pull_request_rules → item 0 → actions → comment → unknown"
