@@ -63,7 +63,7 @@ IGNORED_HTTP_ERROR_MESSAGES: typing.Dict[int, typing.List[str]] = {
 def should_be_ignored(exception: Exception) -> bool:
     if isinstance(exception, http.HTTPClientSideError):
         for reasons in IGNORED_HTTP_ERROR_REASONS.get(exception.status_code, []):
-            if exception.response.json().get("reason") in reasons:
+            if exception.response.json().get("reason", "") in reasons:
                 return True
 
     if isinstance(exception, (http.HTTPClientSideError, http.HTTPServerSideError)):
