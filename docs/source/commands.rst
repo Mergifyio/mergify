@@ -19,6 +19,7 @@ The syntax of the comment is::
 .. note::
 
   To run commands, a user needs to be the author of the pull request or have write access to the repository.
+  More restrictions can be added with :ref:`Commands Restrictions`.
 
 The list of available commands is listed below, with their parameters:
 

@@ -555,6 +555,14 @@ def FullifyPullRequestRules(v):
     return v
 
 
+CommandsRestrictionsSchema = {
+    voluptuous.Required("conditions", default=[]): voluptuous.All(
+        [voluptuous.Coerce(RuleConditionSchema)],
+        voluptuous.Coerce(conditions.PullRequestRuleConditions),
+    )
+}
+
+
 def UserConfigurationSchema(
     config: typing.Dict[str, typing.Any], partial_validation: bool = False
 ) -> voluptuous.Schema:
@@ -563,6 +571,10 @@ def UserConfigurationSchema(
             "pull_request_rules", default=[]
         ): get_pull_request_rules_schema(partial_validation),
         voluptuous.Required("queue_rules", default=[]): QueueRulesSchema,
+        voluptuous.Required("commands_restrictions", default={}): {
+            voluptuous.Required(name, default={}): CommandsRestrictionsSchema
+            for name in actions.get_commands()
+        },
         voluptuous.Required("defaults", default={}): get_defaults_schema(
             partial_validation
         ),
@@ -637,10 +649,15 @@ class Defaults(typing.TypedDict):
     actions: typing.Dict[str, typing.Any]
 
 
+class CommandsRestrictions(typing.TypedDict):
+    conditions: conditions.PullRequestRuleConditions
+
+
 class MergifyConfig(typing.TypedDict):
     pull_request_rules: PullRequestRules
     queue_rules: QueueRules
     defaults: Defaults
+    commands_restrictions: typing.Dict[str, CommandsRestrictions]
 
 
 def merge_config(

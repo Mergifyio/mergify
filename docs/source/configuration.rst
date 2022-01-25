@@ -26,7 +26,7 @@ Here's what you need to know about the file format:
 - The file format is `YAML <http://yaml.org/>`_.
 
 - The file main type is a dictionary whose keys are named
-  ``pull_request_rules``, ``queue_rules``, and ``defaults``.
+  ``pull_request_rules``, ``queue_rules``, ``commands_restrictions`` and ``defaults``.
 
 Pull Request Rules
 ~~~~~~~~~~~~~~~~~~
@@ -74,6 +74,39 @@ Queue Rules
 - Each entry in ``queue_rules`` must be a dictionary.
 
 See :ref:`queue rules` for the complete list and description of options.
+
+.. _commands restrictions:
+
+Commands Restrictions
+~~~~~~~~~~~~~~~~~~~~~
+
+- The value type of the ``commands_restrictions`` is dictionary.
+
+- Each entry in ``commands_restrictions`` must be an :ref:`Actions` name and a dictionary.
+
+Each dictionary must have the following keys:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 1 1 2
+
+   * - Key Name
+     - Value Type
+     - Value Description
+   * - ``conditions``
+     - list of :ref:`Conditions`
+     - A list of :ref:`Conditions` string that must match against the pull
+       request for the command to be allowed.
+
+For example, to limit backport commands for pull requests coming from the main branch:
+
+.. code-block:: yaml
+
+  commands_restrictions:
+    backport:
+      conditions:
+      - base=main
+
 
 Defaults
 ~~~~~~~~

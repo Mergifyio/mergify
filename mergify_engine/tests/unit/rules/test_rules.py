@@ -414,6 +414,14 @@ def test_jinja_with_wrong_syntax():
                   rebase: {}
             """
         ),
+        (
+            """
+            commands_restrictions:
+              backport:
+                conditions:
+                - base=main
+            """
+        ),
     ),
 )
 async def test_get_mergify_config(
@@ -440,6 +448,9 @@ async def test_get_mergify_config(
     schema = get_mergify_config(config_file)
     assert isinstance(schema, dict)
     assert "pull_request_rules" in schema
+    assert "queue_rules" in schema
+    assert "defaults" in schema
+    assert "commands_restrictions" in schema
 
 
 async def test_get_mergify_config_with_defaults(
