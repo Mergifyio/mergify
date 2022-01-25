@@ -46,7 +46,8 @@ class MergeableStateUnknown(EngineNeedRetry):
 
 RATE_LIMIT_RETRY_MIN = datetime.timedelta(seconds=3)
 
-IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
+IGNORED_HTTP_ERROR_REASONS: typing.Dict[int, typing.List[str]] = {451: ["dmca"]}
+IGNORED_HTTP_ERROR_MESSAGES: typing.Dict[int, typing.List[str]] = {
     403: [
         "Repository access blocked",  # Blocked Github Account or Repo
         "Resource not accessible by integration",  # missing permission
@@ -60,8 +61,13 @@ IGNORED_HTTP_ERRORS: typing.Dict[int, typing.List[str]] = {
 
 
 def should_be_ignored(exception: Exception) -> bool:
+    if isinstance(exception, http.HTTPClientSideError):
+        for reasons in IGNORED_HTTP_ERROR_REASONS.get(exception.status_code, []):
+            if exception.response.json().get("reason") in reasons:
+                return True
+
     if isinstance(exception, (http.HTTPClientSideError, http.HTTPServerSideError)):
-        for error in IGNORED_HTTP_ERRORS.get(exception.status_code, []):
+        for error in IGNORED_HTTP_ERROR_MESSAGES.get(exception.status_code, []):
             if error in exception.message:
                 return True
 
