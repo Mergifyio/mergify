@@ -414,7 +414,9 @@ class TrainCar:
                 self.still_queued_embarked_pulls[0].config.get("update_bot_account"),
             )
         except branch_updater.BranchUpdateFailure as exc:
-            await self._set_creation_failure(f"{exc.title}\n\n{exc.message}", "update")
+            await self._set_creation_failure(
+                f"{exc.title}\n\n{exc.message}", operation="update"
+            )
             raise TrainCarPullRequestCreationFailure(self) from exc
 
         # NOTE(sileht): We must update head_sha of the pull request otherwise
@@ -526,11 +528,15 @@ class TrainCar:
                         pull_requests_ahead.append(ep.user_pull_request_number)
                     message = "The pull request conflict with at least one of pull request ahead in queue: "
                     message += ", ".join([f"#{p}" for p in pull_requests_ahead])
-                    await self._set_creation_failure(message)
+                    await self._set_creation_failure(
+                        message, pull_requests=[pull_number]
+                    )
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
                 else:
-                    await self._set_creation_failure(e.message)
+                    await self._set_creation_failure(
+                        e.message, pull_requests=[pull_number]
+                    )
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
@@ -661,7 +667,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
     async def _set_creation_failure(
         self,
         details: str,
+        *,
         operation: typing.Literal["created", "update"] = "created",
+        pull_requests: typing.Optional[
+            typing.List[github_types.GitHubPullRequestNumber]
+        ] = None,
     ) -> None:
         self.creation_state = "failed"
 
@@ -674,8 +684,14 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         summary += f"\nDetails: `{details}`"
 
-        # Update the original Pull Request
+        # Update the original Pull Requests
         for embarked_pull in self.still_queued_embarked_pulls:
+            if (
+                pull_requests is not None
+                and embarked_pull.user_pull_request_number not in pull_requests
+            ):
+                continue
+
             original_ctxt = await self.train.repository.get_pull_request_context(
                 embarked_pull.user_pull_request_number
             )
