@@ -207,9 +207,11 @@ async def run_command(
         command_full = command.name
 
     commands_restrictions = mergify_config["commands_restrictions"].get(command.name)
-    if commands_restrictions is None or await commands_restrictions["conditions"](
-        [ctxt.pull_request]
-    ):
+    restriction_conditions = None
+    if commands_restrictions is not None:
+        restriction_conditions = commands_restrictions["conditions"].copy()
+        await restriction_conditions([ctxt.pull_request])
+    if restriction_conditions is None or restriction_conditions.match:
         conds = conditions.PullRequestRuleConditions(
             await command.action.get_conditions_requirements(ctxt)
         )
@@ -235,7 +237,7 @@ async def run_command(
         result = check_api.Result(
             check_api.Conclusion.FAILURE,
             "Command disallowed on this pull request",
-            commands_restrictions["conditions"].get_summary(),
+            restriction_conditions.get_summary(),
         )
 
     ctxt.log.info(
