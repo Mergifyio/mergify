@@ -110,7 +110,7 @@ def fake_get_installation_from_account_id(
     }
 
 
-async def run_worker(test_timeout=10, **kwargs):
+async def run_worker(test_timeout: float = 10, **kwargs: typing.Any) -> worker.Worker:
     w = worker.Worker(
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
@@ -124,6 +124,7 @@ async def run_worker(test_timeout=10, **kwargs):
         await asyncio.sleep(0.5)
     w.stop()
     await w.wait_shutdown_complete()
+    return w
 
 
 @dataclasses.dataclass
@@ -202,7 +203,7 @@ async def test_worker_legacy_push(
     for bucket_source in bucket_sources:
         assert 3 == await redis_stream.xlen(bucket_source)
 
-    await run_worker()
+    w = await run_worker()
 
     # Check redis is empty
     assert 0 == (await redis_stream.zcard("streams"))
@@ -238,6 +239,8 @@ async def test_worker_legacy_push(
         )
         in run_engine.mock_calls
     )
+
+    assert w._owners_cache._mapping == {i: f"owner-{i}" for i in range(0, 8)}
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
@@ -541,7 +544,9 @@ async def test_consume_unexisting_stream(
 ):
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, False, worker.OwnerLoginsCache()
+    )
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
 
@@ -587,8 +592,10 @@ async def test_consume_good_stream(
     assert 1 == len(await redis_stream.keys("bucket-sources~*"))
     assert 2 == await redis_stream.xlen("bucket-sources~123~123")
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
     await p.consume("bucket~123", 123, "owner-123")
+    assert owners_cache.get(123) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -672,8 +679,10 @@ async def test_stream_processor_retrying_pull(
     assert 1 == await redis_stream.xlen("bucket-sources~123~123")
     assert 1 == await redis_stream.xlen("bucket-sources~123~42")
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
     await p.consume("bucket~123", 123, "owner-123")
+    assert owners_cache.get(123) == "owner-123"
 
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
@@ -802,8 +811,10 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 2 == await redis_stream.xlen("bucket-sources~123~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
     await p.consume("bucket~123", 123, "owner-123")
+    assert owners_cache.get(123) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -898,8 +909,10 @@ async def test_stream_processor_retrying_stream_failure(
     assert 2 == await redis_stream.xlen("bucket-sources~123~123")
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
     await p.consume("bucket~123", 123, "owner-123")
+    assert owners_cache.get(123) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -978,9 +991,11 @@ async def test_stream_processor_pull_unexpected_error(
         {"payload": "whatever"},
     )
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
     await p.consume("bucket~123", 123, "owner-123")
     await p.consume("bucket~123", 123, "owner-123")
+    assert owners_cache.get(123) == "owner-123"
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
@@ -1037,8 +1052,9 @@ async def test_stream_processor_date_scheduling(
     assert 2 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
+    owners_cache = worker.OwnerLoginsCache()
     s = worker.SharedOrgBucketSelector(redis_stream, 0, 1)
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
 
     received = []
 
@@ -1078,6 +1094,9 @@ async def test_stream_processor_date_scheduling(
     assert 0 == len(await redis_stream.keys("bucket~*"))
     assert 0 == len(await redis_stream.hgetall("attempts"))
     assert received == [wanted_owner_id, unwanted_owner_id]
+
+    assert owners_cache.get(123) == "owner-123"
+    assert owners_cache.get(234) == "owner-234"
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
@@ -1172,7 +1191,8 @@ async def test_stream_processor_retrying_after_read_error(
         request=mock.Mock(),
     )
 
-    p = worker.StreamProcessor(redis_stream, redis_cache, False)
+    owners_cache = worker.OwnerLoginsCache()
+    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
 
     installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
     with pytest.raises(worker.OrgBucketRetry):
@@ -1180,6 +1200,8 @@ async def test_stream_processor_retrying_after_read_error(
             worker_lua.BucketOrgKeyType("stream~owner~123")
         ):
             await worker.run_engine(installation, 123, "repo", 1234, [])
+
+    assert owners_cache.get(123) == "<unknown 123>"
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
