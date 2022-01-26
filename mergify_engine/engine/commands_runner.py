@@ -194,6 +194,7 @@ async def run_pending_commands_tasks(
 
 async def run_command(
     ctxt: context.Context,
+    mergify_config: rules.MergifyConfig,
     command: Command,
     user: typing.Optional[github_types.GitHubAccount],
 ) -> typing.Tuple[check_api.Result, str]:
@@ -205,26 +206,36 @@ async def run_command(
     else:
         command_full = command.name
 
-    conds = conditions.PullRequestRuleConditions(
-        await command.action.get_conditions_requirements(ctxt)
-    )
-    await conds([ctxt.pull_request])
-    if conds.match:
-        result = await command.action.run(
-            ctxt,
-            rules.EvaluatedRule(rules.PullRequestRule("", None, conds, {}, False)),
+    commands_restrictions = mergify_config["commands_restrictions"].get(command.name)
+    if commands_restrictions is None or await commands_restrictions["conditions"](
+        [ctxt.pull_request]
+    ):
+        conds = conditions.PullRequestRuleConditions(
+            await command.action.get_conditions_requirements(ctxt)
         )
-    elif actions.ActionFlag.ALLOW_AS_PENDING_COMMAND in command.action.flags:
-        result = check_api.Result(
-            check_api.Conclusion.PENDING,
-            "Waiting for conditions to match",
-            conds.get_summary(),
-        )
+        await conds([ctxt.pull_request])
+        if conds.match:
+            result = await command.action.run(
+                ctxt,
+                rules.EvaluatedRule(rules.PullRequestRule("", None, conds, {}, False)),
+            )
+        elif actions.ActionFlag.ALLOW_AS_PENDING_COMMAND in command.action.flags:
+            result = check_api.Result(
+                check_api.Conclusion.PENDING,
+                "Waiting for conditions to match",
+                conds.get_summary(),
+            )
+        else:
+            result = check_api.Result(
+                check_api.Conclusion.NEUTRAL,
+                "Nothing to do",
+                conds.get_summary(),
+            )
     else:
         result = check_api.Result(
-            check_api.Conclusion.NEUTRAL,
-            "Nothing to do",
-            conds.get_summary(),
+            check_api.Conclusion.FAILURE,
+            "Command disallowed on this pull request",
+            commands_restrictions["conditions"].get_summary(),
         )
 
     ctxt.log.info(
@@ -326,7 +337,7 @@ async def handle(
         await post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
         return
 
-    result, message = await run_command(ctxt, command, user)
+    result, message = await run_command(ctxt, mergify_config, command, user)
     if result.conclusion is check_api.Conclusion.PENDING and rerun:
         log("action still pending", result)
         return
