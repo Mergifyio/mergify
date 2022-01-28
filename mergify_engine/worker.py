@@ -325,25 +325,36 @@ class SharedOrgBucketSelector:
 
 
 @dataclasses.dataclass
-class StreamProcessor:
-    redis_stream: utils.RedisStream
-    redis_cache: utils.RedisCache
-    dedicated: bool
-
+class OwnerLoginsCache:
     # NOTE(sileht): This could take some memory in the future
     # we can assume github_types.GitHubLogin is ~ 104 bytes
     # and github_types.GitHubAccountIdType 32 bytes
     # and 10% dict overhead
-    owners_mapping: typing.Dict[
+    _mapping: typing.Dict[
         github_types.GitHubAccountIdType, github_types.GitHubLogin
-    ] = dataclasses.field(default_factory=dict)
+    ] = dataclasses.field(default_factory=dict, repr=False)
 
-    def get_owner_login(
+    def set(
+        self,
+        owner_id: github_types.GitHubAccountIdType,
+        owner_login: github_types.GitHubLogin,
+    ) -> None:
+        self._mapping[owner_id] = owner_login
+
+    def get(
         self, owner_id: github_types.GitHubAccountIdType
     ) -> github_types.GitHubLoginForTracing:
-        return self.owners_mapping.get(
+        return self._mapping.get(
             owner_id, github_types.GitHubLoginUnknown(f"<unknown {owner_id}>")
         )
+
+
+@dataclasses.dataclass
+class StreamProcessor:
+    redis_stream: utils.RedisStream
+    redis_cache: utils.RedisCache
+    dedicated: bool
+    owners_cache: OwnerLoginsCache
 
     @contextlib.asynccontextmanager
     async def _translate_exception_to_retries(
@@ -450,9 +461,9 @@ class StreamProcessor:
                     installation = context.Installation(
                         installation_raw, sub, client, self.redis_cache
                     )
-                    self.owners_mapping[
-                        installation.owner_id
-                    ] = installation.owner_login
+                    self.owners_cache.set(
+                        installation.owner_id, installation.owner_login
+                    )
                     owner_login_for_tracing = installation.owner_login
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
@@ -915,6 +926,9 @@ class Worker:
     _dedicated_workers_spawner_task: typing.Optional[
         asyncio.Task[None]
     ] = dataclasses.field(init=False, default=None)
+    _owners_cache: OwnerLoginsCache = dataclasses.field(
+        init=False, default_factory=OwnerLoginsCache
+    )
 
     @property
     def worker_count(self) -> int:
@@ -931,7 +945,10 @@ class Worker:
             raise RuntimeError("redis clients are not ready")
 
         stream_processor = StreamProcessor(
-            self._redis_stream, self._redis_cache, dedicated=False
+            self._redis_stream,
+            self._redis_cache,
+            dedicated=False,
+            owners_cache=self._owners_cache,
         )
         org_bucket_selector = SharedOrgBucketSelector(
             self._redis_stream, shared_worker_id, self.worker_count
@@ -947,7 +964,10 @@ class Worker:
             raise RuntimeError("redis clients are not ready")
 
         stream_processor = StreamProcessor(
-            self._redis_stream, self._redis_cache, dedicated=True
+            self._redis_stream,
+            self._redis_cache,
+            dedicated=True,
+            owners_cache=self._owners_cache,
         )
         org_bucket_selector = DedicatedOrgBucketSelector(self._redis_stream, owner_id)
         return await self._stream_worker_task(
@@ -969,7 +989,7 @@ class Worker:
         if bucket_org_key:
             LOG.debug("worker %s take org bucket: %s", worker_id, bucket_org_key)
             owner_id = self.extract_owner(bucket_org_key)
-            owner_login_for_tracing = stream_processor.get_owner_login(owner_id)
+            owner_login_for_tracing = self._owners_cache.get(owner_id)
             try:
                 with tracer.trace(
                     "org bucket processing",
