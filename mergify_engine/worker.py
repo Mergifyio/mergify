@@ -243,6 +243,10 @@ async def run_engine(
             logger.debug("pull request doesn't exists, skipping it")
             return None
 
+        if ctxt.repository.repo["archived"]:
+            logger.debug("repository archived, skipping it")
+            return None
+
         result = await engine.run(ctxt, sources)
         if result is not None:
             result.started_at = started_at
