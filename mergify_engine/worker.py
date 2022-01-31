@@ -896,9 +896,16 @@ class Worker:
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
     enabled_services: typing.Set[
-        typing.Literal["stream", "stream-monitoring", "delayed-refresh"]
+        typing.Literal[
+            "shared-stream", "dedicated-stream", "stream-monitoring", "delayed-refresh"
+        ]
     ] = dataclasses.field(
-        default_factory=lambda: {"stream", "stream-monitoring", "delayed-refresh"}
+        default_factory=lambda: {
+            "shared-stream",
+            "dedicated-stream",
+            "stream-monitoring",
+            "delayed-refresh",
+        }
     )
     monitoring_idle_time: float = 60
     delayed_refresh_idle_time: float = 60
@@ -930,6 +937,9 @@ class Worker:
     _dedicated_workers_spawner_task: typing.Optional[
         asyncio.Task[None]
     ] = dataclasses.field(init=False, default=None)
+    _delayed_refresh_task: typing.Optional[asyncio.Task[None]] = dataclasses.field(
+        init=False, default=None
+    )
     _owners_cache: OwnerLoginsCache = dataclasses.field(
         init=False, default_factory=OwnerLoginsCache
     )
@@ -1112,7 +1122,7 @@ class Worker:
         await redis_utils.load_scripts(self._redis_stream)
         await migrations.run(self._redis_cache)
 
-        if "stream" in self.enabled_services:
+        if "shared-stream" in self.enabled_services:
             worker_ids = self.get_shared_worker_ids()
             LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
@@ -1131,6 +1141,7 @@ class Worker:
                 )
             LOG.info("workers started", count=len(worker_ids))
 
+        if "dedicated-stream" in self.enabled_services:
             LOG.info("dedicated worker spawner starting")
             self._dedicated_workers_spawner_task = asyncio.create_task(
                 self.loop_and_sleep_forever(

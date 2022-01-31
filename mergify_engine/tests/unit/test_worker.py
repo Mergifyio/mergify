@@ -1525,3 +1525,121 @@ async def test_dedicated_worker_scaleup_scaledown(
 
     w.stop()
     await w.wait_shutdown_complete()
+
+
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_separate_dedicated_worker(
+    run_engine,
+    get_installation_from_account_id,
+    get_subscription,
+    redis_stream,
+    redis_cache,
+    logger_checker,
+):
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+
+    shared_w = worker.Worker(
+        worker_per_process=3,
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        enabled_services=("shared-stream",),
+    )
+    await shared_w.start()
+
+    dedicated_w = worker.Worker(
+        worker_per_process=3,
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        enabled_services=("dedicated-stream",),
+    )
+
+    tracker = []
+
+    async def track_context(*args, **kwargs):
+        tracker.append(logs.WORKER_ID.get(None))
+
+    run_engine.side_effect = track_context
+
+    async def fake_get_subscription_dedicated(redis, owner_id):
+        sub = mock.Mock()
+        # 1 is always shared
+        if owner_id == 1:
+            sub.has_feature.return_value = False
+        else:
+            sub.has_feature.return_value = True
+        return sub
+
+    async def fake_get_subscription_shared(redis, owner_id):
+        sub = mock.Mock()
+        sub.has_feature.return_value = False
+        return sub
+
+    async def push_and_wait(blocked_stream=0):
+        # worker hash == 2
+        await worker.push(
+            redis_stream,
+            4242,
+            "owner-4242",
+            4242,
+            "repo",
+            4242,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 1
+        await worker.push(
+            redis_stream,
+            1,
+            "owner-1",
+            1,
+            "repo",
+            1,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 0
+        await worker.push(
+            redis_stream,
+            120,
+            "owner-120",
+            120,
+            "repo",
+            120,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        started_at = time.monotonic()
+        while (
+            redis_stream is None
+            or (await redis_stream.zcard("streams")) > blocked_stream
+        ) and time.monotonic() - started_at < 10:
+            await asyncio.sleep(0.5)
+
+    get_subscription.side_effect = fake_get_subscription_dedicated
+
+    # Start only shared worker
+    await push_and_wait(2)
+    # only shared is consumed
+    assert sorted(tracker) == ["shared-1"]
+    tracker.clear()
+
+    shared_w.stop()
+    await shared_w.wait_shutdown_complete()
+    await dedicated_w.start()
+    await push_and_wait(1)
+    # only dedicated are consumed
+    assert sorted(tracker) == ["dedicated-120", "dedicated-4242"]
+    tracker.clear()
+
+    # Start both
+    await shared_w.start()
+    await push_and_wait()
+    assert sorted(tracker) == ["dedicated-120", "dedicated-4242", "shared-1"]
+    tracker.clear()
+
+    shared_w.stop()
+    await shared_w.wait_shutdown_complete()
+    dedicated_w.stop()
+    await dedicated_w.wait_shutdown_complete()
