@@ -741,13 +741,10 @@ Code review policies are handled and automated by Mergify.
 
 Fixes MRGFY-XXX"""
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
-    assert (
-        await ctxt.pull_request.get_commit_message(
-            "default",
-            "{{ title | striptags }} (#{{ number }})\n\n{{ body | get_section('### Description') }}",
-        )
-        == (expected_title, expected_body)
-    )
+    assert await ctxt.pull_request.get_commit_message(
+        "default",
+        "{{ title | striptags }} (#{{ number }})\n\n{{ body | get_section('### Description') }}",
+    ) == (expected_title, expected_body)
 
 
 async def test_context_unexisting_section(a_pull_request):
@@ -763,13 +760,10 @@ async def test_context_unexisting_section(a_pull_request):
 
 async def test_context_unexisting_section_with_templated_default(a_pull_request):
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
-    assert (
-        await ctxt.pull_request.get_commit_message(
-            "default",
-            "{{ body | get_section('### Description', '{{number}}\n{{author}}') }}",
-        )
-        == (str(a_pull_request["number"]), a_pull_request["user"]["login"])
-    )
+    assert await ctxt.pull_request.get_commit_message(
+        "default",
+        "{{ body | get_section('### Description', '{{number}}\n{{author}}') }}",
+    ) == (str(a_pull_request["number"]), a_pull_request["user"]["login"])
 
 
 async def test_context_body_section_with_template(a_pull_request):
@@ -785,10 +779,7 @@ BODY OF #{{number}}
 
 """
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
-    assert (
-        await ctxt.pull_request.get_commit_message(
-            "default",
-            "TITLE\n{{ body | get_section('### Commit') }}",
-        )
-        == ("TITLE", f"BODY OF #{a_pull_request['number']}")
-    )
+    assert await ctxt.pull_request.get_commit_message(
+        "default",
+        "TITLE\n{{ body | get_section('### Commit') }}",
+    ) == ("TITLE", f"BODY OF #{a_pull_request['number']}")

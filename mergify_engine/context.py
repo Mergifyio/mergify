@@ -1877,8 +1877,8 @@ class PullRequest(BasePullRequest):
 
         level_str = level[0].strip()
 
-        level_re = re.compile(fr"^{level_str} +", re.I)
-        section_re = re.compile(fr"^{section_escaped}\s*$", re.I)
+        level_re = re.compile(rf"^{level_str} +", re.I)
+        section_re = re.compile(rf"^{section_escaped}\s*$", re.I)
 
         found = False
         section_lines = []
