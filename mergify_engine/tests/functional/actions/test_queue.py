@@ -2598,20 +2598,6 @@ DO NOT EDIT
             [p1["number"], p2["number"]],
         )
 
-        r = await self.app.get(
-            f"/queues/{config.TESTING_ORGANIZATION_ID}",
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-
-        assert r.json() == {
-            f"{self.RECORD_CONFIG['repository_id']}": {
-                self.main_branch_name: [p3["number"], p1["number"], p2["number"]]
-            }
-        }
-
         # Queue API with token
         r = await self.app.get(
             f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queues",
