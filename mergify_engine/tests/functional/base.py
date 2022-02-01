@@ -502,7 +502,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     async def _async_run_workers(timeout: float) -> None:
         w = worker.Worker(
             idle_sleep_time=0.42 if RECORD else 0.01,
-            enabled_services={"stream", "delayed-refresh"},
+            enabled_services={"shared-stream", "dedicated-stream", "delayed-refresh"},
             delayed_refresh_idle_time=0.01,
             dedicated_workers_spawner_idle_time=0.01,
         )
