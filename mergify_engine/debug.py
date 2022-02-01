@@ -239,10 +239,10 @@ async def report(
     else:
         db_tokens = cached_tokens
 
-    print("* Features (cache):")
+    print("* Features (db):")
     for v in sorted(f.value for f in db_sub.features):
         print(f"  - {v}")
-    print("* Features (db):")
+    print("* Features (cache):")
     for v in sorted(f.value for f in cached_sub.features):
         print(f"  - {v}")
 

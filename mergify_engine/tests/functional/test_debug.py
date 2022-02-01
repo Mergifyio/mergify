@@ -87,11 +87,11 @@ class TestDebugger(base.FunctionalTestBase):
         assert (
             s1.strip()
             == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
-* Features (cache):
+* Features (db):
   - priority_queues
   - public_repository
   - show_sponsor
-* Features (db):
+* Features (cache):
   - priority_queues
   - public_repository
   - show_sponsor
@@ -221,11 +221,11 @@ mergeable_state: clean
         assert (
             s3.strip()
             == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
-* Features (cache):
+* Features (db):
   - priority_queues
   - public_repository
   - show_sponsor
-* Features (db):
+* Features (cache):
   - priority_queues
   - public_repository
   - show_sponsor
