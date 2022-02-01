@@ -26,7 +26,6 @@ from mergify_engine.web import config_validator
 from mergify_engine.web import dashboard
 from mergify_engine.web import github
 from mergify_engine.web import legacy_badges
-from mergify_engine.web import legacy_queue
 from mergify_engine.web import redis
 from mergify_engine.web import refresher
 from mergify_engine.web import simulator
@@ -39,7 +38,6 @@ app = fastapi.FastAPI()
 app.include_router(dashboard.router)
 app.include_router(github.router)
 app.include_router(refresher.router)
-app.include_router(legacy_queue.router)
 
 app.mount("/simulator", simulator.app)
 app.mount("/validate", config_validator.app)
