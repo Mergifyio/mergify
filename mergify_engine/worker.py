@@ -888,6 +888,16 @@ def get_process_index_from_env() -> int:
         return 0
 
 
+WorkerServiceT = typing.Literal[
+    "shared-stream",
+    "dedicated-stream",
+    "stream-monitoring",
+    "delayed-refresh",
+]
+WorkerServicesT = typing.Set[WorkerServiceT]
+AVAILABLE_WORKER_SERVICES = set(WorkerServiceT.__dict__["__args__"])
+
+
 @dataclasses.dataclass
 class Worker:
     idle_sleep_time: float = 0.42
@@ -895,17 +905,8 @@ class Worker:
     worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
     process_count: int = config.STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
-    enabled_services: typing.Set[
-        typing.Literal[
-            "shared-stream", "dedicated-stream", "stream-monitoring", "delayed-refresh"
-        ]
-    ] = dataclasses.field(
-        default_factory=lambda: {
-            "shared-stream",
-            "dedicated-stream",
-            "stream-monitoring",
-            "delayed-refresh",
-        }
+    enabled_services: WorkerServicesT = dataclasses.field(
+        default_factory=lambda: AVAILABLE_WORKER_SERVICES.copy()
     )
     monitoring_idle_time: float = 60
     delayed_refresh_idle_time: float = 60
@@ -1306,18 +1307,36 @@ class Worker:
             )
 
 
-async def run_forever() -> None:
-    worker = Worker()
+async def run_forever(
+    enabled_services: WorkerServicesT = AVAILABLE_WORKER_SERVICES,
+) -> None:
+    worker = Worker(enabled_services=enabled_services)
     await worker.start()
     worker.setup_signals()
     await worker.wait_shutdown_complete()
     LOG.info("Exiting...")
 
 
-def main() -> None:
+def ServicesSet(v: str) -> WorkerServicesT:
+    values = set(v.strip().split(","))
+    for value in values:
+        if value not in AVAILABLE_WORKER_SERVICES:
+            raise ValueError(f"{v} is not a valid service")
+    return typing.cast(WorkerServicesT, values)
+
+
+def main(argv: typing.Optional[typing.List[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="Mergify Engine Worker")
+    parser.add_argument(
+        "--enabled-services",
+        type=ServicesSet,
+        default=",".join(AVAILABLE_WORKER_SERVICES),
+    )
+    args = parser.parse_args(argv)
+
     service.setup("worker")
     signals.setup()
-    return asyncio.run(run_forever())
+    return asyncio.run(run_forever(enabled_services=args.enabled_services))
 
 
 async def async_status() -> None:
