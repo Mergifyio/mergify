@@ -1388,7 +1388,8 @@ class Train(queue.QueueBase):
         if position is None:
             return
         await self._slice_cars(
-            position, reason="Pull request ahead in queue got removed from the queue"
+            position,
+            reason=f"Pull request #{ctxt.pull['number']} which was ahead in the queue has been dequeued",
         )
         number_of_pulls_in_cars = sum(
             len(c.still_queued_embarked_pulls) for c in self._cars
