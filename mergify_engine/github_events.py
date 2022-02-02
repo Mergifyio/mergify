@@ -83,6 +83,7 @@ def _extract_slim_event(event_type, data):
     if event_type == "status":
         # To get PR from sha
         slim_data["sha"] = data["sha"]
+        slim_data["context"] = data["context"]
 
     elif event_type == "refresh":
         # To get PR from sha or branch name
@@ -112,6 +113,8 @@ def _extract_slim_event(event_type, data):
                 for p in data[event_type]["pull_requests"]
             ],
         }
+        if event_type == "check_run":
+            slim_data["check_run"]["name"] = data["check_run"]["name"]
 
     elif event_type == "pull_request":
         # For pull_request opened/synchronize/closed
