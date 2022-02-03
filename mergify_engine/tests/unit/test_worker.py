@@ -1643,3 +1643,95 @@ async def test_separate_dedicated_worker(
     await shared_w.wait_shutdown_complete()
     dedicated_w.stop()
     await dedicated_w.wait_shutdown_complete()
+
+
+@mock.patch("mergify_engine.worker.Worker.setup_signals")
+@mock.patch("mergify_engine.worker.Worker.delayed_refresh_task")
+@mock.patch("mergify_engine.worker.Worker.monitoring_task")
+@mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
+@mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
+@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
+def test_worker_start_all_tasks(
+    loop_and_sleep_forever: mock.Mock,
+    wait_shutdown_complete: mock.Mock,
+    shared_stream_worker_task: mock.Mock,
+    dedicated_workers_spawner_task: mock.Mock,
+    monitoring_task: mock.Mock,
+    delayed_refresh_task: mock.Mock,
+    setup_signals: mock.Mock,
+) -> None:
+    async def just_run_once(name, idle_time, func):
+        await func()
+
+    loop_and_sleep_forever.side_effect = just_run_once
+
+    worker.main([])
+    while not wait_shutdown_complete.called:
+        time.sleep(0.01)
+    assert shared_stream_worker_task.called
+    assert dedicated_workers_spawner_task.called
+    assert monitoring_task.called
+    assert delayed_refresh_task.called
+
+
+@mock.patch("mergify_engine.worker.Worker.setup_signals")
+@mock.patch("mergify_engine.worker.Worker.delayed_refresh_task")
+@mock.patch("mergify_engine.worker.Worker.monitoring_task")
+@mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
+@mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
+@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
+def test_worker_start_just_shared(
+    loop_and_sleep_forever: mock.Mock,
+    wait_shutdown_complete: mock.Mock,
+    shared_stream_worker_task: mock.Mock,
+    dedicated_workers_spawner_task: mock.Mock,
+    monitoring_task: mock.Mock,
+    delayed_refresh_task: mock.Mock,
+    setup_signals: mock.Mock,
+) -> None:
+    async def just_run_once(name, idle_time, func):
+        await func()
+
+    loop_and_sleep_forever.side_effect = just_run_once
+
+    worker.main(["--enabled-services=shared-stream"])
+    while not wait_shutdown_complete.called:
+        time.sleep(0.01)
+    assert shared_stream_worker_task.called
+    assert not dedicated_workers_spawner_task.called
+    assert not monitoring_task.called
+    assert not delayed_refresh_task.called
+
+
+@mock.patch("mergify_engine.worker.Worker.setup_signals")
+@mock.patch("mergify_engine.worker.Worker.delayed_refresh_task")
+@mock.patch("mergify_engine.worker.Worker.monitoring_task")
+@mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
+@mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
+@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
+def test_worker_start_except_shared(
+    loop_and_sleep_forever: mock.Mock,
+    wait_shutdown_complete: mock.Mock,
+    shared_stream_worker_task: mock.Mock,
+    dedicated_workers_spawner_task: mock.Mock,
+    monitoring_task: mock.Mock,
+    delayed_refresh_task: mock.Mock,
+    setup_signals: mock.Mock,
+) -> None:
+    async def just_run_once(name, idle_time, func):
+        await func()
+
+    loop_and_sleep_forever.side_effect = just_run_once
+
+    worker.main(
+        ["--enabled-services=dedicated-stream,stream-monitoring,delayed-refresh"]
+    )
+    while not wait_shutdown_complete.called:
+        time.sleep(0.01)
+    assert not shared_stream_worker_task.called
+    assert dedicated_workers_spawner_task.called
+    assert monitoring_task.called
+    assert delayed_refresh_task.called
