@@ -22,7 +22,7 @@ jobs:
         run: |
           echo "I'm not a merge-queue PR (github.head_ref: ${{ github.head_ref }})"
 
-      - uses: amannn/action-semantic-pull-request@v3.6.0
+      - uses: amannn/action-semantic-pull-request@v4
         if: ${{ !startsWith(github.head_ref, 'mergify/merge-queue/') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
