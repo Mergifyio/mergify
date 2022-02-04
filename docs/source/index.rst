@@ -28,7 +28,7 @@ Any question?
 -------------
 
 We're always happy to help with questions you might have.
-Contact `our support <mailto:support@mergify.com>`_ or our `sales team
+Contact `our support team <mailto:support@mergify.com>`_.
 <mailto:sales@mergify.com>`_.
 
 
