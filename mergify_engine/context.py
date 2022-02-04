@@ -1574,7 +1574,7 @@ class Context(object):
         return is_behind
 
     def is_merge_queue_pr(self) -> bool:
-        return self.pull["user"]["id"] == config.BOT_USER_ID and self.pull["head"][
+        return self.pull["title"].startswith("merge-queue:") and self.pull["head"][
             "ref"
         ].startswith(constants.MERGE_QUEUE_BRANCH_PREFIX)
 

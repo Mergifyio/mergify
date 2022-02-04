@@ -297,6 +297,108 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
         )
 
+    async def test_queue_with_bot_account(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 5,
+                    "draft_bot_account": "mergify-test4",
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr(two_commits=True)
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        tmp_pull = await self.get_pull(pulls[0]["number"])
+        assert tmp_pull["number"] not in [p1["number"], p2["number"]]
+        assert tmp_pull["user"]["login"] == "mergify-test4"
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull["number"],
+                ),
+            ],
+        )
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        async def assert_queued():
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+
+        await self.run_engine()
+        await assert_queued()
+        assert tmp_pull["commits"] == 6
+
+        await self.create_status(tmp_pull)
+        await self.run_engine()
+        await assert_queued()
+
+        await self.create_status(p1)
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 0
+
+        await self._assert_cars_contents(q, None, [])
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
@@ -2624,6 +2726,7 @@ DO NOT EDIT
                                     "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
+                                    "draft_bot_account": None,
                                     "priority": 1,
                                     "speculative_checks": 5,
                                 },
@@ -2648,6 +2751,7 @@ DO NOT EDIT
                                     "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
+                                    "draft_bot_account": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
                                 },
@@ -2667,6 +2771,7 @@ DO NOT EDIT
                                     "batch_size": 1,
                                     "batch_max_wait_time": 30.0,
                                     "checks_timeout": None,
+                                    "draft_bot_account": None,
                                     "priority": 0,
                                     "speculative_checks": 5,
                                 },
@@ -3341,6 +3446,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             allow_inplace_checks=True,
             allow_checks_interruption=True,
             checks_timeout=None,
+            draft_bot_account=None,
         )
         config = queue.PullQueueConfig(
             name="foo",
@@ -3415,6 +3521,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             allow_inplace_checks=True,
             allow_checks_interruption=True,
             checks_timeout=None,
+            draft_bot_account=None,
         )
         config = queue.PullQueueConfig(
             name="foo",

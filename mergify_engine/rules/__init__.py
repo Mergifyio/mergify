@@ -78,6 +78,7 @@ class QueueConfig(typing.TypedDict):
     allow_inplace_checks: bool
     allow_checks_interruption: bool
     checks_timeout: typing.Optional[datetime.timedelta]
+    draft_bot_account: typing.Optional[github_types.GitHubLogin]
 
 
 EvaluatedQueueRule = typing.NewType("EvaluatedQueueRule", "QueueRule")
@@ -520,6 +521,9 @@ QueueRulesSchema = voluptuous.All(
                 ): voluptuous.Any(None, bool),
                 voluptuous.Required("checks_timeout", default=None): voluptuous.Any(
                     None, voluptuous.All(str, voluptuous.Coerce(ChecksTimeout))
+                ),
+                voluptuous.Required("draft_bot_account", default=None): voluptuous.Any(
+                    None, str
                 ),
             },
             voluptuous.Coerce(QueueRule.from_dict),
