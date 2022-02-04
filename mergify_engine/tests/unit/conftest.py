@@ -16,12 +16,14 @@ import functools
 import typing
 from unittest import mock
 
+import httpx
 import pytest
 
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.dashboard import subscription
+from mergify_engine.web import root as web_root
 
 
 @pytest.fixture
@@ -187,3 +189,14 @@ ContextGetterFixture = typing.Callable[
 @pytest.fixture
 def context_getter(fake_repository: context.Repository) -> ContextGetterFixture:
     return functools.partial(build_fake_context, repository=fake_repository)
+
+
+@pytest.fixture
+async def mergify_web_client() -> typing.AsyncGenerator[httpx.AsyncClient, None]:
+    await web_root.startup()
+    client = httpx.AsyncClient(app=web_root.app, base_url="http://localhost")
+    try:
+        yield client
+    finally:
+        await client.aclose()
+        await web_root.shutdown()
