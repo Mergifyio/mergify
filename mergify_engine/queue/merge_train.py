@@ -1132,19 +1132,25 @@ class Train(queue.QueueBase):
             self._current_base_sha = None
 
     @property
+    def log_queue_extras(self) -> typing.Dict[str, typing.Any]:
+        return {
+            "train_cars": [
+                [ep.user_pull_request_number for ep in c.still_queued_embarked_pulls]
+                for c in self._cars
+            ],
+            "train_waiting_pulls": [
+                wp.user_pull_request_number for wp in self._waiting_pulls
+            ],
+        }
+
+    @property
     def log(self):
         return daiquiri.getLogger(
             __name__,
             gh_owner=self.repository.installation.owner_login,
             gh_repo=self.repository.repo["name"],
             gh_branch=self.ref,
-            train_cars=[
-                [ep.user_pull_request_number for ep in c.still_queued_embarked_pulls]
-                for c in self._cars
-            ],
-            train_waiting_pulls=[
-                wp.user_pull_request_number for wp in self._waiting_pulls
-            ],
+            **self.log_queue_extras,
         )
 
     async def save(self) -> None:
@@ -1308,19 +1314,19 @@ class Train(queue.QueueBase):
                     config["queue_config"]["allow_checks_interruption"] or car is None
                 ):
 
-                    self.log.info(
+                    ctxt.log.info(
                         "pull request already in train but misplaced",
-                        gh_pull=ctxt.pull["number"],
                         config=config,
+                        **self.log_queue_extras,
                     )
                     need_to_be_readded = True
                     break
 
                 # already in queue at right place, we are good
-                self.log.info(
+                ctxt.log.info(
                     "pull request already in train",
-                    gh_pull=ctxt.pull["number"],
                     config=config,
+                    **self.log_queue_extras,
                 )
                 return
 
@@ -1358,8 +1364,10 @@ class Train(queue.QueueBase):
         await self.save()
         ctxt.log.info(
             "pull request added to train",
+            gh_pull=ctxt.pull["number"],
             position=best_position,
             queue_name=config["name"],
+            **self.log_queue_extras,
         )
 
         # Refresh summary of all pull requests
@@ -1369,7 +1377,7 @@ class Train(queue.QueueBase):
         )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
-        ctxt.log.info("removing from train")
+        ctxt.log.info("removing from train", **self.log_queue_extras)
 
         if (
             ctxt.pull["merged"]
@@ -1392,7 +1400,9 @@ class Train(queue.QueueBase):
             self._current_base_sha = ctxt.pull["merge_commit_sha"]
 
             await self.save()
-            ctxt.log.info("removed from head train", position=0)
+            ctxt.log.info(
+                "removed from head train", position=0, **self.log_queue_extras
+            )
             await self._refresh_pulls(
                 ctxt.pull["base"]["repo"],
                 source="pull removed from queue",
@@ -1412,7 +1422,7 @@ class Train(queue.QueueBase):
         )
         del self._waiting_pulls[position - number_of_pulls_in_cars]
         await self.save()
-        ctxt.log.info("removed from train", position=position)
+        ctxt.log.info("removed from train", position=position, **self.log_queue_extras)
         await self._refresh_pulls(
             ctxt.pull["base"]["repo"],
             source="pull removed from queue",
