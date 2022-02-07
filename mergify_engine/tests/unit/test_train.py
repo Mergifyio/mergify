@@ -1118,3 +1118,93 @@ async def test_train_batch_max_wait_time(
         await t.refresh()
         assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
         assert [] == get_waiting_content(t)
+
+
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_1x5(
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    context_getter: conftest.ContextGetterFixture,
+    fake_client: mock.Mock,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    for i in range(41, 46):
+        await t.add_pull(await context_getter(i), get_config("1x5", 1000))
+
+    await t.refresh()
+    assert [[41, 42, 43, 44, 45]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    await t.save()
+    await t.refresh()
+    assert [[41, 42, 43, 44, 45]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    # merge half of the batch
+    for i in range(41, 44):
+        fake_client.update_base_sha(f"sha{i}")
+        await t.remove_pull(
+            await context_getter(i, merged=True, merge_commit_sha=f"sha{i}")
+        )
+
+    await t.refresh()
+    assert [[44, 45]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(7), get_config("1x5", 10000))
+    await t.refresh()
+    assert [[44, 45]] == get_cars_content(t)
+    assert [7] == get_waiting_content(t)
+
+
+@mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")
+async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_2x5(
+    report_failure: mock.Mock,
+    repository: context.Repository,
+    context_getter: conftest.ContextGetterFixture,
+    fake_client: mock.Mock,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    for i in range(41, 52):
+        await t.add_pull(await context_getter(i), get_config("2x5", 1000))
+
+    await t.refresh()
+    assert [
+        [41, 42, 43, 44, 45],
+        [41, 42, 43, 44, 45, 46, 47, 48, 49, 50],
+    ] == get_cars_content(t)
+    assert [51] == get_waiting_content(t)
+
+    t._cars[0].checks_conclusion = check_api.Conclusion.SUCCESS
+    await t.save()
+    await t.refresh()
+    assert [
+        [41, 42, 43, 44, 45],
+        [41, 42, 43, 44, 45, 46, 47, 48, 49, 50],
+    ] == get_cars_content(t)
+    assert [51] == get_waiting_content(t)
+
+    # merge half of the batch
+    for i in range(41, 44):
+        fake_client.update_base_sha(f"sha{i}")
+        await t.remove_pull(
+            await context_getter(i, merged=True, merge_commit_sha=f"sha{i}")
+        )
+
+    await t.refresh()
+    assert [
+        [44, 45],
+        [41, 42, 43, 44, 45, 46, 47, 48, 49, 50],
+    ] == get_cars_content(t)
+    assert [51] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(7), get_config("2x5", 10000))
+
+    await t.refresh()
+    assert [[44, 45], [44, 45, 7, 46, 47, 48, 49]] == get_cars_content(t)
+    assert [50, 51] == get_waiting_content(t)
