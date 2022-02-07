@@ -15,7 +15,6 @@
 # under the License.
 import typing
 
-from first import first
 import voluptuous
 
 from mergify_engine import actions
@@ -24,7 +23,6 @@ from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import delayed_refresh
-from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import utils
@@ -386,14 +384,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
             int,
             self.config["priority"]
             + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
-        )
-
-    async def _get_merge_queue_check(
-        self, ctxt: context.Context
-    ) -> typing.Optional[github_types.CachedGitHubCheckRun]:
-        return first(
-            await ctxt.pull_engine_check_runs,
-            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
         )
 
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
