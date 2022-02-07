@@ -375,6 +375,17 @@ A ``queue_rules`` takes the following parameter:
      - The amount of time Mergify waits for pending checks to return before unqueueing pull requests.
        This cannot be less than 60 seconds.
 
+   * - ``draft_bot_account``
+     - string
+     -
+     - |premium plan tag|
+       Mergify can impersonate a GitHub user to create draft pull requests.
+       If no ``draft_bot_account`` is set, Mergify creates the draft pull request
+       itself. The user account **must** have already been
+       logged in Mergify dashboard once and have **admin**, **write** or
+       **maintain** permission.
+
+
 .. note::
 
    |premium plan tag|

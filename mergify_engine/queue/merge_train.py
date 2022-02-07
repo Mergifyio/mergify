@@ -38,6 +38,7 @@ from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -451,6 +452,18 @@ class TrainCar:
 
         self.creation_state = "created"
 
+        bot_account = queue_rule.config["draft_bot_account"]
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if bot_account:
+            tokens = await self.train.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(bot_account)
+            if not github_user:
+                await self._set_creation_failure(
+                    f"Unable to create draft pull request: user `{bot_account}` is unknown. "
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+                raise TrainCarPullRequestCreationFailure(self)
+
         try:
             await self.train.repository.installation.client.post(
                 f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
@@ -553,6 +566,9 @@ class TrainCar:
                         "head": branch_name,
                         "draft": True,
                     },
+                    oauth_token=github_user["oauth_access_token"]
+                    if github_user
+                    else None,
                 )
             ).json()
         except http.HTTPClientSideError as e:

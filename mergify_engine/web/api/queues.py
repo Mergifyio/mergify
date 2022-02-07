@@ -159,6 +159,7 @@ class Queues:
                                                 "allow_inplace_checks": True,
                                                 "allow_checks_interruption": True,
                                                 "checks_timeout": 60,
+                                                "draft_bot_account": "",
                                             },
                                         },
                                         "speculative_check_pull_request": {
@@ -184,6 +185,7 @@ class Queues:
                                                 "allow_inplace_checks": True,
                                                 "allow_checks_interruption": True,
                                                 "checks_timeout": 60,
+                                                "draft_bot_account": "",
                                             },
                                         },
                                         "speculative_check_pull_request": {
