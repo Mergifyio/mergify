@@ -1347,7 +1347,7 @@ class Train(queue.QueueBase):
         else:
             await self._slice_cars(
                 best_position,
-                reason="Pull request with higher priority has been queued",
+                reason=f"Pull request #{ctxt.pull['number']} with higher priority has been queued",
             )
             number_of_pulls_in_cars = sum(
                 len(c.still_queued_embarked_pulls) for c in self._cars
