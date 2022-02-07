@@ -1365,7 +1365,7 @@ class Train(queue.QueueBase):
         # Refresh summary of all pull requests
         await self._refresh_pulls(
             ctxt.pull["base"]["repo"],
-            source="pull added to queue",
+            source=f"pull {ctxt.pull['number']} added to queue",
         )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
@@ -1395,7 +1395,7 @@ class Train(queue.QueueBase):
             ctxt.log.info("removed from head train", position=0)
             await self._refresh_pulls(
                 ctxt.pull["base"]["repo"],
-                source="pull removed from queue",
+                source=f"merged pull {ctxt.pull['number']} removed from queue",
                 additional_pull_request=ctxt.pull["number"],
             )
             return
@@ -1415,7 +1415,7 @@ class Train(queue.QueueBase):
         ctxt.log.info("removed from train", position=position)
         await self._refresh_pulls(
             ctxt.pull["base"]["repo"],
-            source="pull removed from queue",
+            source=f"pull {ctxt.pull['number']} removed from queue",
             additional_pull_request=ctxt.pull["number"],
         )
 
