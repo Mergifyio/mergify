@@ -413,13 +413,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if car is None:
             return False
 
-        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
-        if check:
-            return (
-                check_api.Conclusion(check["conclusion"])
-                == check_api.Conclusion.SUCCESS
-            )
-        return False
+        return car.checks_conclusion == check_api.Conclusion.SUCCESS
 
     async def _should_be_cancel(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
