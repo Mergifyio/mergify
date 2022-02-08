@@ -48,6 +48,9 @@ def test_command_loader() -> None:
     with pytest.raises(commands_runner.CommandInvalid):
         commands_runner.load_command(EMPTY_CONFIG, "@Mergifyio comment foobar\n")
 
+    with pytest.raises(commands_runner.NotACommand):
+        commands_runner.load_command(EMPTY_CONFIG, "comment @Mergifyio test foobar\n")
+
     for message in [
         "@mergify rebase",
         "@mergifyio rebase",
