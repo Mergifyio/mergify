@@ -339,6 +339,11 @@ class Repository(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.installation.owner_login}/{self.repo['name']}"
 
+    @property
+    def dot_github_url(self) -> str:
+        """The URL prefix to make GitHub request to the .github repo."""
+        return f"/repos/{self.installation.owner_login}/.github"
+
     async def iter_mergify_config_files(
         self,
         ref: typing.Optional[github_types.SHAType] = None,
@@ -358,12 +363,17 @@ class Repository(object):
             filenames.remove(preferred_filename)
             filenames.insert(0, preferred_filename)
 
+        filelocations = []
         for filename in filenames:
+            filelocations.append(f"{self.base_url}/contents/{filename}")
+            filelocations.append(f"{self.dot_github_url}/contents/{filename}")
+
+        for filelocation in filelocations:
             try:
                 content = typing.cast(
                     github_types.GitHubContentFile,
                     await self.installation.client.item(
-                        f"{self.base_url}/contents/{filename}",
+                        filelocation,
                         params=params,
                     ),
                 )
@@ -374,7 +384,7 @@ class Repository(object):
                 if "too_large" in codes:
                     self.log.warning(
                         "configuration file too big, skipping it.",
-                        config_filename=filename,
+                        config_filename=filelocation,
                     )
                     continue
                 raise
