@@ -25,6 +25,7 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import exceptions
+from mergify_engine import exceptions as engine_exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
@@ -87,6 +88,16 @@ def voluptuous_error(error: voluptuous.Invalid) -> str:
         if error.path[0] == "mergify.yml":
             error.path.pop(0)
     return str(rules.InvalidRules(error, ""))
+
+
+@app.exception_handler(engine_exceptions.RateLimited)
+async def rate_limited_handler(
+    request: requests.Request, exc: engine_exceptions.RateLimited
+) -> responses.JSONResponse:
+    return responses.JSONResponse(
+        status_code=403,
+        content={"message": "Organization or user has hit GitHub API rate limit"},
+    )
 
 
 @app.exception_handler(voluptuous.Invalid)

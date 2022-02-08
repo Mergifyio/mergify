@@ -30,6 +30,7 @@ from starlette.middleware import cors
 
 from mergify_engine import config
 from mergify_engine import context
+from mergify_engine import exceptions as engine_exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.clients import github
@@ -102,3 +103,13 @@ def generate_openapi_spec() -> None:
 
     with open(args.output, "w") as f:
         json.dump(fp=f, obj=app.openapi())
+
+
+@app.exception_handler(engine_exceptions.RateLimited)
+async def rate_limited_handler(
+    request: requests.Request, exc: engine_exceptions.RateLimited
+) -> responses.JSONResponse:
+    return responses.JSONResponse(
+        status_code=403,
+        content={"message": "Organization or user has hit GitHub API rate limit"},
+    )

@@ -22,6 +22,7 @@ from starlette import requests
 from starlette import responses
 import yaaredis
 
+from mergify_engine import exceptions as engine_exceptions
 from mergify_engine.web import config_validator
 from mergify_engine.web import dashboard
 from mergify_engine.web import github
@@ -74,3 +75,13 @@ async def index(
             status_code=200,
         )
     return responses.RedirectResponse(url="https://mergify.com")
+
+
+@app.exception_handler(engine_exceptions.RateLimited)
+async def rate_limited_handler(
+    request: requests.Request, exc: engine_exceptions.RateLimited
+) -> responses.JSONResponse:
+    return responses.JSONResponse(
+        status_code=403,
+        content={"message": "Organization or user has hit GitHub API rate limit"},
+    )
