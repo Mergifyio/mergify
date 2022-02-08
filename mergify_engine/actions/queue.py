@@ -387,6 +387,14 @@ Then, re-embark the pull request into the merge queue by posting the comment
         )
 
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+        # automatically re-embark pull request if rules matches again in some cases
+        if (
+            self.config["queue_config"]["speculative_checks"] == 1
+            and self.config["queue_config"]["batch_size"] == 1
+            and self.config["queue_config"]["allow_inplace_checks"]
+        ):
+            return True
+
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
