@@ -1305,14 +1305,17 @@ class Train(queue.QueueBase):
         need_to_be_readded = False
         for position, (embarked_pull, car) in enumerate(self._iter_embarked_pulls()):
 
+            car_can_be_interrupted = car is None or (
+                car.checks_conclusion == check_api.Conclusion.PENDING
+                and config["queue_config"]["allow_checks_interruption"]
+            )
+
             if embarked_pull.user_pull_request_number == ctxt.pull["number"]:
                 if (
                     config["effective_priority"]
                     != embarked_pull.config["effective_priority"]
                     or config["name"] != embarked_pull.config["name"]
-                ) and (
-                    config["queue_config"]["allow_checks_interruption"] or car is None
-                ):
+                ) and car_can_be_interrupted:
 
                     ctxt.log.info(
                         "pull request already in train but misplaced",
@@ -1334,7 +1337,7 @@ class Train(queue.QueueBase):
                 best_position == -1
                 and config["effective_priority"]
                 > embarked_pull.config["effective_priority"]
-                and (config["queue_config"]["allow_checks_interruption"] or car is None)
+                and car_can_be_interrupted
             ):
                 # We found a car with lower priority
                 best_position = position
