@@ -63,7 +63,12 @@ class SpeculativeCheckPullRequest:
     )
     started_at: datetime.datetime = dataclasses.field(
         metadata={
-            "description": "The timestamp when the speculative check has started for this pull request"
+            "description": "The timestamp when the checks has started for this pull request"
+        }
+    )
+    ended_at: typing.Optional[datetime.datetime] = dataclasses.field(
+        metadata={
+            "description": "The timestamp when the checks has ended for this pull request"
         }
     )
     checks: typing.List[merge_train.QueueCheck] = dataclasses.field(
@@ -71,6 +76,9 @@ class SpeculativeCheckPullRequest:
     )
     evaluated_conditions: typing.Optional[str] = dataclasses.field(
         metadata={"description": "The queue rule conditions evaluation report"}
+    )
+    state: merge_train.CheckStateT = dataclasses.field(
+        metadata={"description": "The global state of the checks"}
     )
 
 
@@ -166,8 +174,10 @@ class Queues:
                                             "in_place": True,
                                             "number": 5678,
                                             "started_at": "2021-10-14T14:19:12+00:00",
+                                            "ended_at": "2021-10-14T15:00:42+00:00",
                                             "checks": [],
                                             "evaluated_conditions": "",
+                                            "state": "success",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -192,8 +202,10 @@ class Queues:
                                             "in_place": False,
                                             "number": 7899,
                                             "started_at": "2021-10-14T14:19:12+00:00",
+                                            "ended_at": "2021-10-14T15:00:42+00:00",
                                             "checks": [],
                                             "evaluated_conditions": "",
+                                            "state": "success",
                                         },
                                         "queued_at": "2021-10-14T14:19:12+00:00",
                                     },
@@ -255,6 +267,8 @@ async def repository_queues(
                         in_place=True,
                         number=embarked_pull.user_pull_request_number,
                         started_at=car.creation_date,
+                        ended_at=car.checks_ended_timestamp,
+                        state=car.checks_conclusion.value or "pending",
                         checks=car.last_checks,
                         evaluated_conditions=car.last_evaluated_conditions,
                     )
@@ -267,6 +281,8 @@ async def repository_queues(
                         in_place=False,
                         number=car.queue_pull_request_number,
                         started_at=car.creation_date,
+                        ended_at=car.checks_ended_timestamp,
+                        state=car.checks_conclusion.value or "pending",
                         checks=car.last_checks,
                         evaluated_conditions=car.last_evaluated_conditions,
                     )

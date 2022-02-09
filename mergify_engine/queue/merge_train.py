@@ -182,6 +182,7 @@ class TrainCar:
     last_checks: typing.List[QueueCheck] = dataclasses.field(default_factory=list)
     last_evaluated_conditions: typing.Optional[str] = None
     has_timed_out: bool = False
+    checks_ended_timestamp: typing.Optional[datetime.datetime] = None
 
     class Serialized(typing.TypedDict):
         initial_embarked_pulls: typing.List[EmbarkedPull]
@@ -198,6 +199,7 @@ class TrainCar:
         last_checks: typing.List[QueueCheck.Serialized]
         last_evaluated_conditions: typing.Optional[str]
         has_timed_out: bool
+        checks_ended_timestamp: typing.Optional[datetime.datetime]
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
@@ -220,6 +222,7 @@ class TrainCar:
             ],
             last_evaluated_conditions=self.last_evaluated_conditions,
             has_timed_out=self.has_timed_out,
+            checks_ended_timestamp=self.checks_ended_timestamp,
         )
 
     @classmethod
@@ -286,6 +289,7 @@ class TrainCar:
             last_checks=last_checks,
             last_evaluated_conditions=data.get("last_evaluated_conditions"),
             has_timed_out=data.get("has_timed_out", False),
+            checks_ended_timestamp=data.get("checks_ended_timestamp"),
         )
         if "head_branch" not in data:
             car.head_branch = car._get_pulls_branch_ref()
@@ -748,6 +752,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
         self.last_evaluated_conditions = evaluated_queue_rule.conditions.get_summary()
         self.last_checks = []
         self.has_timed_out = False
+        if (
+            self.checks_ended_timestamp is None
+            and self.checks_conclusion != check_api.Conclusion.PENDING
+        ):
+            self.checks_ended_timestamp = date.utcnow()
 
         if checks_conclusion == check_api.Conclusion.FAILURE:
             for condition in evaluated_queue_rule.conditions.walk():

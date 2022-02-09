@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    ``/v1/repos/{owner}/{repository}/queues`` API endpoints returns new attributes ``ended_at``
+    and ``state``.
