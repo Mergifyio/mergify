@@ -22,10 +22,7 @@ import pytest
 
 from mergify_engine.exceptions import RateLimited
 from mergify_engine.tests.functional.api.test_auth import ResponseTest
-from mergify_engine.web import config_validator
-from mergify_engine.web import legacy_badges
 from mergify_engine.web import root as web_root
-from mergify_engine.web import simulator
 from mergify_engine.web.api import root as api_root
 
 
@@ -38,17 +35,14 @@ def create_testing_router() -> None:
         raise RateLimited(datetime.timedelta(seconds=622, microseconds=280475), 0)
 
     api_root.app.include_router(router)
-    config_validator.app.include_router(router)
-    legacy_badges.app.include_router(router)
     web_root.app.include_router(router)
-    simulator.app.include_router(router)
 
 
 async def test_handler_exception_rate_limited(
     mergify_web_client: httpx.AsyncClient,
 ) -> None:
 
-    endpoints = ["/", "/v1/", "/validate/", "/badges/", "/simulator/"]
+    endpoints = ["/", "/v1/"]
 
     for endpoint in endpoints:
         r = await mergify_web_client.get(

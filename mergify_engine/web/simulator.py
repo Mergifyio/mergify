@@ -20,12 +20,10 @@ from urllib.parse import urlsplit
 import fastapi
 from starlette import requests
 from starlette import responses
-from starlette.middleware import cors
 import voluptuous
 
 from mergify_engine import context
 from mergify_engine import exceptions
-from mergify_engine import exceptions as engine_exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
@@ -37,14 +35,7 @@ from mergify_engine.web import auth
 from mergify_engine.web import redis
 
 
-app = fastapi.FastAPI()
-app.add_middleware(
-    cors.CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+router = fastapi.APIRouter()
 
 
 class PullRequestUrlInvalid(voluptuous.Invalid):  # type: ignore[misc]
@@ -88,28 +79,6 @@ def voluptuous_error(error: voluptuous.Invalid) -> str:
         if error.path[0] == "mergify.yml":
             error.path.pop(0)
     return str(rules.InvalidRules(error, ""))
-
-
-@app.exception_handler(engine_exceptions.RateLimited)
-async def rate_limited_handler(
-    request: requests.Request, exc: engine_exceptions.RateLimited
-) -> responses.JSONResponse:
-    return responses.JSONResponse(
-        status_code=403,
-        content={"message": "Organization or user has hit GitHub API rate limit"},
-    )
-
-
-@app.exception_handler(voluptuous.Invalid)
-async def voluptuous_errors(
-    request: requests.Request, exc: voluptuous.Invalid
-) -> responses.JSONResponse:
-    # Replace payload by our own
-    if isinstance(exc, voluptuous.MultipleInvalid):
-        payload = {"errors": list(map(voluptuous_error, sorted(exc.errors, key=str)))}
-    else:
-        payload = {"errors": [voluptuous_error(exc)]}
-    return responses.JSONResponse(status_code=400, content=payload)
 
 
 async def _simulator(
@@ -163,7 +132,7 @@ async def _simulator(
         )
 
 
-@app.post("/", dependencies=[fastapi.Depends(auth.signature_or_token)])
+@router.post("/", dependencies=[fastapi.Depends(auth.signature_or_token)])
 async def simulator(
     request: requests.Request,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
@@ -179,19 +148,28 @@ async def simulator(
     except json.JSONDecodeError:
         return responses.JSONResponse(status_code=400, content="invalid json")
 
-    data = SimulatorSchema(raw_json)
-
-    if data["pull_request"]:
-        title, summary = await _simulator(
-            redis_cache,
-            data["mergify.yml"]["pull_request_rules"],
-            owner_login=data["pull_request"][0],
-            repo_name=data["pull_request"][1],
-            pull_number=data["pull_request"][2],
-            token=token,
-        )
-    else:
-        title, summary = ("The configuration is valid", "")
+    try:
+        data = SimulatorSchema(raw_json)
+        if data["pull_request"]:
+            title, summary = await _simulator(
+                redis_cache,
+                data["mergify.yml"]["pull_request_rules"],
+                owner_login=data["pull_request"][0],
+                repo_name=data["pull_request"][1],
+                pull_number=data["pull_request"][2],
+                token=token,
+            )
+        else:
+            title, summary = ("The configuration is valid", "")
+    except voluptuous.Invalid as exc:
+        # Replace payload by our own
+        if isinstance(exc, voluptuous.MultipleInvalid):
+            payload = {
+                "errors": list(map(voluptuous_error, sorted(exc.errors, key=str)))
+            }
+        else:
+            payload = {"errors": [voluptuous_error(exc)]}
+        return responses.JSONResponse(status_code=400, content=payload)
 
     return responses.JSONResponse(
         status_code=200,

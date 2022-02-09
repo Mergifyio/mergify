@@ -16,13 +16,10 @@
 
 
 import fastapi
-from starlette import requests
 from starlette import responses
 
-from mergify_engine import exceptions as engine_exceptions
 
-
-app = fastapi.FastAPI()
+router = fastapi.APIRouter()
 
 
 def _get_badge_url(
@@ -34,32 +31,22 @@ def _get_badge_url(
     )
 
 
-@app.get("/{owner}/{repo}.png")  # noqa: FS003
+@router.get("/{owner}/{repo}.png")  # noqa: FS003
 async def badge_png(
     owner: str, repo: str, style: str = "flat"
 ) -> responses.RedirectResponse:  # pragma: no cover
     return _get_badge_url(owner, repo, "png", style)
 
 
-@app.get("/{owner}/{repo}.svg")  # noqa: FS003
+@router.get("/{owner}/{repo}.svg")  # noqa: FS003
 async def badge_svg(
     owner: str, repo: str, style: str = "flat"
 ) -> responses.RedirectResponse:  # pragma: no cover
     return _get_badge_url(owner, repo, "svg", style)
 
 
-@app.get("/{owner}/{repo}")  # noqa: FS003
+@router.get("/{owner}/{repo}")  # noqa: FS003
 async def badge(owner: str, repo: str) -> responses.RedirectResponse:
     return responses.RedirectResponse(
         url=f"https://dashboard.mergify.com/badges/{owner}/{repo}"
-    )
-
-
-@app.exception_handler(engine_exceptions.RateLimited)
-async def rate_limited_handler(
-    request: requests.Request, exc: engine_exceptions.RateLimited
-) -> responses.JSONResponse:
-    return responses.JSONResponse(
-        status_code=403,
-        content={"message": "Organization or user has hit GitHub API rate limit"},
     )
