@@ -35,7 +35,7 @@ from mergify_engine.web.api import root as api_root
 
 LOG = daiquiri.getLogger(__name__)
 
-app = fastapi.FastAPI()
+app = fastapi.FastAPI(openapi_url=None, redoc_url=None, docs_url=None)
 app.include_router(dashboard.router)
 app.include_router(github.router)
 app.include_router(refresher.router)
