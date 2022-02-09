@@ -16,14 +16,10 @@
 import typing
 
 import daiquiri
-from datadog import statsd
 import fastapi
-from starlette import requests
 from starlette import responses
 from starlette.middleware import cors
-import yaaredis
 
-from mergify_engine import exceptions as engine_exceptions
 from mergify_engine.web import config_validator
 from mergify_engine.web import dashboard
 from mergify_engine.web import github
@@ -31,6 +27,7 @@ from mergify_engine.web import legacy_badges
 from mergify_engine.web import redis
 from mergify_engine.web import refresher
 from mergify_engine.web import simulator
+from mergify_engine.web import utils
 from mergify_engine.web.api import root as api_root
 
 
@@ -54,6 +51,8 @@ app.include_router(legacy_badges.router, prefix="/badges")
 
 app.mount("/v1", api_root.app)
 
+utils.setup_exception_handlers(app)
+
 
 @app.on_event("startup")
 async def startup() -> None:
@@ -63,15 +62,6 @@ async def startup() -> None:
 @app.on_event("shutdown")
 async def shutdown() -> None:
     await redis.shutdown()
-
-
-@app.exception_handler(yaaredis.exceptions.ConnectionError)
-async def redis_errors(
-    request: requests.Request, exc: yaaredis.exceptions.ConnectionError
-) -> responses.JSONResponse:
-    statsd.increment("redis.client.connection.errors")
-    LOG.warning("FastAPI lost Redis connection", exc_info=exc)
-    return responses.JSONResponse(status_code=503)
 
 
 @app.get("/")
@@ -84,13 +74,3 @@ async def index(
             status_code=200,
         )
     return responses.RedirectResponse(url="https://mergify.com")
-
-
-@app.exception_handler(engine_exceptions.RateLimited)
-async def rate_limited_handler(
-    request: requests.Request, exc: engine_exceptions.RateLimited
-) -> responses.JSONResponse:
-    return responses.JSONResponse(
-        status_code=403,
-        content={"message": "Organization or user has hit GitHub API rate limit"},
-    )
