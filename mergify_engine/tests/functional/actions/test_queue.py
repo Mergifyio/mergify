@@ -399,6 +399,106 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_auto_reembark(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 1,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                        f"base={self.main_branch_name}",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1, _ = await self.create_pr()
+
+        # To force others to be rebased
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        p = await self.get_pull(p["number"])
+
+        await self.create_status(p1)
+        await self.run_engine()
+
+        # p1 got rebased
+        await self.wait_for("pull_request", {"action": "synchronize"})
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        head_sha = p1["head"]["sha"]
+        p1 = await self.get_pull(p1["number"])
+        assert p1["head"]["sha"] != head_sha  # ensure it have been rebased
+
+        # CI has failed ensure it have been unqueue
+        await self.create_status(p1, state="failure")
+        await self.run_engine()
+        await self._assert_cars_contents(q, None, [])
+        p1 = await self.get_pull(p1["number"])
+        assert not p1["merged"]
+
+        # something else got merged in the meantime
+        p, _ = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        p = await self.get_pull(p["number"])
+
+        # CI has been restart and works, we need to rebase it again and merge it.
+        # no need to manually requeue the pull request
+        await self.create_status(p1)
+        await self.run_engine()
+
+        # p1 got rebased, again
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        p1 = await self.get_pull(p1["number"])
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "updated",
+                    None,
+                ),
+            ],
+        )
+
+        # merge it
+        await self.create_status(p1)
+        await self.run_engine()
+        await self._assert_cars_contents(q, None, [])
+        p1 = await self.get_pull(p1["number"])
+        assert p1["merged"]
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
