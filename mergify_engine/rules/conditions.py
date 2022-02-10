@@ -442,6 +442,20 @@ async def get_branch_protection_conditions(
                     ),
                 ]
             )
+
+        if (
+            "required_conversation_resolution" in protection
+            and protection["required_conversation_resolution"]["enabled"]
+        ):
+            conditions.extend(
+                [
+                    RuleCondition(
+                        "#review-threads-unresolved=0",
+                        description="🛡 GitHub branch protection",
+                    )
+                ]
+            )
+
     return conditions
 
 

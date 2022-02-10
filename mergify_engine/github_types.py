@@ -170,6 +170,7 @@ class GitHubBranchProtection(typing.TypedDict, total=False):
     required_linear_history: GitHubBranchProtectionBoolean
     required_status_checks: GitHubBranchProtectionRequiredStatusChecks
     required_pull_request_reviews: GitHubBranchProtectionRequirePullRequestReviews
+    required_conversation_resolution: GitHubBranchProtectionBoolean
 
 
 class GitHubBranchProtectionLight(typing.TypedDict):

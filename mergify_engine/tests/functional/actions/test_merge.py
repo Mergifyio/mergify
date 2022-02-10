@@ -20,6 +20,7 @@ import yaml
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import utils
 from mergify_engine.tests.functional import base
 
 
@@ -107,6 +108,88 @@ class TestMergeAction(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
         self.assertEqual(True, p["merged"])
         self.assertEqual("mergify-test4", p["merged_by"]["login"])
+
+    async def test_merge_branch_protection_conversation_resolution(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": None,
+            "required_linear_history": False,
+            "required_pull_request_reviews": None,
+            "required_conversation_resolution": True,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        p1, _ = await self.create_pr(
+            files={"my_testing_file": "foo", "super_original_testfile": "42\ntest\n"}
+        )
+
+        await self.create_review_thread(
+            p1["number"],
+            "Don't like this line too much either",
+            path="super_original_testfile",
+            line=2,
+        )
+
+        thread = (await self.get_review_threads(p1["number"]))["repository"][
+            "pullRequest"
+        ]["reviewThreads"]["edges"][0]["node"]
+
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p1, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+
+        assert (
+            "- [ ] `#review-threads-unresolved=0` [🛡 GitHub branch protection]"
+            in summary["output"]["summary"]
+        )
+
+        is_resolved = await self.resolve_review_thread(thread_id=thread["id"])
+        assert is_resolved
+
+        thread = (await self.get_review_threads(p1["number"]))["repository"][
+            "pullRequest"
+        ]["reviewThreads"]["edges"][0]["node"]
+        assert thread["isResolved"]
+
+        # NOTE(Syfe): We need to generate an event with send_pull_refresh() in order
+        # to trigger the summary check update after resolve_review_thread() since GitHub doesn't
+        # generate one after resolving a conversation (issue related MRGFY-907)
+        with utils.yaaredis_for_stream() as redis_stream:
+            await utils.send_pull_refresh(
+                ctxt.redis,
+                redis_stream,
+                ctxt.pull["base"]["repo"],
+                pull_request_number=p1["number"],
+                action="internal",
+                source="test",
+            )
+
+        await self.run_engine()
+
+        ctxt._caches.pull_check_runs.delete()
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+
+        assert (
+            "- [X] `#review-threads-unresolved=0` [🛡 GitHub branch protection]"
+            in summary["output"]["summary"]
+        )
 
     async def test_merge_branch_protection_linear_history(self):
         rules = {
