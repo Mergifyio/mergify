@@ -1432,6 +1432,91 @@ class Train(queue.QueueBase):
             additional_pull_request=ctxt.pull["number"],
         )
 
+    async def _split_failed_train_car(
+        self, queue_rules: rules.QueueRules, car: TrainCar
+    ) -> None:
+        current_queue_position = sum(
+            map(
+                lambda c: len(c.still_queued_embarked_pulls),
+                itertools.takewhile(lambda c: c is not car, self._cars),
+            )
+        ) + len(car.still_queued_embarked_pulls)
+        self.log.info("spliting failed car", position=current_queue_position, car=car)
+
+        queue_name = car.still_queued_embarked_pulls[0].config["name"]
+        try:
+            queue_rule = queue_rules[queue_name]
+        except KeyError:
+            # We just need to wait the pull request has been removed from
+            # the queue by the action
+            self.log.info(
+                "cant split failed batch TrainCar, queue rule does not exist anymore",
+                queue_rules=queue_rules,
+                queue_name=queue_name,
+            )
+            return
+
+        # NOTE(sileht): This batch failed, we can drop everything else
+        # after has we known now they will not work, and split this one
+        # in two
+        await self._slice_cars(
+            current_queue_position,
+            reason="Pull request ahead in queue failed to get merged",
+        )
+
+        # We move this car later at the end to not retest it
+        del self._cars[-1]
+
+        # NOTE(sileht): if speculative_checks == 1 we split the batch
+        # in two parts, but check only the first one
+        parts = max(2, queue_rule.config["speculative_checks"])
+
+        parents: typing.List[EmbarkedPull] = []
+        for pos, pulls in enumerate(
+            utils.split_list(car.still_queued_embarked_pulls[:-1], parts)
+        ):
+            self._cars.append(
+                TrainCar(
+                    train=self,
+                    initial_embarked_pulls=pulls,
+                    still_queued_embarked_pulls=pulls.copy(),
+                    parent_pull_request_numbers=car.parent_pull_request_numbers
+                    + [ep.user_pull_request_number for ep in parents],
+                    initial_current_base_sha=car.initial_current_base_sha,
+                    failure_history=car.failure_history + [car],
+                )
+            )
+
+            parents += pulls
+            # NOTE(sileht): if speculative_checks == 1 we must check
+            # only the first car, keep the second one as pending.
+            # _populate_cars() will create the second one, when the
+            # first car has finished and passed
+            if queue_rule.config["speculative_checks"] > 1 or pos == 0:
+                try:
+                    await self._start_checking_car(queue_rule, self._cars[-1])
+                except (
+                    TrainCarPullRequestCreationPostponed,
+                    TrainCarPullRequestCreationFailure,
+                ):
+                    self.log.info(
+                        "failed to create draft pull request",
+                        car=car,
+                        exc_info=True,
+                    )
+
+        # Update the car to pull that was part of the batch into parent, but keep
+        # the result as we already test it.
+        car.parent_pull_request_numbers = car.parent_pull_request_numbers + [
+            ep.user_pull_request_number for ep in parents
+        ]
+        car.still_queued_embarked_pulls = [car.still_queued_embarked_pulls[-1]]
+        car.initial_embarked_pulls = car.still_queued_embarked_pulls.copy()
+        self._cars.append(car)
+
+        # Refresh summary of others
+        await self._refresh_pulls(self.repository.repo, source="batch got split")
+
     async def _split_failed_batches(self, queue_rules: rules.QueueRules) -> None:
         if (
             len(self._cars) == 1
@@ -1453,94 +1538,19 @@ class Train(queue.QueueBase):
             return
 
         # NOTE(sileht): Looks for batch failure and split if needed
-        current_queue_position = 0
-        for car in self._cars:
-            current_queue_position += len(car.still_queued_embarked_pulls)
+        first_failed_batch_train_car = first.first(
+            car
+            for car in self._cars
             if (
                 car.checks_conclusion == check_api.Conclusion.FAILURE
                 and car.has_previous_car_status_succeeded()
                 and len(car.initial_embarked_pulls) > 1
-            ):
-                self.log.info(
-                    "spliting failed car", position=current_queue_position, car=car
-                )
-
-                queue_name = car.still_queued_embarked_pulls[0].config["name"]
-                try:
-                    queue_rule = queue_rules[queue_name]
-                except KeyError:
-                    # We just need to wait the pull request has been removed from
-                    # the queue by the action
-                    self.log.info(
-                        "cant split failed batch TrainCar, queue rule does not exist anymore",
-                        queue_rules=queue_rules,
-                        queue_name=queue_name,
-                    )
-                    return
-
-                # NOTE(sileht): This batch failed, we can drop everything else
-                # after has we known now they will not work, and split this one
-                # in two
-                await self._slice_cars(
-                    current_queue_position,
-                    reason="Pull request ahead in queue failed to get merged",
-                )
-
-                # We move this car later at the end to not retest it
-                del self._cars[-1]
-
-                # NOTE(sileht): if speculative_checks == 1 we split the batch
-                # in two parts, but check only the first one
-                parts = max(2, queue_rule.config["speculative_checks"])
-
-                parents: typing.List[EmbarkedPull] = []
-                for pos, pulls in enumerate(
-                    utils.split_list(car.still_queued_embarked_pulls[:-1], parts)
-                ):
-                    self._cars.append(
-                        TrainCar(
-                            train=self,
-                            initial_embarked_pulls=pulls,
-                            still_queued_embarked_pulls=pulls.copy(),
-                            parent_pull_request_numbers=car.parent_pull_request_numbers
-                            + [ep.user_pull_request_number for ep in parents],
-                            initial_current_base_sha=car.initial_current_base_sha,
-                            failure_history=car.failure_history + [car],
-                        )
-                    )
-
-                    parents += pulls
-                    # NOTE(sileht): if speculative_checks == 1 we must check
-                    # only the first car, keep the second one as pending.
-                    # _populate_cars() will create the second one, when the
-                    # first car has finished and passed
-                    if queue_rule.config["speculative_checks"] > 1 or pos == 0:
-                        try:
-                            await self._start_checking_car(queue_rule, self._cars[-1])
-                        except (
-                            TrainCarPullRequestCreationPostponed,
-                            TrainCarPullRequestCreationFailure,
-                        ):
-                            self.log.info(
-                                "failed to create draft pull request",
-                                car=car,
-                                exc_info=True,
-                            )
-
-                # Update the car to pull that was part of the batch into parent, but keep
-                # the result as we already test it.
-                car.parent_pull_request_numbers = car.parent_pull_request_numbers + [
-                    ep.user_pull_request_number for ep in parents
-                ]
-                car.still_queued_embarked_pulls = [car.still_queued_embarked_pulls[-1]]
-                car.initial_embarked_pulls = car.still_queued_embarked_pulls.copy()
-                self._cars.append(car)
-
-                # Refresh summary of others
-                await self._refresh_pulls(
-                    self.repository.repo, source="batch got split"
-                )
-                break
+            )
+        )
+        if first_failed_batch_train_car is not None:
+            await self._split_failed_train_car(
+                queue_rules, first_failed_batch_train_car
+            )
 
         # NOTE(sileht): speculative_checks=1 may create car without the
         # attached draft pull request if this car become the first, it means
