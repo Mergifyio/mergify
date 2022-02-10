@@ -29,4 +29,4 @@ jobs:
         run: |
           sudo apt install -y redis-server
           pip install tox
-          tox -e py39
+          tox -e py310
