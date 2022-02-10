@@ -118,7 +118,6 @@ PARSER_MODIFIERS = {
     Parser.DAY: (False, False),
     Parser.MONTH: (False, False),
     Parser.YEAR: (False, False),
-    Parser.DOW: (False, False),
 }
 
 NEGATION_OPERATORS = ("-", "¬")
