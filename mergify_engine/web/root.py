@@ -20,6 +20,7 @@ from datadog import statsd
 import fastapi
 from starlette import requests
 from starlette import responses
+from starlette.middleware import cors
 import yaaredis
 
 from mergify_engine import exceptions as engine_exceptions
@@ -36,13 +37,21 @@ from mergify_engine.web.api import root as api_root
 LOG = daiquiri.getLogger(__name__)
 
 app = fastapi.FastAPI(openapi_url=None, redoc_url=None, docs_url=None)
+app.add_middleware(
+    cors.CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(dashboard.router)
 app.include_router(github.router)
 app.include_router(refresher.router)
+app.include_router(simulator.router, prefix="/simulator")
+app.include_router(config_validator.router, prefix="/validate")
+app.include_router(legacy_badges.router, prefix="/badges")
 
-app.mount("/simulator", simulator.app)
-app.mount("/validate", config_validator.app)
-app.mount("/badges", legacy_badges.app)
 app.mount("/v1", api_root.app)
 
 

@@ -19,27 +19,17 @@ import base64
 import hashlib
 
 import fastapi
-from starlette import requests
 from starlette import responses
-from starlette.middleware import cors
 
 from mergify_engine import context
-from mergify_engine import exceptions as engine_exceptions
 from mergify_engine import github_types
 from mergify_engine import rules
 
 
-app = fastapi.FastAPI()
-app.add_middleware(
-    cors.CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+router = fastapi.APIRouter()
 
 
-@app.post("/")
+@router.post("/")
 async def config_validator(
     data: fastapi.UploadFile = fastapi.File(...),  # noqa: B008
 ) -> responses.PlainTextResponse:  # pragma: no cover
@@ -72,13 +62,3 @@ async def config_validator(
         message = "The configuration is valid"
 
     return responses.PlainTextResponse(message, status_code=status)
-
-
-@app.exception_handler(engine_exceptions.RateLimited)
-async def rate_limited_handler(
-    request: requests.Request, exc: engine_exceptions.RateLimited
-) -> responses.JSONResponse:
-    return responses.JSONResponse(
-        status_code=403,
-        content={"message": "Organization or user has hit GitHub API rate limit"},
-    )
