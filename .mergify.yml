@@ -15,12 +15,12 @@ queue_rules:
   - name: hotfix
     conditions:
       - and: &CheckRuns
-        - check-success=requirements
-        - check-success=pep8
-        - check-success=test
-        - check-success=docs
-        - check-success=docker
-        - check-success=heroku
+          - check-success=requirements
+          - check-success=pep8
+          - check-success=test
+          - check-success=docs
+          - check-success=docker
+          - check-success=heroku
     speculative_checks: 5
 
   - name: default
