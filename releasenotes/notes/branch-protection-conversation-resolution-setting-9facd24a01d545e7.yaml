@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Mergify generates automatically condition for ``merge`` and ``queue``
+    action based on branch protection setting ``required_conversation_resolution``.
