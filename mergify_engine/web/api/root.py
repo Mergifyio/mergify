@@ -38,6 +38,7 @@ from mergify_engine.clients import http
 from mergify_engine.queue import merge_train
 from mergify_engine.web import api
 from mergify_engine.web import redis
+from mergify_engine.web import utils as web_utils
 from mergify_engine.web.api import applications
 from mergify_engine.web.api import badges
 from mergify_engine.web.api import queues
@@ -91,6 +92,8 @@ app.include_router(applications.router)
 app.include_router(queues.router)
 app.include_router(badges.router)
 
+web_utils.setup_exception_handlers(app)
+
 
 def generate_openapi_spec() -> None:
     parser = argparse.ArgumentParser(description="Generate OpenAPI spec file")
@@ -103,13 +106,3 @@ def generate_openapi_spec() -> None:
 
     with open(args.output, "w") as f:
         json.dump(fp=f, obj=app.openapi())
-
-
-@app.exception_handler(engine_exceptions.RateLimited)
-async def rate_limited_handler(
-    request: requests.Request, exc: engine_exceptions.RateLimited
-) -> responses.JSONResponse:
-    return responses.JSONResponse(
-        status_code=403,
-        content={"message": "Organization or user has hit GitHub API rate limit"},
-    )
