@@ -14,33 +14,24 @@ defaults:
 queue_rules:
   - name: hotfix
     conditions:
-      - check-success=requirements
-      - check-success=pep8
-      - check-success=test
-      - check-success=docs
-      - check-success=docker
-      - check-success=heroku
+      - and: &CheckRuns
+        - check-success=requirements
+        - check-success=pep8
+        - check-success=test
+        - check-success=docs
+        - check-success=docker
+        - check-success=heroku
     speculative_checks: 5
 
   - name: default
     conditions:
-      - check-success=requirements
-      - check-success=pep8
-      - check-success=test
-      - check-success=docs
-      - check-success=docker
-      - check-success=heroku
+      - and: *CheckRuns
       - schedule=Mon-Fri 09:00-17:30[Europe/Paris]
     speculative_checks: 5
 
   - name: lowprio
     conditions:
-      - check-success=requirements
-      - check-success=pep8
-      - check-success=test
-      - check-success=docs
-      - check-success=docker
-      - check-success=heroku
+      - and: *CheckRuns
       - schedule=Mon-Fri 09:30-17:00[Europe/Paris]
     speculative_checks: 3
     batch_size: 5
@@ -69,12 +60,7 @@ pull_request_rules:
     conditions:
       - base=main
       - check-success=semantic-pull-request
-      - check-success=requirements
-      - check-success=pep8
-      - check-success=test
-      - check-success=docs
-      - check-success=docker
-      - check-success=heroku
+      - and: *CheckRuns
       - "check-success=Rule: feature requirements (post_check)"
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
@@ -125,12 +111,7 @@ pull_request_rules:
       - label!=work-in-progress
       - -merged
       - -closed
-      - check-success=requirements
-      - check-success=pep8
-      - check-success=test
-      - check-success=docs
-      - check-success=docker
-      - check-success=heroku
+      - and: *CheckRuns
       - "check-success=Rule: feature requirements (post_check)"
       - "#approved-reviews-by=0"
       - "#changes-requested-reviews-by=0"
