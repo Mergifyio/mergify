@@ -72,6 +72,11 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
         if worker_id is not None:
             log_record.update({"worker_id": worker_id})
 
+        dyno = os.getenv("DYNO")
+        if dyno is not None:
+            log_record.update({"dyno": dyno})
+            log_record.update({"dynotype": dyno.rsplit(".", 1)[0]})
+
 
 def config_log() -> None:
     LOG.info("##################### CONFIGURATION ######################")
