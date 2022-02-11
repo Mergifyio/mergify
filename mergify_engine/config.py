@@ -177,10 +177,12 @@ Schema = voluptuous.Schema(
         ): voluptuous.Any(None, voluptuous.Coerce(int)),
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
-        voluptuous.Required("STREAM_PROCESSES", default=1): voluptuous.Coerce(int),
-        voluptuous.Required("STREAM_WORKERS_PER_PROCESS", default=7): voluptuous.Coerce(
+        voluptuous.Required("SHARED_STREAM_PROCESSES", default=1): voluptuous.Coerce(
             int
         ),
+        voluptuous.Required(
+            "SHARED_STREAM_TASKS_PER_PROCESS", default=7
+        ): voluptuous.Coerce(int),
         voluptuous.Required(
             "BUCKET_PROCESSING_MAX_SECONDS", default=30
         ): voluptuous.Coerce(int),
@@ -250,8 +252,8 @@ WEBHOOK_MARKETPLACE_FORWARD_URL: str
 WEBHOOK_APP_FORWARD_URL: str
 WEBHOOK_FORWARD_EVENT_TYPES: str
 WEBHOOK_SECRET: str
-STREAM_PROCESSES: int
-STREAM_WORKERS_PER_PROCESS: int
+SHARED_STREAM_PROCESSES: int
+SHARED_STREAM_TASKS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
 BOT_USER_LOGIN: str

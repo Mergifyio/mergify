@@ -1291,17 +1291,17 @@ async def test_worker_with_multiple_workers(
     for bucket_source in bucket_sources:
         assert 3 == await redis_stream.xlen(bucket_source)
 
-    process_count = 4
-    worker_per_process = 3
+    shared_stream_processes = 4
+    shared_stream_tasks_per_process = 3
 
     await asyncio.gather(
         *[
             run_worker(
-                worker_per_process=worker_per_process,
-                process_count=process_count,
+                shared_stream_tasks_per_process=shared_stream_tasks_per_process,
+                shared_stream_processes=shared_stream_processes,
                 process_index=i,
             )
-            for i in range(process_count)
+            for i in range(shared_stream_processes)
         ]
     )
 
@@ -1413,7 +1413,7 @@ async def test_dedicated_worker_scaleup_scaledown(
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
 
     w = worker.Worker(
-        worker_per_process=3,
+        shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
     )
@@ -1541,7 +1541,7 @@ async def test_separate_dedicated_worker(
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
 
     shared_w = worker.Worker(
-        worker_per_process=3,
+        shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
         enabled_services=("shared-stream",),
@@ -1549,7 +1549,7 @@ async def test_separate_dedicated_worker(
     await shared_w.start()
 
     dedicated_w = worker.Worker(
-        worker_per_process=3,
+        shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
         enabled_services=("dedicated-stream",),
