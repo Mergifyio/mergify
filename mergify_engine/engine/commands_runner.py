@@ -37,7 +37,7 @@ from mergify_engine.rules import conditions
 
 LOG = daiquiri.getLogger(__name__)
 
-COMMAND_MATCHER = re.compile(r"@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
+COMMAND_MATCHER = re.compile(r"^@Mergify(?:|io) (\w*)(.*)", re.IGNORECASE)
 COMMAND_RESULT_MATCHER_OLD = re.compile(
     r"\*Command `([^`]*)`: (pending|success|failure)\*"
 )
@@ -83,6 +83,11 @@ class CommandInvalid(Exception):
     message: str
 
 
+@dataclasses.dataclass
+class NotACommand(Exception):
+    message: str
+
+
 def load_command(
     mergify_config: rules.MergifyConfig,
     message: str,
@@ -90,7 +95,13 @@ def load_command(
     """Load an action from a message."""
     action_classes = actions.get_commands()
     match = COMMAND_MATCHER.search(message)
-    if match and match[1] in action_classes:
+
+    if not match:
+        raise NotACommand(
+            "Comment contains '@Mergify/io' tag but is not aimed to be executed as a command"
+        )
+
+    if match[1] in action_classes:
         action_name = match[1]
         action_class = action_classes[action_name]
         command_args = match[2].strip()
@@ -322,6 +333,8 @@ async def handle(
     except CommandInvalid as e:
         log(e.message)
         await post_comment(ctxt, e.message + footer)
+        return
+    except NotACommand:
         return
 
     if (
