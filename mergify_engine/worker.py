@@ -295,22 +295,24 @@ class DedicatedOrgBucketSelector:
 class SharedOrgBucketSelector:
     redis_stream: utils.RedisStream
     shared_worker_id: int
-    worker_count: int
+    global_shared_tasks_count: int
 
     @staticmethod
-    def get_shared_worker_id_for(org_bucket: bytes, worker_count: int) -> int:
+    def get_shared_worker_id_for(
+        org_bucket: bytes, global_shared_tasks_count: int
+    ) -> int:
         owner_id = org_bucket.split(b"~")[1]
         hashed = hashlib.md5(  # nosemgrep: rule:python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
             owner_id
         )
-        return int(hashed.hexdigest(), 16) % worker_count
+        return int(hashed.hexdigest(), 16) % global_shared_tasks_count
 
     async def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
         owner_id = org_bucket.split(b"~")[1]
         if await self.redis_stream.sismember(DEDICATED_WORKERS_KEY, owner_id):
             return False
         return (
-            self.get_shared_worker_id_for(org_bucket, self.worker_count)
+            self.get_shared_worker_id_for(org_bucket, self.global_shared_tasks_count)
             == self.shared_worker_id
         )
 
@@ -905,8 +907,8 @@ AVAILABLE_WORKER_SERVICES = set(WorkerServiceT.__dict__["__args__"])
 class Worker:
     idle_sleep_time: float = 0.42
     shutdown_timeout: float = config.WORKER_SHUTDOWN_TIMEOUT
-    worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
-    process_count: int = config.STREAM_PROCESSES
+    shared_stream_tasks_per_process: int = config.SHARED_STREAM_TASKS_PER_PROCESS
+    shared_stream_processes: int = config.SHARED_STREAM_PROCESSES
     process_index: int = dataclasses.field(default_factory=get_process_index_from_env)
     enabled_services: WorkerServicesT = dataclasses.field(
         default_factory=lambda: AVAILABLE_WORKER_SERVICES.copy()
@@ -949,8 +951,8 @@ class Worker:
     )
 
     @property
-    def worker_count(self) -> int:
-        return self.worker_per_process * self.process_count
+    def global_shared_tasks_count(self) -> int:
+        return self.shared_stream_tasks_per_process * self.shared_stream_processes
 
     @staticmethod
     def extract_owner(
@@ -969,7 +971,7 @@ class Worker:
             owners_cache=self._owners_cache,
         )
         org_bucket_selector = SharedOrgBucketSelector(
-            self._redis_stream, shared_worker_id, self.worker_count
+            self._redis_stream, shared_worker_id, self.global_shared_tasks_count
         )
         return await self._stream_worker_task(
             f"shared-{shared_worker_id}", stream_processor, org_bucket_selector
@@ -1051,16 +1053,18 @@ class Worker:
         )
         # NOTE(sileht): The latency may not be exact with the next StreamSelector
         # based on hash+modulo
-        if len(org_buckets) > self.worker_count:
-            latency = now - org_buckets[self.worker_count][1]
+        if len(org_buckets) > self.global_shared_tasks_count:
+            latency = now - org_buckets[self.global_shared_tasks_count][1]
             statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
         else:
             statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
 
         statsd.gauge("engine.streams.backlog", len(org_buckets))
-        statsd.gauge("engine.workers.count", self.worker_count)
-        statsd.gauge("engine.processes.count", self.process_count)
-        statsd.gauge("engine.workers-per-process.count", self.worker_per_process)
+        statsd.gauge("engine.workers.count", self.global_shared_tasks_count)
+        statsd.gauge("engine.processes.count", self.shared_stream_processes)
+        statsd.gauge(
+            "engine.workers-per-process.count", self.shared_stream_tasks_per_process
+        )
 
         # TODO(sileht): maybe we can do something with the bucket scores to
         # build a latency metric
@@ -1075,7 +1079,7 @@ class Worker:
                 worker_id = f"dedicated-{owner_id}"
             else:
                 shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
-                    org_bucket, self.worker_count
+                    org_bucket, self.global_shared_tasks_count
                 )
                 worker_id = f"shared-{shared_id}"
 
@@ -1112,8 +1116,8 @@ class Worker:
     def get_shared_worker_ids(self) -> typing.List[int]:
         return list(
             range(
-                self.process_index * self.worker_per_process,
-                (self.process_index + 1) * self.worker_per_process,
+                self.process_index * self.shared_stream_tasks_per_process,
+                (self.process_index + 1) * self.shared_stream_tasks_per_process,
             )
         )
 
@@ -1343,9 +1347,11 @@ def main(argv: typing.Optional[typing.List[str]] = None) -> None:
 
 
 async def async_status() -> None:
-    worker_per_process: int = config.STREAM_WORKERS_PER_PROCESS
-    process_count: int = config.STREAM_PROCESSES
-    worker_count: int = worker_per_process * process_count
+    shared_stream_tasks_per_process: int = config.SHARED_STREAM_TASKS_PER_PROCESS
+    shared_stream_processes: int = config.SHARED_STREAM_PROCESSES
+    global_shared_tasks_count: int = (
+        shared_stream_tasks_per_process * shared_stream_processes
+    )
 
     redis_stream = utils.create_yaaredis_for_stream()
 
@@ -1366,7 +1372,7 @@ async def async_status() -> None:
             return f"dedicated-{owner_id}"
         else:
             shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
-                org_bucket, worker_count
+                org_bucket, global_shared_tasks_count
             )
             return f"shared-{shared_id}"
 
