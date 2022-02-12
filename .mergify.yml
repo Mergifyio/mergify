@@ -43,7 +43,7 @@ pull_request_rules:
       - author=@devs
       - check-success=semantic-pull-request
       - label=hotfix
-      - title~=^fix
+      - title~=^(revert|fix)
       - or:
           # We authorize hotfix to go through if they fix a sentry
           - body~=(?m)^Fixes MERGIFY-ENGINE-
