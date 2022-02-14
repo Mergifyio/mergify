@@ -366,7 +366,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         config.API_ENABLE = True
 
         self.existing_labels: typing.List[str] = []
-        self.protected_branches: typing.Set[str] = set()
         self.pr_counter: int = 0
         self.git_counter: int = 0
 
@@ -889,7 +888,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             f"{self.url_origin}/branches/{branch}/protection",
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
-        self.protected_branches.remove(branch)
 
     async def branch_protection_protect(
         self, branch: str, protection: typing.Dict[str, typing.Any]
@@ -903,7 +901,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             json=protection,
             headers={"Accept": "application/vnd.github.luke-cage-preview+json"},
         )
-        self.protected_branches.add(branch)
 
     async def get_branches(self) -> typing.List[github_types.GitHubBranch]:
         return [c async for c in self.client_admin.items(f"{self.url_origin}/branches")]
