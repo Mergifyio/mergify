@@ -504,6 +504,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             enabled_services={"shared-stream", "dedicated-stream", "delayed-refresh"},
             delayed_refresh_idle_time=0.01,
             dedicated_workers_spawner_idle_time=0.01,
+            dedicated_workers_syncer_idle_time=0.01,
         )
         await w.start()
 
