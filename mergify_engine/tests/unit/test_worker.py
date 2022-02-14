@@ -1735,3 +1735,25 @@ def test_worker_start_except_shared(
     assert dedicated_workers_spawner_task.called
     assert monitoring_task.called
     assert delayed_refresh_task.called
+
+
+async def test_get_shared_worker_ids(
+    monkeypatch: pytest.MonkeyPatch, redis_stream: utils.RedisStream
+) -> None:
+    monkeypatch.setenv("DYNO", "worker-shared.1")
+    assert worker.get_process_index_from_env() == 0
+    w1 = worker.Worker(shared_stream_processes=2, shared_stream_tasks_per_process=30)
+    assert w1.get_shared_worker_ids() == list(range(0, 30))
+    assert w1.global_shared_tasks_count == 60
+    s1 = worker.SharedOrgBucketSelector(redis_stream, 8, w1.global_shared_tasks_count)
+    assert s1.get_shared_worker_id_for(b"owner~123", w1.global_shared_tasks_count) == 8
+    assert await s1._is_org_bucket_for_me(b"owner~123")
+
+    monkeypatch.setenv("DYNO", "worker-shared.2")
+    assert worker.get_process_index_from_env() == 1
+    w2 = worker.Worker(shared_stream_processes=2, shared_stream_tasks_per_process=30)
+    assert w2.get_shared_worker_ids() == list(range(30, 60))
+    assert w2.global_shared_tasks_count == 60
+    s2 = worker.SharedOrgBucketSelector(redis_stream, 38, w2.global_shared_tasks_count)
+    assert s2.get_shared_worker_id_for(b"owner~123", w2.global_shared_tasks_count) == 8
+    assert not await s2._is_org_bucket_for_me(b"owner~123")
