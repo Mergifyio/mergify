@@ -545,7 +545,7 @@ async def test_consume_unexisting_stream(
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, False, worker.OwnerLoginsCache()
+        redis_stream, redis_cache, "shared-8", None, worker.OwnerLoginsCache()
     )
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
@@ -593,7 +593,9 @@ async def test_consume_good_stream(
     assert 2 == await redis_stream.xlen("bucket-sources~123~123")
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, owners_cache
+    )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
 
@@ -680,7 +682,9 @@ async def test_stream_processor_retrying_pull(
     assert 1 == await redis_stream.xlen("bucket-sources~123~42")
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, owners_cache
+    )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
 
@@ -812,7 +816,9 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, owners_cache
+    )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
 
@@ -910,7 +916,9 @@ async def test_stream_processor_retrying_stream_failure(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, owners_cache
+    )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
 
@@ -992,7 +1000,9 @@ async def test_stream_processor_pull_unexpected_error(
     )
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, owners_cache
+    )
     await p.consume("bucket~123", 123, "owner-123")
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
@@ -1053,8 +1063,19 @@ async def test_stream_processor_date_scheduling(
     assert 0 == len(await redis_stream.hgetall("attempts"))
 
     owners_cache = worker.OwnerLoginsCache()
-    s = worker.SharedOrgBucketSelector(redis_stream, 0, 1)
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    w = worker.Worker(
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        shared_stream_tasks_per_process=1,
+        shared_stream_processes=1,
+        process_index=0,
+    )
+    w._redis_cache = redis_cache
+    w._redis_stream = redis_stream
+
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-0", None, owners_cache
+    )
 
     received = []
 
@@ -1064,10 +1085,7 @@ async def test_stream_processor_date_scheduling(
     run_engine.side_effect = fake_engine
 
     with freeze_time("2020-01-14"):
-        stream_name = await s.next_org_bucket()
-        assert stream_name is not None
-        owner_id = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, f"owner-{owner_id}")
+        await w._stream_worker_task(p)
 
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
@@ -1075,8 +1093,7 @@ async def test_stream_processor_date_scheduling(
     assert received == [wanted_owner_id]
 
     with freeze_time("2030-01-14"):
-        stream_name = await s.next_org_bucket()
-        assert stream_name is None
+        await w._stream_worker_task(p)
 
     assert 1 == (await redis_stream.zcard("streams"))
     assert 1 == len(await redis_stream.keys("bucket~*"))
@@ -1085,10 +1102,7 @@ async def test_stream_processor_date_scheduling(
 
     # We are in 2041, we have something todo :)
     with freeze_time("2041-01-14"):
-        stream_name = await s.next_org_bucket()
-        assert stream_name is not None
-        owner_id = worker.Worker.extract_owner(stream_name)
-        await p.consume(stream_name, owner_id, f"owner-{owner_id}")
+        await w._stream_worker_task(p)
 
     assert 0 == (await redis_stream.zcard("streams"))
     assert 0 == len(await redis_stream.keys("bucket~*"))
@@ -1192,7 +1206,9 @@ async def test_stream_processor_retrying_after_read_error(
     )
 
     owners_cache = worker.OwnerLoginsCache()
-    p = worker.StreamProcessor(redis_stream, redis_cache, False, owners_cache)
+    p = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-0", None, owners_cache
+    )
 
     installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
     with pytest.raises(worker.OrgBucketRetry):
@@ -1416,6 +1432,7 @@ async def test_dedicated_worker_scaleup_scaledown(
         shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
+        dedicated_workers_syncer_idle_time=0.01,
     )
     await w.start()
 
@@ -1738,22 +1755,30 @@ def test_worker_start_except_shared(
 
 
 async def test_get_shared_worker_ids(
-    monkeypatch: pytest.MonkeyPatch, redis_stream: utils.RedisStream
+    monkeypatch: pytest.MonkeyPatch,
+    redis_stream: utils.RedisStream,
+    redis_cache: utils.RedisCache,
 ) -> None:
     monkeypatch.setenv("DYNO", "worker-shared.1")
     assert worker.get_process_index_from_env() == 0
     w1 = worker.Worker(shared_stream_processes=2, shared_stream_tasks_per_process=30)
     assert w1.get_shared_worker_ids() == list(range(0, 30))
     assert w1.global_shared_tasks_count == 60
-    s1 = worker.SharedOrgBucketSelector(redis_stream, 8, w1.global_shared_tasks_count)
-    assert s1.get_shared_worker_id_for(b"owner~123", w1.global_shared_tasks_count) == 8
-    assert await s1._is_org_bucket_for_me(b"owner~123")
+    s1 = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-8", None, w1._owners_cache
+    )
+    assert s1.should_handle_owner(
+        github_types.GitHubAccountIdType(123), set(), w1.global_shared_tasks_count
+    )
 
     monkeypatch.setenv("DYNO", "worker-shared.2")
     assert worker.get_process_index_from_env() == 1
     w2 = worker.Worker(shared_stream_processes=2, shared_stream_tasks_per_process=30)
     assert w2.get_shared_worker_ids() == list(range(30, 60))
     assert w2.global_shared_tasks_count == 60
-    s2 = worker.SharedOrgBucketSelector(redis_stream, 38, w2.global_shared_tasks_count)
-    assert s2.get_shared_worker_id_for(b"owner~123", w2.global_shared_tasks_count) == 8
-    assert not await s2._is_org_bucket_for_me(b"owner~123")
+    s2 = worker.StreamProcessor(
+        redis_stream, redis_cache, "shared-38", None, w2._owners_cache
+    )
+    assert not s2.should_handle_owner(
+        github_types.GitHubAccountIdType(123), set(), w2.global_shared_tasks_count
+    )

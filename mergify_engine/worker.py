@@ -257,82 +257,6 @@ async def run_engine(
         logger.debug("engine in thread end")
 
 
-class BucketSelector(typing.Protocol):
-    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
-        ...
-
-
-@dataclasses.dataclass
-class DedicatedOrgBucketSelector:
-    redis_stream: utils.RedisStream
-    owner_id: github_types.GitHubAccountIdType
-
-    def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
-        owner_id = int(org_bucket.split(b"~")[1])
-        return owner_id == self.owner_id
-
-    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
-        # FIXME(sileht): we can use ZSCORE instead of ZRANGEBYSCORE when we
-        # have drop all login/name from bucket names.
-        # NOTE(sileht): Should we drop the 30s latency ? That may impact the rate limit...
-        now = time.time()
-        for org_bucket in await self.redis_stream.zrangebyscore(
-            "streams",
-            min=0,
-            max=now,
-        ):
-            if self._is_org_bucket_for_me(org_bucket):
-                statsd.increment(
-                    "engine.streams.selected",
-                    tags=[f"worker_id:dedicated-{self.owner_id}", "dedicated"],
-                )
-                return worker_lua.BucketOrgKeyType(org_bucket.decode())
-
-        return None
-
-
-@dataclasses.dataclass
-class SharedOrgBucketSelector:
-    redis_stream: utils.RedisStream
-    shared_worker_id: int
-    global_shared_tasks_count: int
-
-    @staticmethod
-    def get_shared_worker_id_for(
-        org_bucket: bytes, global_shared_tasks_count: int
-    ) -> int:
-        owner_id = org_bucket.split(b"~")[1]
-        hashed = hashlib.md5(  # nosemgrep: rule:python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
-            owner_id
-        )
-        return int(hashed.hexdigest(), 16) % global_shared_tasks_count
-
-    async def _is_org_bucket_for_me(self, org_bucket: bytes) -> bool:
-        owner_id = org_bucket.split(b"~")[1]
-        if await self.redis_stream.sismember(DEDICATED_WORKERS_KEY, owner_id):
-            return False
-        return (
-            self.get_shared_worker_id_for(org_bucket, self.global_shared_tasks_count)
-            == self.shared_worker_id
-        )
-
-    async def next_org_bucket(self) -> typing.Optional[worker_lua.BucketOrgKeyType]:
-        now = time.time()
-        for org_bucket in await self.redis_stream.zrangebyscore(
-            "streams",
-            min=0,
-            max=now,
-        ):
-            if await self._is_org_bucket_for_me(org_bucket):
-                statsd.increment(
-                    "engine.streams.selected",
-                    tags=[f"worker_id:shared-{self.shared_worker_id}"],
-                )
-                return worker_lua.BucketOrgKeyType(org_bucket.decode())
-
-        return None
-
-
 @dataclasses.dataclass
 class OwnerLoginsCache:
     # NOTE(sileht): This could take some memory in the future
@@ -362,7 +286,8 @@ class OwnerLoginsCache:
 class StreamProcessor:
     redis_stream: utils.RedisStream
     redis_cache: utils.RedisCache
-    dedicated: bool
+    worker_id: str
+    dedicated_owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owners_cache: OwnerLoginsCache
 
     @contextlib.asynccontextmanager
@@ -453,12 +378,12 @@ class StreamProcessor:
                 )
 
                 if sub.has_feature(subscription.Features.DEDICATED_WORKER):
-                    if not self.dedicated:
+                    if self.dedicated_owner_id is None:
                         # Spawn a worker
                         await self.redis_stream.sadd(DEDICATED_WORKERS_KEY, owner_id)
                         return
                 else:
-                    if self.dedicated:
+                    if self.dedicated_owner_id is not None:
                         # Drop this worker
                         await self.redis_stream.srem(DEDICATED_WORKERS_KEY, owner_id)
                         return
@@ -884,6 +809,23 @@ class StreamProcessor:
             logger.error("failed to process pull request", exc_info=True)
             raise UnexpectedPullRetry()
 
+    def should_handle_owner(
+        self,
+        owner_id: github_types.GitHubAccountIdType,
+        dedicated_worker_owner_ids: typing.Set[github_types.GitHubAccountIdType],
+        global_shared_tasks_count: int,
+    ) -> bool:
+        if self.dedicated_owner_id is None:
+            if owner_id in dedicated_worker_owner_ids:
+                return False
+
+            return (
+                Worker.get_shared_worker_id_for(owner_id, global_shared_tasks_count)
+                == self.worker_id
+            )
+        else:
+            return owner_id == self.dedicated_owner_id
+
 
 def get_process_index_from_env() -> int:
     dyno = os.getenv("DYNO", None)
@@ -916,6 +858,7 @@ class Worker:
     monitoring_idle_time: float = 60
     delayed_refresh_idle_time: float = 60
     dedicated_workers_spawner_idle_time: float = 60
+    dedicated_workers_syncer_idle_time: float = 30
 
     _redis_stream: typing.Optional[utils.RedisStream] = dataclasses.field(
         init=False, default=None
@@ -943,12 +886,20 @@ class Worker:
     _dedicated_workers_spawner_task: typing.Optional[
         asyncio.Task[None]
     ] = dataclasses.field(init=False, default=None)
+
+    _dedicated_workers_syncer_task: typing.Optional[
+        asyncio.Task[None]
+    ] = dataclasses.field(init=False, default=None)
+
     _delayed_refresh_task: typing.Optional[asyncio.Task[None]] = dataclasses.field(
         init=False, default=None
     )
     _owners_cache: OwnerLoginsCache = dataclasses.field(
         init=False, default_factory=OwnerLoginsCache
     )
+    _dedicated_workers_owners_cache: typing.Set[
+        github_types.GitHubAccountIdType
+    ] = dataclasses.field(init=False, default_factory=set)
 
     @property
     def global_shared_tasks_count(self) -> int:
@@ -967,15 +918,11 @@ class Worker:
         stream_processor = StreamProcessor(
             self._redis_stream,
             self._redis_cache,
-            dedicated=False,
+            worker_id=f"shared-{shared_worker_id}",
+            dedicated_owner_id=None,
             owners_cache=self._owners_cache,
         )
-        org_bucket_selector = SharedOrgBucketSelector(
-            self._redis_stream, shared_worker_id, self.global_shared_tasks_count
-        )
-        return await self._stream_worker_task(
-            f"shared-{shared_worker_id}", stream_processor, org_bucket_selector
-        )
+        return await self._stream_worker_task(stream_processor)
 
     async def dedicated_stream_worker_task(
         self, owner_id: github_types.GitHubAccountIdType
@@ -986,61 +933,85 @@ class Worker:
         stream_processor = StreamProcessor(
             self._redis_stream,
             self._redis_cache,
-            dedicated=True,
+            worker_id=f"dedicated-{owner_id}",
+            dedicated_owner_id=owner_id,
             owners_cache=self._owners_cache,
         )
-        org_bucket_selector = DedicatedOrgBucketSelector(self._redis_stream, owner_id)
-        return await self._stream_worker_task(
-            f"dedicated-{owner_id}", stream_processor, org_bucket_selector
-        )
+        return await self._stream_worker_task(stream_processor)
 
-    async def _stream_worker_task(
-        self,
-        worker_id: str,
-        stream_processor: StreamProcessor,
-        org_bucket_selector: BucketSelector,
-    ) -> None:
+    async def _stream_worker_task(self, stream_processor: StreamProcessor) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
-        logs.WORKER_ID.set(worker_id)
+        logs.WORKER_ID.set(stream_processor.worker_id)
 
-        bucket_org_key = await org_bucket_selector.next_org_bucket()
-        if bucket_org_key:
-            LOG.debug("worker %s take org bucket: %s", worker_id, bucket_org_key)
+        bucket_org_key: typing.Optional[worker_lua.BucketOrgKeyType] = None
+
+        now = time.time()
+        for org_bucket in await self._redis_stream.zrangebyscore(
+            "streams", min=0, max=now
+        ):
+            bucket_org_key = worker_lua.BucketOrgKeyType(org_bucket.decode())
             owner_id = self.extract_owner(bucket_org_key)
-            owner_login_for_tracing = self._owners_cache.get(owner_id)
-            try:
-                with tracer.trace(
-                    "org bucket processing",
-                    span_type="worker",
-                    resource=owner_login_for_tracing,
-                ) as span:
-                    span.set_tag("gh_owner", owner_login_for_tracing)
-                    await stream_processor.consume(
-                        bucket_org_key, owner_id, owner_login_for_tracing
-                    )
-            finally:
-                LOG.debug(
-                    "worker %s release org bucket: %s",
-                    worker_id,
-                    bucket_org_key,
+            if stream_processor.should_handle_owner(
+                owner_id,
+                self._dedicated_workers_owners_cache,
+                self.global_shared_tasks_count,
+            ):
+                statsd.increment(
+                    "engine.streams.selected",
+                    tags=[f"worker_id:{stream_processor.worker_id}"],
                 )
+                break
+        else:
+            return None
+
+        LOG.debug(
+            "worker %s take org bucket: %s",
+            stream_processor.worker_id,
+            bucket_org_key,
+        )
+        owner_login_for_tracing = self._owners_cache.get(owner_id)
+        try:
+            with tracer.trace(
+                "org bucket processing",
+                span_type="worker",
+                resource=owner_login_for_tracing,
+            ) as span:
+                span.set_tag("gh_owner", owner_login_for_tracing)
+                await stream_processor.consume(
+                    bucket_org_key, owner_id, owner_login_for_tracing
+                )
+        finally:
+            LOG.debug(
+                "worker %s release org bucket: %s",
+                stream_processor.worker_id,
+                bucket_org_key,
+            )
+
+    @staticmethod
+    async def get_dedicated_worker_owner_ids(
+        redis_stream: utils.RedisStream,
+    ) -> typing.Set[github_types.GitHubAccountIdType]:
+        dedicated_workers_data = await redis_stream.smembers(DEDICATED_WORKERS_KEY)
+        if dedicated_workers_data is None:
+            return set()
+        else:
+            return {
+                github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
+            }
+
+    async def _sync_dedicated_workers_cache(self) -> None:
+        if self._redis_stream is None:
+            raise RuntimeError("redis stream client is not ready")
+        self._dedicated_workers_owners_cache = (
+            await self.get_dedicated_worker_owner_ids(self._redis_stream)
+        )
 
     @tracer.wrap("monitoring_task", span_type="worker")
     async def monitoring_task(self) -> None:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
-
-        dedicated_workers_data = await self._redis_stream.smembers(
-            DEDICATED_WORKERS_KEY
-        )
-        if dedicated_workers_data is None:
-            dedicated_worker_owner_ids = set()
-        else:
-            dedicated_worker_owner_ids = {
-                github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
-            }
 
         # TODO(sileht): maybe also graph streams that are before `now`
         # to see the diff between the backlog and the upcoming work to do
@@ -1075,13 +1046,12 @@ class Worker:
             owner_id = self.extract_owner(
                 worker_lua.BucketOrgKeyType(org_bucket.decode())
             )
-            if owner_id in dedicated_worker_owner_ids:
+            if owner_id in self._dedicated_workers_owners_cache:
                 worker_id = f"dedicated-{owner_id}"
             else:
-                shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
-                    org_bucket, self.global_shared_tasks_count
+                worker_id = self.get_shared_worker_id_for(
+                    owner_id, self.global_shared_tasks_count
                 )
-                worker_id = f"shared-{shared_id}"
 
             bucket_contents = await self._redis_stream.zrangebyscore(
                 org_bucket, min=0, max="+inf", withscores=True
@@ -1113,6 +1083,17 @@ class Worker:
 
         await delayed_refresh.send(self._redis_stream, self._redis_cache)
 
+    @staticmethod
+    def get_shared_worker_id_for(
+        owner_id: github_types.GitHubAccountIdType, global_shared_tasks_count: int
+    ) -> str:
+        # FIXME(sileht): Maybe change the hash method, since we just use the
+        hashed = hashlib.md5(  # nosemgrep: rule:python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
+            str(owner_id).encode()
+        )
+        shared_id = int(hashed.hexdigest(), 16) % global_shared_tasks_count
+        return f"shared-{shared_id}"
+
     def get_shared_worker_ids(self) -> typing.List[int]:
         return list(
             range(
@@ -1129,6 +1110,14 @@ class Worker:
 
         await redis_utils.load_scripts(self._redis_stream)
         await migrations.run(self._redis_cache)
+
+        self._dedicated_workers_syncer_task = asyncio.create_task(
+            self.loop_and_sleep_forever(
+                "dedicated workers cache syncer",
+                self.dedicated_workers_syncer_idle_time,
+                self._sync_dedicated_workers_cache,
+            )
+        )
 
         if "shared-stream" in self.enabled_services:
             worker_ids = self.get_shared_worker_ids()
@@ -1216,13 +1205,7 @@ class Worker:
         if self._redis_stream is None or self._redis_cache is None:
             raise RuntimeError("redis clients are not ready")
 
-        data = await self._redis_stream.smembers(DEDICATED_WORKERS_KEY)
-
-        if data is None:
-            expected_workers = set()
-        else:
-            expected_workers = {github_types.GitHubAccountIdType(int(v)) for v in data}
-
+        expected_workers = self._dedicated_workers_owners_cache
         current_workers = set(self._dedicated_worker_tasks.keys())
 
         to_stop = current_workers - expected_workers
@@ -1257,6 +1240,8 @@ class Worker:
         tasks = []
         if self._dedicated_workers_spawner_task is not None:
             tasks.append(self._dedicated_workers_spawner_task)
+        if self._dedicated_workers_syncer_task is not None:
+            tasks.append(self._dedicated_workers_syncer_task)
         tasks.extend(self._shared_worker_tasks)
         tasks.extend(self._dedicated_worker_tasks.values())
         if self._delayed_refresh_task is not None:
@@ -1355,13 +1340,9 @@ async def async_status() -> None:
 
     redis_stream = utils.create_yaaredis_for_stream()
 
-    dedicated_workers_data = await redis_stream.smembers(DEDICATED_WORKERS_KEY)
-    if dedicated_workers_data is None:
-        dedicated_worker_owner_ids = set()
-    else:
-        dedicated_worker_owner_ids = {
-            github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
-        }
+    dedicated_worker_owner_ids = await Worker.get_dedicated_worker_owner_ids(
+        redis_stream
+    )
 
     def sorter(item: typing.Tuple[bytes, float]) -> str:
         org_bucket, score = item
@@ -1371,10 +1352,7 @@ async def async_status() -> None:
         if owner_id in dedicated_worker_owner_ids:
             return f"dedicated-{owner_id}"
         else:
-            shared_id = SharedOrgBucketSelector.get_shared_worker_id_for(
-                org_bucket, global_shared_tasks_count
-            )
-            return f"shared-{shared_id}"
+            return Worker.get_shared_worker_id_for(owner_id, global_shared_tasks_count)
 
     org_buckets = sorted(
         await redis_stream.zrangebyscore("streams", min=0, max="+inf", withscores=True),
