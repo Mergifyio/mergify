@@ -2736,6 +2736,8 @@ DO NOT EDIT
                                 "in_place": True,
                                 "number": p3["number"],
                                 "started_at": mock.ANY,
+                                "ended_at": mock.ANY,
+                                "state": "pending",
                                 "checks": [],
                                 "evaluated_conditions": "- [ ] `status-success=continuous-integration/fast-ci`\n",
                             },
