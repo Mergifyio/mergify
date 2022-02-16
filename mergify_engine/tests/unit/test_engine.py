@@ -86,7 +86,6 @@ GH_PULL = github_types.GitHubPullRequest(
                 "avatar_url": "",
             },
             "ref": github_types.GitHubRefType("main"),
-            "label": "",
             "repo": GH_REPO,
         },
         "head": {

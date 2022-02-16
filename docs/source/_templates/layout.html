@@ -6,6 +6,7 @@
 {% endblock %}
 
 {%- block css %}
+  <!-- nosemgrep: html.security.audit.missing-integrity.missing-integrity -->
   <link rel="stylesheet" href="{{ pathto('_bootstrap/bootstrap.css', 1) }}" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet"  integrity="sha384-jBRLOYHSweXqbg7z1ODLJpkq9tdj5u/EdMwXQqIpVrim2fDtznOkefNcGOHfdMr4" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" crossorigin="anonymous" />
@@ -14,6 +15,7 @@
 
 {%- block scripts %}
   {{ super() }}
+  <!-- nosemgrep: html.security.audit.missing-integrity.missing-integrity -->
   <script src="{{ pathto('_bootstrap/bootstrap.min.js', 1) }}"></script>
   <script src="https://twemoji.maxcdn.com/v/13.1.0/twemoji.min.js" integrity="sha384-gPMUf7aEYa6qc3MgqTrigJqf4gzeO6v11iPCKv+AP2S4iWRWCoWyiR+Z7rWHM/hU" crossorigin="anonymous"></script>
   <script type="text/javascript" src="{{ pathto('_static/mergify.js', 1) }}"></script>

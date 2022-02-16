@@ -97,6 +97,8 @@ async def _check_configuration_changes(
             config_file_to_validate = config_file
             break
 
+    # NOTE(sileht): semgrep didn't see the variable has been updated in the loop
+    # nosemgrep: python.lang.correctness.common-mistakes.is-comparison-string.identical-is-comparison
     if config_file_to_validate is None:
         return False
 

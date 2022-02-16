@@ -21,6 +21,8 @@ from mergify_engine import admin
 
 
 def test_admin_tool_installation() -> None:
+    # FIXME(sileht): this semgrep looks buggy, it think the tuple a dynamic, while it's not.
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use.dangerous-subprocess-use
     p = subprocess.run(
         ("mergify-admin", "--help"),
         stdout=subprocess.PIPE,

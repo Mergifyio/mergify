@@ -9,6 +9,7 @@ MODE="${1:-aio}"
 
 if [ "$MERGIFYENGINE_INTEGRATION_ID" ]; then
   case "${MODE}" in
+      # nosemgrep: bash.lang.correctness.unquoted-expansion.unquoted-command-substitution-in-command
       web|worker) exec $(get_command "$1");;
       aio) exec honcho start;;
       *) echo "usage: $0 (web|worker|aio)";;

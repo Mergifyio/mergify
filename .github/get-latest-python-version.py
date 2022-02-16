@@ -14,6 +14,7 @@ def get_version() -> str:
         "https://api.github.com/repos/heroku/heroku-buildpack-python/git/matching-refs/tags",
         headers={"Authorization": f"token {TOKEN}"},
     )
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     f = urllib.request.urlopen(url_tags)
     last_tag = json.load(f)[-1]["ref"][len("refs/tags/") :]
 
@@ -21,6 +22,7 @@ def get_version() -> str:
         f"https://raw.githubusercontent.com/heroku/heroku-buildpack-python/{last_tag}/bin/default_pythons",
         headers={"Authorization": f"token {TOKEN}"},
     )
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     f = urllib.request.urlopen(url_versions)
 
     m = regex.search(f.read().decode())
