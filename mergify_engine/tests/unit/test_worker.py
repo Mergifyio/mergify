@@ -1445,8 +1445,8 @@ async def test_dedicated_worker_scaleup_scaledown(
 
     async def fake_get_subscription_dedicated(redis, owner_id):
         sub = mock.Mock()
-        # 1 is always shared
-        if owner_id == 1:
+        # 123 is always shared
+        if owner_id == 123:
             sub.has_feature.return_value = False
         else:
             sub.has_feature.return_value = True
@@ -1461,15 +1461,26 @@ async def test_dedicated_worker_scaleup_scaledown(
         # worker hash == 2
         await worker.push(
             redis_stream,
-            4242,
-            "owner-4242",
-            4242,
+            4446,
+            "owner-4446",
+            4446,
             "repo",
-            4242,
+            4446,
             "pull_request",
             {"payload": "whatever"},
         )
         # worker hash == 1
+        await worker.push(
+            redis_stream,
+            123,
+            "owner-123",
+            123,
+            "repo",
+            123,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 0
         await worker.push(
             redis_stream,
             1,
@@ -1477,17 +1488,6 @@ async def test_dedicated_worker_scaleup_scaledown(
             1,
             "repo",
             1,
-            "pull_request",
-            {"payload": "whatever"},
-        )
-        # worker hash == 0
-        await worker.push(
-            redis_stream,
-            120,
-            "owner-120",
-            120,
-            "repo",
-            120,
             "pull_request",
             {"payload": "whatever"},
         )
@@ -1500,8 +1500,8 @@ async def test_dedicated_worker_scaleup_scaledown(
     get_subscription.side_effect = fake_get_subscription_dedicated
     await push_and_wait()
     assert sorted(tracker) == [
-        "dedicated-120",
-        "dedicated-4242",
+        "dedicated-1",
+        "dedicated-4446",
         "shared-1",
     ]
     tracker.clear()
@@ -1523,10 +1523,10 @@ async def test_dedicated_worker_scaleup_scaledown(
     await push_and_wait()
     await push_and_wait()
     assert sorted(tracker) == [
-        "dedicated-120",
-        "dedicated-120",
-        "dedicated-4242",
-        "dedicated-4242",
+        "dedicated-1",
+        "dedicated-1",
+        "dedicated-4446",
+        "dedicated-4446",
         "shared-1",
         "shared-1",
     ]
@@ -1581,8 +1581,8 @@ async def test_separate_dedicated_worker(
 
     async def fake_get_subscription_dedicated(redis, owner_id):
         sub = mock.Mock()
-        # 1 is always shared
-        if owner_id == 1:
+        # 123 is always shared
+        if owner_id == 123:
             sub.has_feature.return_value = False
         else:
             sub.has_feature.return_value = True
@@ -1597,15 +1597,26 @@ async def test_separate_dedicated_worker(
         # worker hash == 2
         await worker.push(
             redis_stream,
-            4242,
-            "owner-4242",
-            4242,
+            4446,
+            "owner-4446",
+            4446,
             "repo",
-            4242,
+            4446,
             "pull_request",
             {"payload": "whatever"},
         )
         # worker hash == 1
+        await worker.push(
+            redis_stream,
+            123,
+            "owner-123",
+            123,
+            "repo",
+            123,
+            "pull_request",
+            {"payload": "whatever"},
+        )
+        # worker hash == 0
         await worker.push(
             redis_stream,
             1,
@@ -1613,17 +1624,6 @@ async def test_separate_dedicated_worker(
             1,
             "repo",
             1,
-            "pull_request",
-            {"payload": "whatever"},
-        )
-        # worker hash == 0
-        await worker.push(
-            redis_stream,
-            120,
-            "owner-120",
-            120,
-            "repo",
-            120,
             "pull_request",
             {"payload": "whatever"},
         )
@@ -1647,13 +1647,13 @@ async def test_separate_dedicated_worker(
     await dedicated_w.start()
     await push_and_wait(1)
     # only dedicated are consumed
-    assert sorted(tracker) == ["dedicated-120", "dedicated-4242"]
+    assert sorted(tracker) == ["dedicated-1", "dedicated-4446"]
     tracker.clear()
 
     # Start both
     await shared_w.start()
     await push_and_wait()
-    assert sorted(tracker) == ["dedicated-120", "dedicated-4242", "shared-1"]
+    assert sorted(tracker) == ["dedicated-1", "dedicated-4446", "shared-1"]
     tracker.clear()
 
     shared_w.stop()
@@ -1759,6 +1759,7 @@ async def test_get_shared_worker_ids(
     redis_stream: utils.RedisStream,
     redis_cache: utils.RedisCache,
 ) -> None:
+    owner_id = github_types.GitHubAccountIdType(132)
     monkeypatch.setenv("DYNO", "worker-shared.1")
     assert worker.get_process_index_from_env() == 0
     w1 = worker.Worker(shared_stream_processes=2, shared_stream_tasks_per_process=30)
@@ -1767,9 +1768,7 @@ async def test_get_shared_worker_ids(
     s1 = worker.StreamProcessor(
         redis_stream, redis_cache, "shared-8", None, w1._owners_cache
     )
-    assert s1.should_handle_owner(
-        github_types.GitHubAccountIdType(123), set(), w1.global_shared_tasks_count
-    )
+    assert s1.should_handle_owner(owner_id, set(), w1.global_shared_tasks_count)
 
     monkeypatch.setenv("DYNO", "worker-shared.2")
     assert worker.get_process_index_from_env() == 1
@@ -1779,6 +1778,4 @@ async def test_get_shared_worker_ids(
     s2 = worker.StreamProcessor(
         redis_stream, redis_cache, "shared-38", None, w2._owners_cache
     )
-    assert not s2.should_handle_owner(
-        github_types.GitHubAccountIdType(123), set(), w2.global_shared_tasks_count
-    )
+    assert not s2.should_handle_owner(owner_id, set(), w2.global_shared_tasks_count)

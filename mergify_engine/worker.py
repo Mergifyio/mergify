@@ -1087,10 +1087,7 @@ class Worker:
     def get_shared_worker_id_for(
         owner_id: github_types.GitHubAccountIdType, global_shared_tasks_count: int
     ) -> str:
-        # FIXME(sileht): Maybe change the hash method, since we just use the
-        hashed = hashlib.md5(  # nosemgrep: rule:python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
-            str(owner_id).encode()
-        )
+        hashed = hashlib.blake2s(str(owner_id).encode())
         shared_id = int(hashed.hexdigest(), 16) % global_shared_tasks_count
         return f"shared-{shared_id}"
 
