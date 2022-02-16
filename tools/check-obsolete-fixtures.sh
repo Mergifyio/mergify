@@ -8,8 +8,8 @@ for f in $(find zfixtures -name config.json | sed -n -e 's/.*\/\([^/]*\)\/config
         if [ "$ret" -eq 0 ] ; then
             echo "- This directory are unused by tests:"
         fi
-        echo zfixtures/cassettes/*/$f unused
+        echo "zfixtures/cassettes/*/$f unused"
         ret=1
     fi
 done
-exit $ret
+exit "$ret"
