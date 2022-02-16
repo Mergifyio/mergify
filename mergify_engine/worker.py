@@ -395,10 +395,16 @@ class StreamProcessor:
                     installation = context.Installation(
                         installation_raw, sub, client, self.redis_cache
                     )
-                    self.owners_cache.set(
-                        installation.owner_id, installation.owner_login
-                    )
                     owner_login_for_tracing = installation.owner_login
+                    self.owners_cache.set(
+                        installation.owner_id,
+                        owner_login_for_tracing,
+                    )
+                    # Sync the cache with the root span
+                    root_span = tracer.current_root_span()
+                    if root_span:
+                        root_span.resource = owner_login_for_tracing
+                        root_span.set_tag("gh_owner", owner_login_for_tracing)
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
 
