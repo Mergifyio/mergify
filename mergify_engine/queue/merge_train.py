@@ -495,6 +495,7 @@ class TrainCar:
                 # the pull request in branches because the branch doesn't exists yet
                 # even if the previous API call returns
                 async for attempt in tenacity.AsyncRetrying(
+                    reraise=True,
                     wait=tenacity.wait_exponential(multiplier=0.1),
                     stop=tenacity.stop_after_attempt(4),
                     retry=tenacity.retry_if_exception(
