@@ -46,7 +46,9 @@ def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
         final_url = f"redis://{url[len(ssl_scheme):]}"
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        ctx.verify_mode = (
+            ssl.CERT_NONE  # nosemgrep contrib.dlint.dlint-equivalent.insecure-ssl-use
+        )
         options["ssl_context"] = ctx
     else:
         final_url = url
