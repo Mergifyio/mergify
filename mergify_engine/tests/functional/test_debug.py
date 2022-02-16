@@ -152,6 +152,8 @@ pull_request_rules:
  'milestone': '',
  'number': {p['number']},
  'queue-position': -1,
+ 'repository-full-name': '{self.repository_ctxt.repo["full_name"]}',
+ 'repository-name': '{self.repository_ctxt.repo["name"]}',
  'review-requested': [],
  'review-threads-resolved': [],
  'review-threads-unresolved': [],
