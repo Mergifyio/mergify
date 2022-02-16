@@ -34,7 +34,10 @@ def register_script(script: str) -> ScriptIdT:
     # NOTE(sileht): We don't use sha, in case of something server side change the script sha
     script_id = ScriptIdT(uuid.uuid4())
     SCRIPTS[script_id] = (
-        hashlib.sha1(script.encode("utf8")).hexdigest(),  # nosec
+        # NOTE(sileht): SHA1 is imposed by Redis itself
+        hashlib.sha1(  # nosemgrep contrib.dlint.dlint-equivalent.insecure-hashlib-use, python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
+            script.encode("utf8")
+        ).hexdigest(),
         script,
     )
     return script_id

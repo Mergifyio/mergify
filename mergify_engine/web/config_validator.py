@@ -49,7 +49,8 @@ async def config_validator(
                     "content": base64.b64encode(content_bytes).decode(),
                     "decoded_content": content_bytes,
                     "sha": github_types.SHAType(
-                        hashlib.sha1(  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5
+                        # NOTE(sileht): SHA1 is imposed by GitHub API
+                        hashlib.sha1(  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-md5, contrib.dlint.dlint-equivalent.insecure-hashlib-use
                             content_bytes
                         ).hexdigest()
                     ),
