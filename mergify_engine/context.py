@@ -1337,6 +1337,10 @@ class Context(object):
                 for t in await self.retrieve_review_threads()
                 if not t["isResolved"]
             ]
+        elif name == "repository-name":
+            return self.repository.repo["name"]
+        elif name == "repository-full-name":
+            return self.repository.repo["full_name"]
         else:
             raise PullRequestAttributeError(name)
 
@@ -1819,6 +1823,8 @@ class PullRequest(BasePullRequest):
         "commits-unverified",
         "review-threads-resolved",
         "review-threads-unresolved",
+        "repository-name",
+        "repository-full-name",
         "files",
     }
 

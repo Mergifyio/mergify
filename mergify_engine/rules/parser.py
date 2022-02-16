@@ -80,6 +80,8 @@ CONDITION_PARSERS = {
     "commits-unverified": Parser.TEXT,
     "review-threads-resolved": Parser.TEXT,
     "review-threads-unresolved": Parser.TEXT,
+    "repository-name": Parser.TEXT,
+    "repository-full-name": Parser.TEXT,
     "current-time": Parser.TIME,
     "current-day": Parser.DAY,
     "current-month": Parser.MONTH,

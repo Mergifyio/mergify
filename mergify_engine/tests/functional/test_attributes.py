@@ -354,6 +354,8 @@ class TestAttributes(base.FunctionalTestBase):
             "dismissed-reviews-by": [],
             "merged-by": "",
             "queue-position": -1,
+            "repository-full-name": self.repository_ctxt.repo["full_name"],
+            "repository-name": self.repository_ctxt.repo["name"],
             "check-failure": [],
             "status-failure": [],
             "title": "test_draft: pull request n2 from fork",
@@ -363,6 +365,130 @@ class TestAttributes(base.FunctionalTestBase):
             "check-success-or-neutral": ["Summary"],
             "check-skipped": [],
         }
+
+    async def test_repo_name_full_right(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": [
+                        f"repository-full-name={self.repository_ctxt.repo['full_name']}"
+                    ],
+                    "actions": {"comment": {"message": "repository name full"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        pr, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("repository name full", comments[-1]["body"])
+
+    async def test_repo_name_full_wrong(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": [
+                        f"repository-full-name!={self.repository_ctxt.repo['name']}"
+                    ],
+                    "actions": {"comment": {"message": "repository name full (wrong)"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        pr, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("repository name full (wrong)", comments[-1]["body"])
+
+    async def test_repo_name_short_wrong(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": [
+                        f"repository-name!={self.repository_ctxt.repo['full_name']}"
+                    ],
+                    "actions": {"comment": {"message": "repository name full (wrong)"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        pr, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("repository name full (wrong)", comments[-1]["body"])
+
+    async def test_repo_name_short_right(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "no-draft",
+                    "conditions": [
+                        f"repository-name={self.repository_ctxt.repo['name']}"
+                    ],
+                    "actions": {"comment": {"message": "repository name short"}},
+                }
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        protection = {
+            "required_status_checks": {
+                "strict": False,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        pr, _ = await self.create_pr()
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(pr["number"])
+        self.assertEqual("repository name short", comments[-1]["body"])
 
     async def test_and_or(self):
         rules = {

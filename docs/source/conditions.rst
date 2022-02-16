@@ -314,6 +314,13 @@ Here's the list of pull request attribute that can be used in conditions:
    * - ``review-threads-unresolved``
      - list of strings
      - The list of bodies associated to review threads that are NOT marked as ``resolved`` by GitHub.
+   * - ``repository-name``
+     - string
+     - The current repository name (short version without the organization name).
+   * - ``repository-full-name``
+     - string
+     - The current repository full name (complete version with the organization name).
+
 
 
 .. warning::
