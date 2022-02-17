@@ -119,6 +119,10 @@ class Gitter(object):
 
         self.logger.info("calling: %s", " ".join(args))
         try:
+            # TODO(sileht): Current user provided data in git commands are safe, but we should create an
+            # helper function for each git command to double check the input is
+            # safe, eg: like a second seatbelt. See: MRGFY-930
+            # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec.dangerous-asyncio-create-exec
             p = await asyncio.create_subprocess_exec(
                 "git",
                 *args,
