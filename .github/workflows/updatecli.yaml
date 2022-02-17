@@ -28,9 +28,9 @@ jobs:
           curl -L -o $dest $url
           echo "$sha $dest" | tee -a /tmp/checksum
           sha256sum -c /tmp/checksum
-          tar -xzf $dest -C /
-          /updatecli --config ./.github/updatecli.yml diff
-          /updatecli --config ./.github/updatecli.yml apply
+          tar -xzf $dest -C /tmp
+          /tmp/updatecli --config ./.github/updatecli.yml diff
+          /tmp/updatecli --config ./.github/updatecli.yml apply
           rm workflow -rf
           echo "::set-output name=PYTHON_VERSION::$(cat runtime.txt | cut -d- -f2)"
         env:
