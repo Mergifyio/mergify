@@ -429,7 +429,14 @@ async def get_branch_protection_conditions(
                     for check in protection["required_status_checks"]["contexts"]
                 ]
             )
-        if "required_pull_request_reviews" in protection:
+
+        if (
+            "required_pull_request_reviews" in protection
+            and protection["required_pull_request_reviews"][
+                "required_approving_review_count"
+            ]
+            > 0
+        ):
             conditions.extend(
                 [
                     RuleCondition(
