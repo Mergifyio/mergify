@@ -513,13 +513,23 @@ class TrainCar:
                         )
             except http.HTTPClientSideError as e:
                 if is_base_branch_not_exists_exception(e):
+                    try:
+                        branch_for_log = await self.train.repository.get_branch(
+                            github_types.GitHubRefType(branch_name),
+                            bypass_cache=True,
+                        )
+                    except http.HTTPNotFound:
+                        branch_for_log = None
+
                     self.train.log.warning(
                         "fail to create the queue pull request because base still doesn't exist, 1.5 seconds after its creation",
+                        branch_info=branch_for_log,
+                        pull_number=pull_number,
                         embarked_pulls=[
                             ep.user_pull_request_number
                             for ep in self.still_queued_embarked_pulls
                         ],
-                        error_message=e.message,
+                        error_message=e.response.json(),
                     )
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationPostponed(self) from e
