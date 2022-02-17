@@ -8,7 +8,7 @@ FROM node:16-buster-slim as js-builder
 # Real install that can't be cached
 ADD installer /installer
 WORKDIR /installer
-RUN npm install
+RUN npm ci
 RUN npm run build
 RUN rm -rf node_modules
 
