@@ -443,6 +443,32 @@ class TrainCar:
             [str(ep.user_pull_request_number) for ep in self.initial_embarked_pulls]
         )
 
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
+        stop=tenacity.stop_after_attempt(2),
+    )
+    async def _prepare_empty_draft_pr_branch(self, branch_name: str) -> None:
+        try:
+            await self.train.repository.installation.client.post(
+                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
+                json={
+                    "ref": f"refs/heads/{branch_name}",
+                    "sha": self.initial_current_base_sha,
+                },
+            )
+        except http.HTTPClientSideError as exc:
+            if exc.status_code == 422 and "Reference already exists" in exc.message:
+                try:
+                    await self._delete_branch()
+                except http.HTTPClientSideError as exc_patch:
+                    await self._set_creation_failure(exc_patch.message)
+                    raise TrainCarPullRequestCreationFailure(self) from exc_patch
+
+                raise tenacity.TryAgain
+            else:
+                await self._set_creation_failure(exc.message)
+                raise TrainCarPullRequestCreationFailure(self) from exc
+
     async def create_pull(
         self,
         queue_rule: rules.QueueRule,
@@ -468,29 +494,13 @@ class TrainCar:
                 )
                 raise TrainCarPullRequestCreationFailure(self)
 
-        try:
-            await self.train.repository.installation.client.post(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
-                json={
-                    "ref": f"refs/heads/{branch_name}",
-                    "sha": self.initial_current_base_sha,
-                },
-            )
-        except http.HTTPClientSideError as exc:
-            if exc.status_code == 422 and "Reference already exists" in exc.message:
-                try:
-                    await self._delete_branch()
-                except http.HTTPClientSideError as exc_patch:
-                    await self._set_creation_failure(exc_patch.message)
-                    raise TrainCarPullRequestCreationFailure(self) from exc_patch
-            else:
-                await self._set_creation_failure(exc.message)
-                raise TrainCarPullRequestCreationFailure(self) from exc
+        await self._prepare_empty_draft_pr_branch(branch_name)
 
         for pull_number in self.parent_pull_request_numbers + [
             ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
         ]:
             try:
+                # FIXME(sileht): drop me, it should not occurs anymore
                 # NOTE(sileht): From time to time, GitHub returns a 404 when we merge
                 # the pull request in branches because the branch doesn't exists yet
                 # even if the previous API call returns
