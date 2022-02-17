@@ -22,8 +22,7 @@ from mergify_engine import admin
 
 def test_admin_tool_installation() -> None:
     p = subprocess.run(
-        "mergify-admin --help",
-        shell=True,
+        ("mergify-admin", "--help"),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
