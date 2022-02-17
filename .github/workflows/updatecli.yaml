@@ -1,0 +1,57 @@
+name: Updatecli
+permissions: write-all
+
+on:
+  workflow_dispatch:
+  # FIXME(sileht): enable the schedule once
+  # https://github.com/updatecli/updatecli/issues/522 is fixed
+  # schedule:
+  #   - cron: '0 0 * * *'
+
+jobs:
+  updatecli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # NOTE(sileht): We don't use the GitHub action as it uses docker:
+      # * some files are missing inside the docker container of updatecli
+      # * python is not installed in this container
+      - name: Updatecli
+        id: updatecli
+        run: |
+          version="v0.19.2"
+          url="https://github.com/updatecli/updatecli/releases/download/${version}/updatecli_Linux_x86_64.tar.gz"
+          dest="/tmp/updatecli.tar.gz"
+          sha="4e23e3462d41ea6e600c89df827e9e18f575d20162e219328651e9ddeed0039a"
+          curl -L -o $dest $url
+          echo "$sha $dest" | tee -a /tmp/checksum
+          sha256sum -c /tmp/checksum
+          tar -xzf $dest -C /
+          /updatecli --config ./.github/updatecli.yml diff
+          /updatecli --config ./.github/updatecli.yml apply
+          rm workflow -rf
+          echo "::set-output name=PYTHON_VERSION::$(cat runtime.txt | cut -d- -f2)"
+        env:
+          UPDATECLI_GITHUB_ACTOR: ${{ github.actor }}
+          UPDATECLI_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # NOTE(sileht): We don't use the updatecli pull-request plugin because
+      # it creates a second clone of the repository
+      - name: Create the Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          title: Bump python version to ${{ steps.updatecli.outputs.PYTHON_VERSION }}
+          body: This is an automated bump of python version to ${{ steps.updatecli.outputs.PYTHON_VERSION }}
+          branch: python-version-upgrade
+          base: main
+          labels: |
+            python
+            dependencies
+
+      - name: Check outputs
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"

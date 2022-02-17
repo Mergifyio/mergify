@@ -1,0 +1,87 @@
+sources:
+  python-version:
+    name: Get latest python version from heroku buildpack
+    kind: shell
+    spec:
+      command: python3 ./.github/get-latest-python-version.py
+
+targets:
+  heroku_runtime.txt:
+    name: "Update runtime.txt"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: runtime.txt
+      forcecreate: true
+      content: python-{{ source `python-version` }}
+  Dockerfile:
+    name: "Update python base image"
+    sourceID: python-version
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: "FROM"
+        matcher: "python"
+    transformers:
+      - addSuffix: -slim
+  tox-1:
+    name: "Update tox.ini basepython"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: tox.ini
+      matchPattern: 'basepython = python(.*)'
+    transformers:
+      - find: '^\d+\.\d+'
+      - addPrefix: "basepython = python"
+  tox-2:
+    name: "Update tox.ini default target"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: tox.ini
+      matchPattern: 'envlist = py(\d+),pep8'
+    transformers:
+      - find: '^\d+\.\d+'
+      - replacer:
+          from: "."
+          to: ""
+      - addPrefix: "envlist = py"
+      - addSuffix: ",pep8"
+  ci-test:
+    name: "Update CI test GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/ci-test.yaml"
+      key: "jobs.test.steps[1].with.python-version"
+  ci-docs:
+    name: "Update CI docs GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/ci-docs.yaml"
+      key: "jobs.docs.steps[1].with.python-version"
+  ci-pep8:
+    name: "Update CI pep8 GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/ci-pep8.yaml"
+      key: "jobs.pep8.steps[1].with.python-version"
+  ci-requirements:
+    name: "Update CI requirements GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/ci-requirements.yaml"
+      key: "jobs.requirements.steps[1].with.python-version"
+  ci-releaser:
+    name: "Update CI releaser GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/releaser.yml"
+      key: "jobs.releaser.steps[1].with.python-version"
+  ci-docs-upload:
+    name: "Update CI docs upload GitHub workflow"
+    kind: yaml
+    spec:
+      file: ".github/workflows/docs-upload-gcp-prod.yaml"
+      key: "jobs.docs-upload-to-gcp-prod.steps[1].with.python-version"
