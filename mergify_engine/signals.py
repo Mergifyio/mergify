@@ -80,6 +80,8 @@ def setup() -> None:
         mergify_engine_signals.__path__, mergify_engine_signals.__name__ + "."
     ):
         try:
+            # NOTE(sileht): literal import is safe here, we control installed signal packages
+            # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
             SIGNALS[mod.name] = importlib.import_module(mod.name).Signal()
         except ImportError:
             LOG.error("failed to load signal: %s", mod.name, exc_info=True)
