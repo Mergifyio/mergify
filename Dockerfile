@@ -25,9 +25,14 @@ RUN python3 -m pip install wheel
 ADD . /app
 # Just to be able cache a layer with all deps
 ADD requirements.txt /
+
+# NOTE(sileht): We don't use pipenv
+# nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
 RUN python3 -m pip install --no-cache-dir -r /requirements.txt
 
 WORKDIR /app
+# NOTE(sileht): We don't use pipenv
+# nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
 RUN python3 -m pip install --no-cache-dir -c ./requirements.txt -e .
 
 ### RUNNER ###
