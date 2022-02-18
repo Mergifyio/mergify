@@ -379,6 +379,9 @@ class TrainCar:
         else:
             return None
 
+    def get_queue_name(self) -> rules.QueueName:
+        return self.initial_embarked_pulls[0].config["name"]
+
     async def is_behind(self) -> bool:
         ctxt = await self.train.repository.get_pull_request_context(
             self.still_queued_embarked_pulls[0].user_pull_request_number
@@ -1473,7 +1476,7 @@ class Train(queue.QueueBase):
         ) + len(car.still_queued_embarked_pulls)
         self.log.info("spliting failed car", position=current_queue_position, car=car)
 
-        queue_name = car.still_queued_embarked_pulls[0].config["name"]
+        queue_name = car.get_queue_name()
         try:
             queue_rule = queue_rules[queue_name]
         except KeyError:
@@ -1590,7 +1593,7 @@ class Train(queue.QueueBase):
             and len(self._cars[0].failure_history) > 0
             and self._cars[0].creation_state == "pending"
         ):
-            queue_name = self._cars[0].still_queued_embarked_pulls[0].config["name"]
+            queue_name = self._cars[0].get_queue_name()
             try:
                 queue_rule = queue_rules[queue_name]
             except KeyError:
