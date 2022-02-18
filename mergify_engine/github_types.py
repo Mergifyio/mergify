@@ -155,6 +155,7 @@ def to_cached_github_branch_commit(
 
 class GitHubBranchProtectionRequiredStatusChecks(typing.TypedDict):
     contexts: typing.List[str]
+    strict: bool
 
 
 class GitHubBranchProtectionRequirePullRequestReviews(typing.TypedDict):

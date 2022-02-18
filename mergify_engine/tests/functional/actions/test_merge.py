@@ -277,3 +277,62 @@ superRP!"""
 """
             not in summary["output"]["summary"]
         )
+
+    async def test_merge_branch_protection_strict(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {"merge": {}},
+                }
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        # Check policy of that branch is the expected one
+        protection = {
+            "required_status_checks": {
+                "strict": True,
+                "contexts": ["continuous-integration/fake-ci"],
+            },
+            "required_pull_request_reviews": None,
+            "restrictions": None,
+            "enforce_admins": False,
+        }
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+
+        await self.merge_pull(p1["number"])
+
+        await self.branch_protection_protect(self.main_branch_name, protection)
+
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        await self.create_status(p2)
+        await self.run_engine()
+
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert "[ ] `#commits-behind=0`" in summary["output"]["summary"]
+
+        await self.create_comment(p2["number"], "@mergifyio update")
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.wait_for("pull_request", {"action": "synchronize"})
+        await self.run_engine()
+
+        p2 = await self.get_pull(p2["number"])
+        await self.create_status(p2)
+        await self.run_engine()
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
+        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
+        assert "[X] `#commits-behind=0`" in summary["output"]["summary"]
+
+        p2 = await self.get_pull(p2["number"])
+        assert p2["merged"]
