@@ -375,7 +375,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if not RECORD:
             # NOTE(sileht): Don't wait exponentialy during replay
             mock.patch.object(
-                context.Context._ensure_complete.retry, "wait", None  # type: ignore[attr-defined]
+                context.Context.ensure_complete.retry, "wait", None  # type: ignore[attr-defined]
             ).start()
 
         # Web authentification always pass

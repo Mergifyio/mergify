@@ -237,6 +237,7 @@ async def run_engine(
                 # consume_buckets(), so we need to clear the sources/_cache/pull/... to
                 # ensure we get the last snapshot of the pull request
                 force_new=True,
+                wait_background_github_processing=True,
             )
         except http.HTTPNotFound:
             # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
