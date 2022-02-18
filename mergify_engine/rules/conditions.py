@@ -407,8 +407,14 @@ class QueueRuleConditions:
                 yield cond
 
 
+BRANCH_PROTECTION_CONDITION_TAG = "🛡 GitHub branch protection"
+
+
 async def get_branch_protection_conditions(
-    repository: context.Repository, ref: github_types.GitHubRefType
+    repository: context.Repository,
+    ref: github_types.GitHubRefType,
+    *,
+    strict: bool,
 ) -> typing.List[typing.Union["RuleConditionGroup", RuleCondition]]:
     protection = await repository.get_branch_protection(ref)
     conditions: typing.List[typing.Union["RuleConditionGroup", RuleCondition]] = []
@@ -424,11 +430,18 @@ async def get_branch_protection_conditions(
                                 RuleCondition(f"check-skipped={check}"),
                             ]
                         },
-                        description="🛡 GitHub branch protection",
+                        description=BRANCH_PROTECTION_CONDITION_TAG,
                     )
                     for check in protection["required_status_checks"]["contexts"]
                 ]
             )
+            if strict and protection["required_status_checks"]["strict"]:
+                conditions.append(
+                    RuleCondition(
+                        "#commits-behind=0",
+                        description=BRANCH_PROTECTION_CONDITION_TAG,
+                    )
+                )
 
         if (
             "required_pull_request_reviews" in protection
@@ -441,11 +454,11 @@ async def get_branch_protection_conditions(
                 [
                     RuleCondition(
                         f"#approved-reviews-by>={protection['required_pull_request_reviews']['required_approving_review_count']}",
-                        description="🛡 GitHub branch protection",
+                        description=BRANCH_PROTECTION_CONDITION_TAG,
                     ),
                     RuleCondition(
                         "#changes-requested-reviews-by=0",
-                        description="🛡 GitHub branch protection",
+                        description=BRANCH_PROTECTION_CONDITION_TAG,
                     ),
                 ]
             )
@@ -454,13 +467,11 @@ async def get_branch_protection_conditions(
             "required_conversation_resolution" in protection
             and protection["required_conversation_resolution"]["enabled"]
         ):
-            conditions.extend(
-                [
-                    RuleCondition(
-                        "#review-threads-unresolved=0",
-                        description="🛡 GitHub branch protection",
-                    )
-                ]
+            conditions.append(
+                RuleCondition(
+                    "#review-threads-unresolved=0",
+                    description=BRANCH_PROTECTION_CONDITION_TAG,
+                )
             )
 
     return conditions

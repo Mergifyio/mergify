@@ -575,60 +575,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert await self.is_pull_merged(p["number"])
 
-    async def test_merge_branch_protection_strict(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "merge",
-                    "conditions": [
-                        f"base={self.main_branch_name}",
-                        "status-success=continuous-integration/fake-ci",
-                    ],
-                    "actions": {"merge": {}},
-                }
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules))
-
-        # Check policy of that branch is the expected one
-        protection = {
-            "required_status_checks": {
-                "strict": True,
-                "contexts": ["continuous-integration/fake-ci"],
-            },
-            "required_pull_request_reviews": None,
-            "restrictions": None,
-            "enforce_admins": False,
-        }
-
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-
-        await self.merge_pull(p1["number"])
-
-        await self.branch_protection_protect(self.main_branch_name, protection)
-
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        await self.create_status(p2)
-
-        await self.run_engine()
-        await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
-
-        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
-        checks = [
-            c
-            for c in await ctxt.pull_engine_check_runs
-            if c["name"] == "Rule: merge (merge)"
-        ]
-        assert "failure" == checks[0]["conclusion"]
-        assert (
-            "Branch protection setting 'strict' is enabled, and the pull request is not up to date."
-            == checks[0]["output"]["title"]
-        )
-
     async def test_refresh_via_check_suite_rerequest(self):
         rules = {
             "pull_request_rules": [

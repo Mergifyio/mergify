@@ -519,7 +519,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ):
             branch_protection_conditions = (
                 await conditions.get_branch_protection_conditions(
-                    ctxt.repository, ctxt.pull["base"]["ref"]
+                    ctxt.repository, ctxt.pull["base"]["ref"], strict=False
                 )
             )
         depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)

@@ -1238,7 +1238,7 @@ async def test_get_pull_request_rule(
     async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
         if url == "/repos/Mergifyio/mergify-engine/branches/main/protection":
             return {
-                "required_status_checks": {"contexts": ["awesome-ci"]},
+                "required_status_checks": {"contexts": ["awesome-ci"], "strict": False},
                 "required_linear_history": {"enabled": False},
             }
         raise RuntimeError(f"not handled url {url}")

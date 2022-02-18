@@ -2024,6 +2024,7 @@ class QueuePullRequest(BasePullRequest):
         "schedule",
         "queue-merge-started-at",
         "queue-merge-started-at-relative",
+        "commits-behind",
     )
 
     async def __getattr__(self, name: str) -> ContextAttributeType:

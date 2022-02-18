@@ -167,7 +167,7 @@ class MergeAction(merge_base.MergeBaseAction):
     ]:
         branch_protection_conditions = (
             await conditions.get_branch_protection_conditions(
-                ctxt.repository, ctxt.pull["base"]["ref"]
+                ctxt.repository, ctxt.pull["base"]["ref"], strict=True
             )
         )
         depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
