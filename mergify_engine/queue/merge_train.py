@@ -503,51 +503,16 @@ class TrainCar:
             ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
         ]:
             try:
-                # FIXME(sileht): drop me, it should not occurs anymore
-                # NOTE(sileht): From time to time, GitHub returns a 404 when we merge
-                # the pull request in branches because the branch doesn't exists yet
-                # even if the previous API call returns
-                async for attempt in tenacity.AsyncRetrying(
-                    reraise=True,
-                    wait=tenacity.wait_exponential(multiplier=0.1),
-                    stop=tenacity.stop_after_attempt(4),
-                    retry=tenacity.retry_if_exception(
-                        is_base_branch_not_exists_exception
-                    ),
-                ):
-                    with attempt:
-                        await self.train.repository.installation.client.post(
-                            f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
-                            json={
-                                "base": branch_name,
-                                "head": f"refs/pull/{pull_number}/head",
-                                "commit_message": f"Merge of #{pull_number}",
-                            },
-                        )
+                await self.train.repository.installation.client.post(
+                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
+                    json={
+                        "base": branch_name,
+                        "head": f"refs/pull/{pull_number}/head",
+                        "commit_message": f"Merge of #{pull_number}",
+                    },
+                )
             except http.HTTPClientSideError as e:
-                if is_base_branch_not_exists_exception(e):
-                    try:
-                        branch_for_log = await self.train.repository.get_branch(
-                            github_types.GitHubRefType(branch_name),
-                            bypass_cache=True,
-                        )
-                    except http.HTTPNotFound:
-                        branch_for_log = None
-
-                    self.train.log.warning(
-                        "fail to create the queue pull request because base still doesn't exist, 1.5 seconds after its creation",
-                        branch_info=branch_for_log,
-                        pull_number=pull_number,
-                        embarked_pulls=[
-                            ep.user_pull_request_number
-                            for ep in self.still_queued_embarked_pulls
-                        ],
-                        error_message=e.response.json(),
-                    )
-                    await self._delete_branch()
-                    raise TrainCarPullRequestCreationPostponed(self) from e
-
-                elif (
+                if (
                     e.status_code == 403
                     and "Resource not accessible by integration" in e.message
                 ):
