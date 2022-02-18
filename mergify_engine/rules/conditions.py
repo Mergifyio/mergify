@@ -435,7 +435,11 @@ async def get_branch_protection_conditions(
                     for check in protection["required_status_checks"]["contexts"]
                 ]
             )
-            if strict and protection["required_status_checks"]["strict"]:
+            if (
+                strict
+                and "strict" in protection["required_status_checks"]
+                and protection["required_status_checks"]["strict"]
+            ):
                 conditions.append(
                     RuleCondition(
                         "#commits-behind=0",
