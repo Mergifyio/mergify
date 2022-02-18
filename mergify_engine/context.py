@@ -448,7 +448,9 @@ class Repository(object):
                     'get_pull_request_context() needs pull["number"] == pull_number'
                 )
             ctxt = await Context.create(
-                self, pull, wait_background_github_processing=True
+                self,
+                pull,
+                wait_background_github_processing=wait_background_github_processing,
             )
             self.pull_contexts[pull_number] = ctxt
         elif (
