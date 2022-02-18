@@ -302,10 +302,12 @@ class StreamProcessor:
             if isinstance(e, yaaredis.exceptions.ConnectionError):
                 statsd.increment("redis.client.connection.errors")
 
-            if (
-                isinstance(e, exceptions.MergeableStateUnknown)
-                and bucket_sources_key is not None
-            ):
+            if isinstance(e, exceptions.MergeableStateUnknown):
+                if bucket_sources_key is None:
+                    bucket_sources_key = worker_lua.BucketSourcesKeyType(
+                        f"bucket-sources~{e.ctxt.repository.repo['id']}~{e.ctxt.pull['number']}"
+                    )
+
                 attempts = await self.redis_stream.hincrby(
                     ATTEMPTS_KEY, bucket_sources_key
                 )
