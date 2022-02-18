@@ -51,7 +51,7 @@ class DummyContext(context.Context):
             raise context.PullRequestAttributeError(key)
 
     @staticmethod
-    def _ensure_complete():
+    def ensure_complete():
         pass
 
 

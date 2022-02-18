@@ -144,6 +144,7 @@ class Installation:
         repo_id: github_types.GitHubRepositoryIdType,
         pull_number: github_types.GitHubPullRequestNumber,
         force_new: bool = False,
+        wait_background_github_processing: bool = False,
     ) -> "Context":
         for repository in self.repositories.values():
             if repository.repo["id"] == repo_id:
@@ -154,7 +155,10 @@ class Installation:
         pull = await self.client.item(f"/repositories/{repo_id}/pulls/{pull_number}")
         repository = self.get_repository_from_github_data(pull["base"]["repo"])
         return await repository.get_pull_request_context(
-            pull_number, pull, force_new=force_new
+            pull_number,
+            pull,
+            force_new=force_new,
+            wait_background_github_processing=wait_background_github_processing,
         )
 
     def get_repository_from_github_data(
@@ -430,6 +434,7 @@ class Repository(object):
         pull_number: github_types.GitHubPullRequestNumber,
         pull: typing.Optional[github_types.GitHubPullRequest] = None,
         force_new: bool = False,
+        wait_background_github_processing: bool = False,
     ) -> "Context":
         if force_new or pull_number not in self.pull_contexts:
             if pull is None:
@@ -440,8 +445,19 @@ class Repository(object):
                 raise RuntimeError(
                     'get_pull_request_context() needs pull["number"] == pull_number'
                 )
-            ctxt = await Context.create(self, pull)
+            ctxt = await Context.create(
+                self, pull, wait_background_github_processing=True
+            )
             self.pull_contexts[pull_number] = ctxt
+        elif (
+            wait_background_github_processing
+            and not self.pull_contexts[
+                pull_number
+            ].is_background_github_processing_completed()
+        ):
+            await self.pull_contexts[pull_number].ensure_complete(
+                wait_background_github_processing
+            )
 
         return self.pull_contexts[pull_number]
 
@@ -869,11 +885,12 @@ class Context(object):
         repository: Repository,
         pull: github_types.GitHubPullRequest,
         sources: typing.Optional[typing.List[T_PayloadEventSource]] = None,
+        wait_background_github_processing: bool = False,
     ) -> "Context":
         if sources is None:
             sources = []
         self = cls(repository, pull, sources)
-        await self._ensure_complete()
+        await self.ensure_complete(wait_background_github_processing)
         self.pull_request = PullRequest(self)
 
         self.log = daiquiri.getLogger(
@@ -1480,16 +1497,22 @@ class Context(object):
         retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
         reraise=True,
     )
-    async def _ensure_complete(self) -> None:
+    async def ensure_complete(self, wait_background_github_processing: bool) -> None:
         if not (
             self._is_data_complete()
-            and self._is_background_github_processing_completed()
+            and (
+                not wait_background_github_processing
+                or self.is_background_github_processing_completed()
+            )
         ):
             self.pull = await self.client.item(
                 f"{self.base_url}/pulls/{self.pull['number']}"
             )
 
-        if self._is_background_github_processing_completed():
+        if (
+            not wait_background_github_processing
+            or self.is_background_github_processing_completed()
+        ):
             return
 
         raise exceptions.MergeableStateUnknown(self)
@@ -1511,7 +1534,7 @@ class Context(object):
                 return False
         return True
 
-    def _is_background_github_processing_completed(self) -> bool:
+    def is_background_github_processing_completed(self) -> bool:
         return self.closed or (
             self.pull["mergeable_state"] not in self.UNUSABLE_STATES
             and self.pull["mergeable"] is not None
