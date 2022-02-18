@@ -149,7 +149,9 @@ class Installation:
         for repository in self.repositories.values():
             if repository.repo["id"] == repo_id:
                 return await repository.get_pull_request_context(
-                    pull_number, force_new=force_new
+                    pull_number,
+                    force_new=force_new,
+                    wait_background_github_processing=wait_background_github_processing,
                 )
 
         pull = await self.client.item(f"/repositories/{repo_id}/pulls/{pull_number}")
