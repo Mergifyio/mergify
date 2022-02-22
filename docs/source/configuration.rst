@@ -373,6 +373,12 @@ login is ``jd``.
 
     Approved by: @{{ approved-reviews-by | join(', @') }}
 
+`Jinja2 string manipulation <https://jinja.palletsprojects.com/en/3.0.x/templates/#python-methods>` are also supported, you can split string for example with:
+
+.. code-block:: jinja
+
+   {{ body.split('----------')[0] | trim }}
+
 We also provide custom Jinja2 filters:
 
 * ``markdownify``: to convert HTML to Markdown:
