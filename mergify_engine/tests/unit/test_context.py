@@ -783,3 +783,25 @@ BODY OF #{{number}}
         "default",
         "TITLE\n{{ body | get_section('### Commit') }}",
     ) == ("TITLE", f"BODY OF #{a_pull_request['number']}")
+
+
+async def test_context_body_section_with_bad_template(a_pull_request):
+    a_pull_request[
+        "body"
+    ] = """
+Description
+---
+
+Test Plan
+---
+
+Instructions
+---
+
+"""
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    with pytest.raises(context.RenderTemplateFailure):
+        await ctxt.pull_request.get_commit_message(
+            "default",
+            "TITLE\n{{ body | get_section('### Commit') }}",
+        )
