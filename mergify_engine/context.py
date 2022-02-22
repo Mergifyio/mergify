@@ -1900,13 +1900,13 @@ class PullRequest(BasePullRequest):
         pull: "PullRequest", v: str, section: str, default: typing.Optional[str] = None
     ) -> str:
         if not isinstance(section, str):
-            raise TypeError("level must be a string")
+            raise jinja2.exceptions.TemplateError("level must be a string")
 
         section_escaped = re.escape(section)
         level = MARKDOWN_TITLE_RE.match(section)
 
         if level is None:
-            raise TypeError("section level not found")
+            raise jinja2.exceptions.TemplateError("section level not found")
 
         level_str = level[0].strip()
 
@@ -1926,7 +1926,7 @@ class PullRequest(BasePullRequest):
         if found:
             text = ("\n".join(section_lines)).strip()
         elif default is None:
-            raise TypeError("section not found")
+            raise jinja2.exceptions.TemplateError("section not found")
         else:
             text = default
 
