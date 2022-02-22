@@ -287,6 +287,7 @@ class OwnerLoginsCache:
 class StreamProcessor:
     redis_stream: utils.RedisStream
     redis_cache: utils.RedisCache
+    redis_queue: typing.Optional[utils.RedisQueue]
     worker_id: str
     dedicated_owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owners_cache: OwnerLoginsCache
@@ -396,7 +397,11 @@ class StreamProcessor:
                 )
                 async with github.aget_client(installation_raw) as client:
                     installation = context.Installation(
-                        installation_raw, sub, client, self.redis_cache
+                        installation_raw,
+                        sub,
+                        client,
+                        self.redis_cache,
+                        self.redis_queue,
                     )
                     owner_login_for_tracing = installation.owner_login
                     self.owners_cache.set(
@@ -875,6 +880,9 @@ class Worker:
     _redis_cache: typing.Optional[utils.RedisCache] = dataclasses.field(
         init=False, default=None
     )
+    _redis_queue: typing.Optional[utils.RedisQueue] = dataclasses.field(
+        init=False, default=None
+    )
 
     _loop: asyncio.AbstractEventLoop = dataclasses.field(
         init=False, default_factory=asyncio.get_running_loop
@@ -927,6 +935,7 @@ class Worker:
         stream_processor = StreamProcessor(
             self._redis_stream,
             self._redis_cache,
+            self._redis_queue,
             worker_id=f"shared-{shared_worker_id}",
             dedicated_owner_id=None,
             owners_cache=self._owners_cache,
@@ -942,6 +951,7 @@ class Worker:
         stream_processor = StreamProcessor(
             self._redis_stream,
             self._redis_cache,
+            self._redis_queue,
             worker_id=f"dedicated-{owner_id}",
             dedicated_owner_id=owner_id,
             owners_cache=self._owners_cache,

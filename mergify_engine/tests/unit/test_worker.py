@@ -545,7 +545,12 @@ async def test_consume_unexisting_stream(
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, worker.OwnerLoginsCache()
+        redis_stream,
+        redis_cache,
+        mock.Mock(),
+        "shared-8",
+        None,
+        worker.OwnerLoginsCache(),
     )
     await p.consume("buckets~2~notexists", 2, "notexists")
     assert len(run_engine.mock_calls) == 0
@@ -594,7 +599,7 @@ async def test_consume_good_stream(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, owners_cache
     )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
@@ -683,7 +688,7 @@ async def test_stream_processor_retrying_pull(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, owners_cache
     )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
@@ -817,7 +822,7 @@ async def test_stream_processor_retrying_stream_recovered(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, owners_cache
     )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
@@ -917,7 +922,7 @@ async def test_stream_processor_retrying_stream_failure(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, owners_cache
     )
     await p.consume("bucket~123", 123, "owner-123")
     assert owners_cache.get(123) == "owner-123"
@@ -1001,7 +1006,7 @@ async def test_stream_processor_pull_unexpected_error(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, owners_cache
     )
     await p.consume("bucket~123", 123, "owner-123")
     await p.consume("bucket~123", 123, "owner-123")
@@ -1074,7 +1079,7 @@ async def test_stream_processor_date_scheduling(
     w._redis_stream = redis_stream
 
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-0", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-0", None, owners_cache
     )
 
     received = []
@@ -1207,10 +1212,10 @@ async def test_stream_processor_retrying_after_read_error(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-0", None, owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-0", None, owners_cache
     )
 
-    installation = context.Installation(FAKE_INSTALLATION, {}, None, None)
+    installation = context.Installation(FAKE_INSTALLATION, {}, None, None, None)
     with pytest.raises(worker.OrgBucketRetry):
         async with p._translate_exception_to_retries(
             worker_lua.BucketOrgKeyType("stream~owner~123")
@@ -1766,7 +1771,7 @@ async def test_get_shared_worker_ids(
     assert w1.get_shared_worker_ids() == list(range(0, 30))
     assert w1.global_shared_tasks_count == 60
     s1 = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-8", None, w1._owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-8", None, w1._owners_cache
     )
     assert s1.should_handle_owner(owner_id, set(), w1.global_shared_tasks_count)
 
@@ -1776,6 +1781,6 @@ async def test_get_shared_worker_ids(
     assert w2.get_shared_worker_ids() == list(range(30, 60))
     assert w2.global_shared_tasks_count == 60
     s2 = worker.StreamProcessor(
-        redis_stream, redis_cache, "shared-38", None, w2._owners_cache
+        redis_stream, redis_cache, mock.Mock(), "shared-38", None, w2._owners_cache
     )
     assert not s2.should_handle_owner(owner_id, set(), w2.global_shared_tasks_count)

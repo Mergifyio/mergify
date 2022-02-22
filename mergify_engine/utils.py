@@ -38,6 +38,7 @@ _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
 # NOTE(sileht): I wonder with mypy thing yaaredis.StrictRedis is Any...
 RedisCache = typing.NewType("RedisCache", yaaredis.StrictRedis)  # type: ignore
 RedisStream = typing.NewType("RedisStream", yaaredis.StrictRedis)  # type: ignore
+RedisQueue = typing.NewType("RedisQueue", yaaredis.StrictRedis)  # type: ignore
 
 
 def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
@@ -89,6 +90,25 @@ def create_yaaredis_for_stream(
 @contextlib.contextmanager
 def yaaredis_for_stream() -> typing.Iterator[RedisCache]:
     client = create_yaaredis_for_stream(max_idle_time=0)
+    try:
+        yield client
+    finally:
+        client.connection_pool.disconnect()
+
+
+def create_yaaredis_for_queue(
+    max_idle_time: int = 60,
+    max_connections: typing.Optional[int] = None,
+) -> RedisQueue:
+    r = redis_from_url(
+        config.QUEUE_URL, max_idle_time=max_idle_time, max_connections=max_connections
+    )
+    return RedisQueue(r)
+
+
+@contextlib.contextmanager
+def yaaredis_for_queue() -> typing.Iterator[RedisQueue]:
+    client = create_yaaredis_for_queue(max_idle_time=0)
     try:
         yield client
     finally:

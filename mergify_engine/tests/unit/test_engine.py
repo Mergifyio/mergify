@@ -15,6 +15,7 @@
 # under the License.
 
 import base64
+from unittest import mock
 
 from pytest_httpserver import httpserver
 
@@ -170,8 +171,7 @@ BASE_URL = f"/repos/{GH_OWNER['login']}/{GH_REPO['name']}"
 
 
 async def test_configuration_changed(
-    github_server: httpserver.HTTPServer,
-    redis_cache: utils.RedisCache,
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
 ) -> None:
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
@@ -241,6 +241,7 @@ async def test_configuration_changed(
             ),
             client,
             redis_cache,
+            mock.Mock(),
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -258,8 +259,7 @@ async def test_configuration_changed(
 
 
 async def test_configuration_duplicated(
-    github_server: httpserver.HTTPServer,
-    redis_cache: utils.RedisCache,
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
 ) -> None:
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
@@ -351,6 +351,7 @@ async def test_configuration_duplicated(
             ),
             client,
             redis_cache,
+            mock.Mock(),
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -368,8 +369,7 @@ async def test_configuration_duplicated(
 
 
 async def test_configuration_not_changed(
-    github_server: httpserver.HTTPServer,
-    redis_cache: utils.RedisCache,
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
 ) -> None:
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
@@ -450,6 +450,7 @@ async def test_configuration_not_changed(
             ),
             client,
             redis_cache,
+            mock.Mock(),
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -467,8 +468,7 @@ async def test_configuration_not_changed(
 
 
 async def test_configuration_initial(
-    github_server: httpserver.HTTPServer,
-    redis_cache: utils.RedisCache,
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
 ) -> None:
     github_server.expect_request("/user/12345/installation").respond_with_json(
         {
@@ -537,6 +537,7 @@ async def test_configuration_initial(
             ),
             client,
             redis_cache,
+            mock.Mock(),
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(

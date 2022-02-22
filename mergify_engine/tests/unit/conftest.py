@@ -81,13 +81,11 @@ def fake_repository(
         }
     )
 
-    fake_client = mock.Mock()
-
+    fake_client = redis_queue = mock.Mock()
+    # NOTE(Syffe): Since redis_queue is not used in fake_repository, we simply mock it,
+    # otherwise a fixture is needed for it. This might change with future use of redis_queue.
     installation = context.Installation(
-        installation_json,
-        fake_subscription,
-        fake_client,
-        redis_cache,
+        installation_json, fake_subscription, fake_client, redis_cache, redis_queue
     )
     return context.Repository(installation, gh_repo)
 

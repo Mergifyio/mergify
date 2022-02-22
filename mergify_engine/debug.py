@@ -196,6 +196,7 @@ async def report(
     url: str,
 ) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
     redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
+    redis_queue = utils.create_yaaredis_for_queue(max_idle_time=0)
 
     try:
         owner_login, repo, pull_number = _url_parser(url)
@@ -247,7 +248,7 @@ async def report(
         print(f"  - {v}")
 
     installation = context.Installation(
-        installation_json, cached_sub, client, redis_cache
+        installation_json, cached_sub, client, redis_cache, redis_queue
     )
 
     await report_dashboard_synchro(
