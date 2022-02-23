@@ -167,7 +167,7 @@ class TestSimulator(base.FunctionalTestBase):
             ]
         }
 
-    async def test_simulator_with_signature(self):
+    async def test_simulator_invalid_json(self):
         rules = {
             "pull_request_rules": [
                 {
@@ -178,49 +178,13 @@ class TestSimulator(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-
         p, _ = await self.create_pr()
-        mergify_yaml = f"""pull_request_rules:
-  - name: assign
-    conditions:
-      - base={self.main_branch_name}
-    actions:
-      assign:
-        users:
-          - mergify-test1
-"""
-
-        r = await self.app.post(
-            "/simulator/",
-            json={"pull_request": None, "mergify.yml": mergify_yaml},
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-        assert r.status_code == 200, r.json()
-        assert r.json()["title"] == "The configuration is valid"
-        assert r.json()["summary"] == ""
-
-        r = await self.app.post(
-            "/simulator/",
-            json={"pull_request": p["html_url"], "mergify.yml": mergify_yaml},
-            headers={
-                "X-Hub-Signature": "sha1=whatever",
-                "Content-type": "application/json",
-            },
-        )
-
-        assert r.json()["title"] == "1 rule matches"
-        assert r.json()["summary"].startswith(
-            f"### Rule: assign (assign)\n- [X] `base={self.main_branch_name}`\n\n<hr />"
-        )
 
         r = await self.app.post(
             "/simulator/",
             json={"pull_request": p["html_url"], "mergify.yml": "- no\n* way"},
             headers={
-                "X-Hub-Signature": "sha1=whatever",
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
                 "Content-type": "application/json",
             },
         )
@@ -245,7 +209,7 @@ expected alphabetic or numeric character, but found ' '
             "/simulator/",
             json={"invalid": "json"},
             headers={
-                "X-Hub-Signature": "sha1=whatever",
+                "Authorization": f"token {config.EXTERNAL_USER_PERSONAL_TOKEN}",
                 "Content-type": "application/json",
             },
         )

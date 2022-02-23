@@ -15,54 +15,69 @@
 # under the License.
 
 import json
+from unittest import mock
 
+from pytest_httpserver import httpserver
 from starlette import testclient
 import yaml
 
-from mergify_engine import utils
 from mergify_engine.web import root
 
 
-def test_simulator_without_pull_request() -> None:
-    with testclient.TestClient(root.app) as client:
-        yaml_config = yaml.dump(
-            {
-                "pull_request_rules": [
-                    {
-                        "name": "Automerge",
-                        "conditions": [
-                            "base=main",
-                            "#files>100",
-                            "-#files<=100",
-                        ],
-                        "actions": {"merge": {}},
-                    }
-                ]
+def test_simulator_without_pull_request(httpserver: httpserver.HTTPServer) -> None:
+    with mock.patch(
+        "mergify_engine.config.GITHUB_REST_API_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        httpserver.expect_request("/user").respond_with_json(
+            {"id": 12345, "login": "testing"}
+        )
+        with testclient.TestClient(root.app) as client:
+            yaml_config = yaml.dump(
+                {
+                    "pull_request_rules": [
+                        {
+                            "name": "Automerge",
+                            "conditions": [
+                                "base=main",
+                                "#files>100",
+                                "-#files<=100",
+                            ],
+                            "actions": {"merge": {}},
+                        }
+                    ]
+                }
+            )
+            data = json.dumps(
+                {"mergify.yml": yaml_config, "pull_request": None}
+            ).encode()
+            headers = {
+                "Authorization": "token foobar",
+                "Content-Type": "application/json",
             }
-        )
-        charset = "utf-8"
-        data = json.dumps({"mergify.yml": yaml_config, "pull_request": None}).encode(
-            charset
-        )
-        headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
-            "Content-Type": f"application/json; charset={charset}",
-        }
-        reply = client.post("/simulator/", data=data, headers=headers)
-        assert reply.status_code == 200, reply.content
-        assert json.loads(reply.content) == {
-            "title": "The configuration is valid",
-            "summary": "",
-        }
+            reply = client.post("/simulator/", data=data, headers=headers)
+            assert reply.status_code == 200, reply.content
+            assert json.loads(reply.content) == {
+                "title": "The configuration is valid",
+                "summary": "",
+            }
 
 
-def test_simulator_with_invalid_json() -> None:
-    with testclient.TestClient(root.app) as client:
-        charset = "utf-8"
-        data = "invalid:json".encode(charset)
-        headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
-            "Content-Type": f"application/json; charset={charset}",
-        }
-        reply = client.post("/simulator/", data=data, headers=headers)
-        assert reply.status_code == 400, reply.content
+def test_simulator_with_invalid_json(
+    httpserver: httpserver.HTTPServer,
+) -> None:
+    with mock.patch(
+        "mergify_engine.config.GITHUB_REST_API_URL",
+        httpserver.url_for("/")[:-1],
+    ):
+        httpserver.expect_request("/user").respond_with_json(
+            {"id": 12345, "login": "testing"}
+        )
+        with testclient.TestClient(root.app) as client:
+            data = "invalid:json".encode()
+            headers = {
+                "Authorization": "token foobar",
+                "Content-Type": "application/json",
+            }
+            reply = client.post("/simulator/", data=data, headers=headers)
+            assert reply.status_code == 400, reply.content
