@@ -128,7 +128,7 @@ class QueueRule:
         log_schedule_details: bool,
     ) -> EvaluatedQueueRule:
         extra_conditions = await conditions.get_branch_protection_conditions(
-            repository, ref, strict=True
+            repository, ref, strict=False
         )
         if self.config["checks_timeout"] is not None:
             extra_conditions += (
