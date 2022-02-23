@@ -131,6 +131,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required("OAUTH_CLIENT_ID"): str,
         voluptuous.Required("OAUTH_CLIENT_SECRET"): str,
         voluptuous.Required("WEBHOOK_SECRET"): str,
+        voluptuous.Required(
+            "WEBHOOK_SECRET_PRE_ROTATION", default=None
+        ): voluptuous.Any(None, str),
         # GitHub common
         voluptuous.Required("BOT_USER_ID"): voluptuous.Coerce(int),
         voluptuous.Required("BOT_USER_LOGIN"): str,
@@ -253,6 +256,7 @@ WEBHOOK_MARKETPLACE_FORWARD_URL: str
 WEBHOOK_APP_FORWARD_URL: str
 WEBHOOK_FORWARD_EVENT_TYPES: str
 WEBHOOK_SECRET: str
+WEBHOOK_SECRET_PRE_ROTATION: typing.Optional[str]
 SHARED_STREAM_PROCESSES: int
 SHARED_STREAM_TASKS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str

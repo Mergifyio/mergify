@@ -18,8 +18,10 @@ import os
 from unittest import mock
 import uuid
 
+from pytest_httpserver import httpserver
 from starlette import testclient
 
+from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine.web import root
 
@@ -32,7 +34,9 @@ from mergify_engine.web import root
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["push"]),
 )
-def test_app_event_forward(_, __, httpserver):
+def test_app_event_forward(
+    _: mock.Mock, __: mock.PropertyMock, httpserver: httpserver.HTTPServer
+) -> None:
 
     with open(os.path.join(os.path.dirname(__file__), "events", "push.json")) as f:
         data = f.read()
@@ -40,7 +44,7 @@ def test_app_event_forward(_, __, httpserver):
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "push",
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode())}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode(), config.WEBHOOK_SECRET)}",
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
@@ -55,14 +59,16 @@ def test_app_event_forward(_, __, httpserver):
         with testclient.TestClient(root.app) as client:
             client.post("/event", data=data, headers=headers)
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore[no-untyped-call]
 
 
 @mock.patch(
     "mergify_engine.config.WEBHOOK_FORWARD_EVENT_TYPES",
     new_callable=mock.PropertyMock(return_value=["purchased"]),
 )
-def test_market_event_forward(_, httpserver):
+def test_market_event_forward(
+    _: mock.PropertyMock, httpserver: httpserver.HTTPServer
+) -> None:
 
     with open(
         os.path.join(os.path.dirname(__file__), "events", "marketplace.json")
@@ -72,7 +78,7 @@ def test_market_event_forward(_, httpserver):
     headers = {
         "X-GitHub-Delivery": str(uuid.uuid4()),
         "X-GitHub-Event": "purchased",
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode())}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data.encode(), config.WEBHOOK_SECRET)}",
         "User-Agent": "GitHub-Hookshot/044aadd",
         "Content-Type": "application/json",
     }
@@ -87,4 +93,4 @@ def test_market_event_forward(_, httpserver):
         with testclient.TestClient(root.app) as client:
             client.post("/marketplace", data=data, headers=headers)
 
-    httpserver.check_assertions()
+    httpserver.check_assertions()  # type: ignore[no-untyped-call]

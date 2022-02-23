@@ -21,6 +21,7 @@ import daiquiri
 import fastapi
 from starlette import requests
 
+from mergify_engine import config
 from mergify_engine import utils
 
 
@@ -44,7 +45,15 @@ async def signature(request: requests.Request) -> None:
         raise fastapi.HTTPException(status_code=403)
 
     body = await request.body()
-    mac = utils.compute_hmac(body)
-    if not hmac.compare_digest(mac, str(signature)):
-        LOG.warning("Webhook signature invalid")
-        raise fastapi.HTTPException(status_code=403)
+
+    current_hmac = utils.compute_hmac(body, config.WEBHOOK_SECRET)
+    if hmac.compare_digest(current_hmac, str(signature)):
+        return
+
+    if config.WEBHOOK_SECRET_PRE_ROTATION is not None:
+        future_hmac = utils.compute_hmac(body, config.WEBHOOK_SECRET_PRE_ROTATION)
+        if hmac.compare_digest(future_hmac, str(signature)):
+            return
+
+    LOG.warning("Webhook signature invalid")
+    raise fastapi.HTTPException(status_code=403)

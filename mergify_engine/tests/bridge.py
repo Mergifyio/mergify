@@ -40,7 +40,7 @@ async def main() -> None:
     logs.setup_logging()
 
     payload_data = os.urandom(250)
-    payload_hmac = utils.compute_hmac(payload_data)
+    payload_hmac = utils.compute_hmac(payload_data, config.WEBHOOK_SECRET)
 
     async with http.AsyncClient(
         base_url="https://test-forwarder.mergify.io",
@@ -68,7 +68,9 @@ async def main() -> None:
                         event["payload"].get("state", event["payload"].get("action")),
                     )
                     data = json.dumps(event["payload"])
-                    hmac = utils.compute_hmac(data.encode("utf8"))
+                    hmac = utils.compute_hmac(
+                        data.encode("utf8"), config.WEBHOOK_SECRET
+                    )
                     await session.post(
                         args.dest,
                         headers={
