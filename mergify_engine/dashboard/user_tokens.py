@@ -24,6 +24,7 @@ from mergify_engine import crypto
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
+from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
 
@@ -184,12 +185,9 @@ class UserTokensGitHubCom(UserTokensBase):
     async def _retrieve_from_db(
         cls, redis: utils.RedisCache, owner_id: int
     ) -> "UserTokensGitHubCom":
-        async with http.AsyncClient() as client:
+        async with dashboard.AsyncDashboardSaasClient() as client:
             try:
-                resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/user_tokens/{owner_id}",
-                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
-                )
+                resp = await client.get(f"/engine/user_tokens/{owner_id}")
             except http.HTTPNotFound:
                 return cls(redis, owner_id, [])
             else:

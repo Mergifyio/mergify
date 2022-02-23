@@ -18,6 +18,7 @@ import base64
 import distutils.util
 import logging
 import os
+import secrets
 import typing
 
 import dotenv
@@ -145,10 +146,13 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "GITHUB_GRAPHQL_API_URL", default="https://api.github.com/graphql"
         ): str,
-        # Mergify website for subscription
+        #
+        # Dashboard settings
+        #
         voluptuous.Required(
             "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
         ): str,
+        # OnPremise special config
         voluptuous.Required("SUBSCRIPTION_TOKEN", default=None): voluptuous.Any(
             None, str
         ),
@@ -158,6 +162,12 @@ Schema = voluptuous.Schema(
         voluptuous.Required("APPLICATION_APIKEYS", default=""): voluptuous.Coerce(
             ApplicationAPIKeys
         ),
+        # Saas Special config
+        voluptuous.Required("ENGINE_TO_DASHBOARD_API_KEY"): str,
+        voluptuous.Required("DASHBOARD_TO_ENGINE_API_KEY"): str,
+        voluptuous.Required(
+            "DASHBOARD_TO_ENGINE_API_KEY_PRE_ROTATION", default=None
+        ): voluptuous.Any(None, str),
         voluptuous.Required("WEBHOOK_APP_FORWARD_URL", default=None): voluptuous.Any(
             None, str
         ),
@@ -167,7 +177,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "WEBHOOK_FORWARD_EVENT_TYPES", default=None
         ): voluptuous.Any(None, CommaSeparatedStringList),
-        # Mergify
+        #
+        # Mergify Engine settings
+        #
         voluptuous.Required("BASE_URL", default="http://localhost:8802"): str,
         voluptuous.Required(
             "REDIS_SSL_VERIFY_MODE_CERT_NONE", default=False
@@ -269,6 +281,9 @@ BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
 SUBSCRIPTION_TOKEN: str
+ENGINE_TO_DASHBOARD_API_KEY: str
+DASHBOARD_TO_ENGINE_API_KEY: str
+DASHBOARD_TO_ENGINE_API_KEY_PRE_ROTATION: str
 OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
 GIT_EMAIL: str
@@ -309,6 +324,11 @@ for key, _ in Schema.schema.items():
     val = os.getenv(f"MERGIFYENGINE_{key}")
     if val is not None:
         CONFIG[key] = val
+
+# DASHBOARD API KEYS are required only for Saas
+if "SUBSCRIPTION_TOKEN" in CONFIG:
+    for key in ("DASHBOARD_TO_ENGINE_API_KEY", "ENGINE_TO_DASHBOARD_API_KEY"):
+        CONFIG[key] = secrets.token_hex(16)
 
 legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
 if legacy_api_url is not None:

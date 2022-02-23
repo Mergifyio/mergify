@@ -28,6 +28,7 @@ from mergify_engine import config
 from mergify_engine import crypto
 from mergify_engine import exceptions
 from mergify_engine import utils
+from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
 
@@ -215,13 +216,9 @@ class SubscriptionDashboardGitHubCom(SubscriptionBase):
     async def _retrieve_subscription_from_db(
         cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
-        async with http.AsyncClient() as client:
+        async with dashboard.AsyncDashboardSaasClient() as client:
             try:
-
-                resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/engine/subscription/{owner_id}",
-                    auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
-                )
+                resp = await client.get(f"/engine/subscription/{owner_id}")
             except http.HTTPNotFound:
                 raise exceptions.MergifyNotInstalled()
             else:
@@ -236,12 +233,9 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
     async def _retrieve_subscription_from_db(
         cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
-        async with http.AsyncClient() as client:
+        async with dashboard.AsyncDashboardOnPremiseClient() as client:
             try:
-                resp = await client.get(
-                    f"{config.SUBSCRIPTION_BASE_URL}/on-premise/subscription/{owner_id}",
-                    headers={"Authorization": f"token {config.SUBSCRIPTION_TOKEN}"},
-                )
+                resp = await client.get(f"/on-premise/subscription/{owner_id}")
             except http.HTTPUnauthorized:
                 LOG.critical(
                     "The SUBSCRIPTION_TOKEN is invalid, the subscription can't be checked"
