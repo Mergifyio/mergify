@@ -116,11 +116,29 @@ queue_rules:
     batch_size: 5
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
+  - name: noint-bis
+    conditions: []
+    speculative_checks: 2
+    batch_size: 5
+    batch_max_wait_time: 0 s
+    allow_checks_interruption: False
   - name: batch-wait-time
     conditions: []
     speculative_checks: 2
     batch_size: 2
     batch_max_wait_time: 5 m
+  - name: noint-nospec
+    conditions: []
+    speculative_checks: 1
+    batch_size: 5
+    batch_max_wait_time: 0 s
+    allow_checks_interruption: False
+  - name: noint-nospecbis
+    conditions: []
+    speculative_checks: 1
+    batch_size: 5
+    batch_max_wait_time: 0 s
+    allow_checks_interruption: False
 
 """
 
@@ -629,7 +647,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 51000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 81000
     )
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
@@ -640,7 +658,7 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 52000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 82000
     )
 
 
@@ -1079,6 +1097,68 @@ async def test_train_no_interrupt_add_pull(
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [4, 3] == get_waiting_content(t)
+
+
+async def test_train_no_interrupt_across_queue1(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    config = get_config("noint-bis")
+
+    await t.add_pull(await context_getter(1), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(2), config)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(3), config)
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    # Inserting pr in high queue didn't break started speculative checks, but the PR
+    # move above other
+    await t.add_pull(await context_getter(4), get_config("noint"))
+    await t.refresh()
+    assert [[1], [1, 2]] == get_cars_content(t)
+    assert [4, 3] == get_waiting_content(t)
+
+
+async def test_train_no_interrupt_across_queue2(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    config = get_config("noint-nospecbis")
+
+    await t.add_pull(await context_getter(1), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(2), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(3), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+    # Inserting pr in high queue didn't break started speculative checks, but the PR
+    # move above other
+    await t.add_pull(await context_getter(4), get_config("noint-nospec"))
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [4, 2, 3] == get_waiting_content(t)
 
 
 async def test_train_batch_max_wait_time(
