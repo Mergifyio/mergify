@@ -21,9 +21,7 @@ import daiquiri
 import fastapi
 from starlette import requests
 
-from mergify_engine import config
 from mergify_engine import utils
-from mergify_engine.clients import http
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -50,28 +48,3 @@ async def signature(request: requests.Request) -> None:
     if not hmac.compare_digest(mac, str(signature)):
         LOG.warning("Webhook signature invalid")
         raise fastapi.HTTPException(status_code=403)
-
-
-async def token(request: requests.Request) -> None:
-    authorization = request.headers.get("Authorization")
-    if authorization:
-        if authorization.startswith("token "):
-            try:
-                async with http.AsyncClient(
-                    base_url=config.GITHUB_REST_API_URL,
-                    headers={"Authorization": authorization},
-                ) as client:
-                    await client.get("/user")
-                    return
-            except http.HTTPStatusError as e:
-                raise fastapi.HTTPException(status_code=e.response.status_code)
-
-    raise fastapi.HTTPException(status_code=403)
-
-
-async def signature_or_token(request: requests.Request) -> None:
-    authorization = request.headers.get("Authorization")
-    if authorization:
-        await token(request)
-    else:
-        await signature(request)

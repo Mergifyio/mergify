@@ -22,6 +22,7 @@ from starlette import requests
 from starlette import responses
 import voluptuous
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -31,7 +32,6 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.engine import actions_runner
-from mergify_engine.web import auth
 from mergify_engine.web import redis
 
 
@@ -132,16 +132,30 @@ async def _simulator(
         )
 
 
-@router.post("/", dependencies=[fastapi.Depends(auth.signature_or_token)])
+@router.post("/")
 async def simulator(
     request: requests.Request,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
     ),
 ) -> responses.JSONResponse:
-    token = request.headers.get("Authorization")
-    if token:
-        token = token[6:]  # Drop 'token '
+    authorization = request.headers.get("Authorization")
+
+    if authorization is None:
+        raise fastapi.HTTPException(status_code=403)
+    elif not authorization.startswith("token "):
+        raise fastapi.HTTPException(status_code=403)
+
+    try:
+        async with http.AsyncClient(
+            base_url=config.GITHUB_REST_API_URL,
+            headers={"Authorization": authorization},
+        ) as client:
+            await client.get("/user")
+    except http.HTTPStatusError as e:
+        raise fastapi.HTTPException(status_code=e.response.status_code)
+
+    token = authorization[6:]  # Drop 'token '
 
     try:
         raw_json = await request.json()
