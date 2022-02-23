@@ -119,11 +119,20 @@ def unicode_truncate(s: str, length: int, encoding: str = "utf-8") -> str:
     return s.encode(encoding)[:length].decode(encoding, errors="ignore")
 
 
-def compute_hmac(data: bytes) -> str:
+def compute_hmac(data: bytes) -> typing.Tuple[str, str]:
     mac = hmac.new(
         config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
     )
-    return str(mac.hexdigest())
+    digest = str(mac.hexdigest())
+
+    if config.WEBHOOK_SECRET == config.WEBHOOK_SECRET_TEMP:
+        future_digest = digest
+    else:
+        future_mac = hmac.new(
+            config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
+        )
+        future_digest = str(future_mac.hexdigest())
+    return digest, future_digest
 
 
 class SupportsLessThan(typing.Protocol):

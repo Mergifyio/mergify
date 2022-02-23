@@ -40,7 +40,7 @@ async def main() -> None:
     logs.setup_logging()
 
     payload_data = os.urandom(250)
-    payload_hmac = utils.compute_hmac(payload_data)
+    payload_hmac = utils.compute_hmac(payload_data)[0]
 
     async with http.AsyncClient(
         base_url="https://test-forwarder.mergify.io",

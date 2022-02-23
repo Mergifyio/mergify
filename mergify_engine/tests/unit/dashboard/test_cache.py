@@ -27,7 +27,7 @@ def test_tokens_cache_delete():
 
     data = None
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
     }
     with testclient.TestClient(root.app) as client:
         reply = client.delete(f"/tokens-cache/{owner_id}", data=data, headers=headers)
@@ -40,7 +40,7 @@ def test_subscription_cache_delete():
 
     data = None
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
     }
     with testclient.TestClient(root.app) as client:
         reply = client.delete(
@@ -63,7 +63,7 @@ def test_subscription_cache_update():
         )
     ).encode(charset)
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
         "Content-Type": f"application/json; charset={charset}",
     }
     with testclient.TestClient(root.app) as client:

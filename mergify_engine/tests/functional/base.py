@@ -52,7 +52,8 @@ from mergify_engine.web import root
 LOG = daiquiri.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 FAKE_DATA = "whatdataisthat"
-FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
+# FIXME(sileht): We shouldn't use this, but a shared token
+FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))[0]
 
 
 class ForwardedEvent(typing.TypedDict):

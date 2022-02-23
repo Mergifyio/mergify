@@ -66,7 +66,7 @@ def test_push_event(
         charset = "utf-8"
         data = json.dumps(event).encode(charset)
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
             "X-GitHub-Event": event_type,
             "Content-Type": f"application/json; charset={charset}",
         }

@@ -144,7 +144,7 @@ async def test_get_usage(event_type, event, redis_cache):
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
         data = b"a" * 123
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
             "Content-Type": f"application/json; charset={charset}",
         }
         reply = await client.request(

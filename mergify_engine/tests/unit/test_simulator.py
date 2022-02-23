@@ -45,7 +45,7 @@ def test_simulator_without_pull_request() -> None:
             charset
         )
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
             "Content-Type": f"application/json; charset={charset}",
         }
         reply = client.post("/simulator/", data=data, headers=headers)
@@ -61,7 +61,7 @@ def test_simulator_with_invalid_json() -> None:
         charset = "utf-8"
         data = "invalid:json".encode(charset)
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)[0]}",
             "Content-Type": f"application/json; charset={charset}",
         }
         reply = client.post("/simulator/", data=data, headers=headers)

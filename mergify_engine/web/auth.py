@@ -46,10 +46,16 @@ async def signature(request: requests.Request) -> None:
         raise fastapi.HTTPException(status_code=403)
 
     body = await request.body()
-    mac = utils.compute_hmac(body)
-    if not hmac.compare_digest(mac, str(signature)):
-        LOG.warning("Webhook signature invalid")
-        raise fastapi.HTTPException(status_code=403)
+    current_hmac, future_hmac = utils.compute_hmac(body)
+
+    if hmac.compare_digest(current_hmac, str(signature)):
+        return
+
+    if hmac.compare_digest(future_hmac, str(signature)):
+        return
+
+    LOG.warning("Webhook signature invalid")
+    raise fastapi.HTTPException(status_code=403)
 
 
 async def token(request: requests.Request) -> None:
