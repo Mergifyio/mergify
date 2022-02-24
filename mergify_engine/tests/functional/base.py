@@ -390,6 +390,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.clear_redis_cache()
         self.redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
 
+        await self.clear_redis_queue()
+        self.redis_queue = utils.create_yaaredis_for_queue(max_idle_time=0)
+
         installation_json = await github.get_installation_from_account_id(
             config.TESTING_ORGANIZATION_ID
         )
@@ -425,6 +428,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             self.subscription,
             self.client_integration,
             self.redis_cache,
+            self.redis_queue,
         )
         self.repository_ctxt = await self.installation_ctxt.get_repository_by_id(
             github_types.GitHubRepositoryIdType(self.RECORD_CONFIG["repository_id"])
@@ -456,6 +460,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     async def clear_redis_cache() -> None:
         with utils.yaaredis_for_cache() as redis_stream:
             await redis_stream.flushall()
+
+    @staticmethod
+    async def clear_redis_queue() -> None:
+        with utils.yaaredis_for_queue() as redis_queue:
+            await redis_queue.flushall()
 
     async def asyncTearDown(self):
         await super(FunctionalTestBase, self).asyncTearDown()

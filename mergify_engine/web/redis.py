@@ -23,16 +23,20 @@ from mergify_engine import utils
 
 _AREDIS_STREAM: utils.RedisStream
 _AREDIS_CACHE: utils.RedisCache
+_AREDIS_QUEUE: utils.RedisQueue
 
 LOG = daiquiri.getLogger(__name__)
 
 
 async def startup() -> None:
-    global _AREDIS_STREAM, _AREDIS_CACHE
+    global _AREDIS_STREAM, _AREDIS_CACHE, _AREDIS_QUEUE
     _AREDIS_STREAM = utils.create_yaaredis_for_stream(
         max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
     )
     _AREDIS_CACHE = utils.create_yaaredis_for_cache(
+        max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
+    )
+    _AREDIS_QUEUE = utils.create_yaaredis_for_queue(
         max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
     )
     await redis_utils.load_scripts(_AREDIS_STREAM)
@@ -40,11 +44,13 @@ async def startup() -> None:
 
 async def shutdown() -> None:
     LOG.info("asgi: starting redis shutdown")
-    global _AREDIS_STREAM, _AREDIS_CACHE
+    global _AREDIS_STREAM, _AREDIS_CACHE, _AREDIS_QUEUE
     _AREDIS_CACHE.connection_pool.max_idle_time = 0
     _AREDIS_CACHE.connection_pool.disconnect()
     _AREDIS_STREAM.connection_pool.max_idle_time = 0
     _AREDIS_STREAM.connection_pool.disconnect()
+    _AREDIS_QUEUE.connection_pool.max_idle_time = 0
+    _AREDIS_QUEUE.connection_pool.disconnect()
     LOG.info("asgi: waiting redis pending tasks to complete")
     await utils.stop_pending_yaaredis_tasks()
     LOG.info("asgi: finished redis shutdown")
@@ -58,3 +64,8 @@ async def get_redis_stream():
 async def get_redis_cache():
     global _AREDIS_CACHE
     return _AREDIS_CACHE
+
+
+async def get_redis_queue():
+    global _AREDIS_QUEUE
+    return _AREDIS_QUEUE

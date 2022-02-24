@@ -83,6 +83,7 @@ def voluptuous_error(error: voluptuous.Invalid) -> str:
 
 async def _simulator(
     redis_cache: utils.RedisCache,
+    redis_queue: utils.RedisQueue,
     pull_request_rules: rules.PullRequestRules,
     owner_login: github_types.GitHubLogin,
     repo_name: github_types.GitHubRepositoryName,
@@ -116,10 +117,7 @@ async def _simulator(
             )
 
             installation = context.Installation(
-                installation_json,
-                sub,
-                client,
-                redis_cache,
+                installation_json, sub, client, redis_cache, redis_queue
             )
             repository = context.Repository(installation, data["base"]["repo"])
             ctxt = await repository.get_pull_request_context(data["number"], data)
@@ -137,6 +135,9 @@ async def simulator(
     request: requests.Request,
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
+    ),
+    redis_queue: utils.RedisQueue = fastapi.Depends(  # noqa: B008
+        redis.get_redis_queue
     ),
 ) -> responses.JSONResponse:
     authorization = request.headers.get("Authorization")
@@ -167,6 +168,7 @@ async def simulator(
         if data["pull_request"]:
             title, summary = await _simulator(
                 redis_cache,
+                redis_queue,
                 data["mergify.yml"]["pull_request_rules"],
                 owner_login=data["pull_request"][0],
                 repo_name=data["pull_request"][1],

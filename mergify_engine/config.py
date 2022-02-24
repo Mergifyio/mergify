@@ -176,6 +176,7 @@ Schema = voluptuous.Schema(
             "REDIS_CACHE_WEB_MAX_CONNECTIONS", default=None
         ): voluptuous.Any(None, voluptuous.Coerce(int)),
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
+        voluptuous.Required("QUEUE_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SHARED_STREAM_PROCESSES", default=1): voluptuous.Coerce(
             int
@@ -259,6 +260,7 @@ BOT_USER_ID: int
 BOT_USER_LOGIN: str
 STORAGE_URL: str
 STREAM_URL: str
+QUEUE_URL: str
 BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
@@ -317,6 +319,9 @@ globals().update(Schema(CONFIG))
 
 if globals()["STREAM_URL"] is None:
     STREAM_URL = globals()["STORAGE_URL"]
+
+if globals()["QUEUE_URL"] is None:
+    QUEUE_URL = globals()["STORAGE_URL"]
 
 # NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
 # it in base64 format

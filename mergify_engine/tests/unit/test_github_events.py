@@ -58,7 +58,7 @@ async def _do_test_event_to_pull_check_run(
         }
     )
     installation = context.Installation(
-        installation_json, mock.Mock(), mock.Mock(), redis_cache
+        installation_json, mock.Mock(), mock.Mock(), redis_cache, mock.Mock()
     )
     pulls = await github_events.extract_pull_numbers_from_event(
         installation,

@@ -228,6 +228,9 @@ async def repository_queues(
     redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
         redis.get_redis_cache
     ),
+    redis_queue: utils.RedisQueue = fastapi.Depends(  # noqa: B008
+        redis.get_redis_queue
+    ),
     installation_json: github_types.GitHubInstallation = fastapi.Depends(  # noqa: B008
         security.get_installation
     ),
@@ -245,7 +248,9 @@ async def repository_queues(
         sub = await subscription.Subscription.get_subscription(
             redis_cache, repo["owner"]["id"]
         )
-        installation = context.Installation(installation_json, sub, client, redis_cache)
+        installation = context.Installation(
+            installation_json, sub, client, redis_cache, redis_queue
+        )
         repository_ctxt = installation.get_repository_from_github_data(repo)
 
         queues = Queues()
