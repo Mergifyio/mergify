@@ -15,18 +15,16 @@ jobs:
   releaser:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 🛎️
+      - name: "Checkout \U0001F6CE️"
         uses: actions/checkout@v2.4.0
         with:
           ssh-key: "${{ secrets.RELEASER_SSH_KEY }}"
           fetch-depth: 0
-
-      - name: Setup Python 🔧
+      - name: "Setup Python \U0001F527"
         uses: actions/setup-python@v2.3.2
         with:
-          python-version: 3.10.0
-
-      - name: Setup dependencies 🔧
+          python-version: 3.10.2
+      - name: "Setup dependencies \U0001F527"
         run: |
           set -e
           set -o pipefail
@@ -35,8 +33,7 @@ jobs:
 
           curl -L https://github.com/jgm/pandoc/releases/download/2.14.2/pandoc-2.14.2-linux-amd64.tar.gz \
             | tar -xzf - --strip-components=2 pandoc-2.14.2/bin/pandoc
-
-      - name: Build release notes 📝
+      - name: "Build release notes \U0001F4DD"
         id: relnote
         run: |
           set -e
@@ -54,13 +51,11 @@ jobs:
           cat ${{ github.workspace }}-CHANGELOG.txt
 
           echo "::set-output name=VERSION::$VERSION"
-
-      - name: Push git tag 🏎️
+      - name: "Push git tag \U0001F3CE️"
         if: ${{ !github.event.inputs.dry_run }}
         run: |
           git push origin ${{ steps.relnote.outputs.VERSION }}
-
-      - name: Push GitHub release 🏎️
+      - name: "Push GitHub release \U0001F3CE️"
         uses: softprops/action-gh-release@v1
         if: ${{ !github.event.inputs.dry_run }}
         with:

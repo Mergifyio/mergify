@@ -1,12 +1,10 @@
 name: Continuous Integration (py310)
 permissions: read-all
-
 on:
   pull_request:
     branches:
       - main
       - git_push_stack/**
-
 jobs:
   test:
     timeout-minutes: 10
@@ -17,15 +15,13 @@ jobs:
         ports:
           - 6363:6379
     steps:
-      - name: Checkout 🛎️
+      - name: "Checkout \U0001F6CE️"
         uses: actions/checkout@v2.4.0
-
-      - name: Setup Python 🔧
+      - name: "Setup Python \U0001F527"
         uses: actions/setup-python@v2.3.2
         with:
-          python-version: 3.10.0
-
-      - name: Build 🔧 & Test 🔍
+          python-version: 3.10.2
+      - name: "Build \U0001F527 & Test \U0001F50D"
         run: |
           sudo apt install -y redis-server
           pip install tox

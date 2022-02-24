@@ -1,36 +1,30 @@
 name: Continuous Integration (docs)
 permissions: read-all
-
 on:
   pull_request:
     branches:
       - main
       - git_push_stack/**
-
 jobs:
   docs:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout 🛎️
+      - name: "Checkout \U0001F6CE️"
         uses: actions/checkout@v2.4.0
-
-      - name: Setup Python 🔧
+      - name: "Setup Python \U0001F527"
         uses: actions/setup-python@v2.3.2
         with:
-          python-version: 3.10.0
-
-      - name: Setup Node 🔧
+          python-version: 3.10.2
+      - name: "Setup Node \U0001F527"
         uses: actions/setup-node@v2.5.1
         with:
           node-version: 16
-
-      - name: Build 🔧
+      - name: "Build \U0001F527"
         run: |
           sudo apt-get install graphviz
           pip install tox
           tox -e docs
-
       # NOTE(sileht): workflow run on/pull_request doesn't have access to
       # secrets
       # So, we upload it as artifact, then another workflow
@@ -40,7 +34,6 @@ jobs:
         with:
           name: docs-pr-${{ github.event.pull_request.number }}
           path: docs/build
-
       # yamllint disable-line rule:line-length
       - run: echo "::set-output name=docs::https://docs-preview.mergify.com/${{ github.event.pull_request.number }}/docs"
         shell: bash
