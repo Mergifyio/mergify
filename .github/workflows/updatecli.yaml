@@ -21,16 +21,17 @@ jobs:
       - name: Updatecli
         id: updatecli
         run: |
+          tmpdir="${{ runner.temp }}"
           version="v0.19.2"
           url="https://github.com/updatecli/updatecli/releases/download/${version}/updatecli_Linux_x86_64.tar.gz"
-          dest="/tmp/updatecli.tar.gz"
+          dest="${tmpdir}/updatecli.tar.gz"
           sha="4e23e3462d41ea6e600c89df827e9e18f575d20162e219328651e9ddeed0039a"
           curl -L -o $dest $url
-          echo "$sha $dest" | tee -a /tmp/checksum
-          sha256sum -c /tmp/checksum
-          tar -xzf $dest -C /tmp
-          /tmp/updatecli --config ./.github/updatecli.yml diff
-          /tmp/updatecli --config ./.github/updatecli.yml apply
+          echo "$sha $dest" | tee -a ${tmpdir}/checksum
+          sha256sum -c ${tmpdir}/checksum
+          tar -xzf $dest -C ${tmpdir}
+          ${tmpdir}/updatecli --config ./.github/updatecli.yml diff
+          ${tmpdir}/updatecli --config ./.github/updatecli.yml apply
           rm workflow -rf
           echo "::set-output name=PYTHON_VERSION::$(cat runtime.txt | cut -d- -f2)"
         env:
