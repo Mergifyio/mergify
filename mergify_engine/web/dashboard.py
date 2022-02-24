@@ -26,6 +26,7 @@ from mergify_engine import utils
 from mergify_engine.dashboard import application
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
+from mergify_engine.usage import last_seen
 from mergify_engine.web import auth
 from mergify_engine.web import redis
 
@@ -43,6 +44,7 @@ async def get_stats(
         redis.get_redis_cache
     ),
 ) -> responses.Response:
+    last_seen_at = await last_seen.get(redis_cache, owner_id)
     seats = await count_seats.Seats.get(
         redis_cache, write_users=False, owner_id=owner_id
     )
@@ -55,7 +57,13 @@ async def get_stats(
         repos = data["organizations"][0]["repositories"]
     else:
         repos = []
-    return responses.JSONResponse({"repositories": repos})
+
+    return responses.JSONResponse(
+        {
+            "repositories": repos,
+            "last_seen_at": None if last_seen_at is None else last_seen_at.isoformat(),
+        }
+    )
 
 
 @router.put(
