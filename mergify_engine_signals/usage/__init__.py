@@ -12,18 +12,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from unittest import mock
+import typing
 
-from mergify_engine import github_types
+from mergify_engine import context
 from mergify_engine import signals
-from mergify_engine.tests.unit import conftest
+from mergify_engine.usage import last_seen
 
 
-async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
-    signals.setup()
-    assert len(signals.SIGNALS) == 2
-
-    ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
-    with mock.patch("mergify_engine_signals.noop.Signal.__call__") as signal_method:
-        await signals.send(ctxt, "action.update", {"attr": "value"})
-        signal_method.assert_called_once_with(ctxt, "action.update", {"attr": "value"})
+class Signal(signals.SignalBase):
+    async def __call__(
+        self,
+        ctxt: context.Context,
+        event: signals.EventName,
+        metadata: typing.Optional[signals.SignalMetadata],
+    ) -> None:
+        await last_seen.update(ctxt, event, metadata)
