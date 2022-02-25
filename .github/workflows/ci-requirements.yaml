@@ -18,7 +18,7 @@ jobs:
       - name: Setup Python 🔧
         uses: actions/setup-python@v2.3.2
         with:
-          python-version: 3.10.0
+          python-version: 3.10.2
 
       - name: Build 🔧 & Test 🔍
         run: |

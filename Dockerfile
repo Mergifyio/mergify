@@ -1,5 +1,5 @@
 ### BASE ###
-FROM python:3.9-slim-buster as base-image
+FROM python:3.10.2-slim as base-image
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update -y && apt upgrade -y && apt install -y git && apt autoremove --purge -y
 
