@@ -287,7 +287,7 @@ class OwnerLoginsCache:
 class StreamProcessor:
     redis_stream: utils.RedisStream
     redis_cache: utils.RedisCache
-    redis_queue: typing.Optional[utils.RedisQueue]
+    redis_queue: utils.RedisQueue
     worker_id: str
     dedicated_owner_id: typing.Optional[github_types.GitHubAccountIdType]
     owners_cache: OwnerLoginsCache
@@ -929,7 +929,11 @@ class Worker:
         return github_types.GitHubAccountIdType(int(bucket_org_key.split("~")[1]))
 
     async def shared_stream_worker_task(self, shared_worker_id: int) -> None:
-        if self._redis_stream is None or self._redis_cache is None:
+        if (
+            self._redis_stream is None
+            or self._redis_cache is None
+            or self._redis_queue is None
+        ):
             raise RuntimeError("redis clients are not ready")
 
         stream_processor = StreamProcessor(
@@ -945,7 +949,11 @@ class Worker:
     async def dedicated_stream_worker_task(
         self, owner_id: github_types.GitHubAccountIdType
     ) -> None:
-        if self._redis_stream is None or self._redis_cache is None:
+        if (
+            self._redis_stream is None
+            or self._redis_cache is None
+            or self._redis_queue is None
+        ):
             raise RuntimeError("redis clients are not ready")
 
         stream_processor = StreamProcessor(
@@ -1123,6 +1131,7 @@ class Worker:
 
         self._redis_stream = utils.create_yaaredis_for_stream()
         self._redis_cache = utils.create_yaaredis_for_cache()
+        self._redis_queue = utils.create_yaaredis_for_queue()
 
         await redis_utils.load_scripts(self._redis_stream)
         await migrations.run(self._redis_cache)
