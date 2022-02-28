@@ -52,7 +52,7 @@ from mergify_engine.web import root
 LOG = daiquiri.getLogger(__name__)
 RECORD = bool(os.getenv("MERGIFYENGINE_RECORD", False))
 FAKE_DATA = "whatdataisthat"
-FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"))
+FAKE_HMAC = utils.compute_hmac(FAKE_DATA.encode("utf8"), config.WEBHOOK_SECRET)
 
 
 class ForwardedEvent(typing.TypedDict):

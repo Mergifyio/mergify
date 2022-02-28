@@ -17,6 +17,7 @@ import json
 
 from starlette import testclient
 
+from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.web import root
@@ -27,7 +28,7 @@ def test_tokens_cache_delete():
 
     data = None
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
     }
     with testclient.TestClient(root.app) as client:
         reply = client.delete(f"/tokens-cache/{owner_id}", data=data, headers=headers)
@@ -40,7 +41,7 @@ def test_subscription_cache_delete():
 
     data = None
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
     }
     with testclient.TestClient(root.app) as client:
         reply = client.delete(
@@ -63,7 +64,7 @@ def test_subscription_cache_update():
         )
     ).encode(charset)
     headers = {
-        "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+        "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
         "Content-Type": f"application/json; charset={charset}",
     }
     with testclient.TestClient(root.app) as client:

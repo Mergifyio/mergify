@@ -139,10 +139,8 @@ def unicode_truncate(s: str, length: int, encoding: str = "utf-8") -> str:
     return s.encode(encoding)[:length].decode(encoding, errors="ignore")
 
 
-def compute_hmac(data: bytes) -> str:
-    mac = hmac.new(
-        config.WEBHOOK_SECRET.encode("utf8"), msg=data, digestmod=hashlib.sha1
-    )
+def compute_hmac(data: bytes, secret: str) -> str:
+    mac = hmac.new(secret.encode("utf8"), msg=data, digestmod=hashlib.sha1)
     return str(mac.hexdigest())
 
 

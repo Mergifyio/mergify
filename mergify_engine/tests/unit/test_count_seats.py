@@ -24,6 +24,7 @@ import httpx
 import pytest
 from pytest_httpserver import httpserver
 
+from mergify_engine import config
 from mergify_engine import count_seats
 from mergify_engine import github_types
 from mergify_engine import signals
@@ -146,7 +147,7 @@ async def test_get_usage_count_seats(event_type, event, redis_cache):
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
         data = b"a" * 123
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
             "Content-Type": f"application/json; charset={charset}",
         }
         reply = await client.request(
@@ -210,7 +211,7 @@ async def test_get_usage_last_seen(
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
         data = b"a" * 123
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data)}",
+            "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
             "Content-Type": "application/json; charset=utf8",
         }
         reply = await client.request(
