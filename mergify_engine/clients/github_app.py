@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import dataclasses
 import threading
 import time
 import typing
@@ -54,18 +55,23 @@ EXPECTED_MINIMAL_PERMISSIONS: typing.Dict[
 }
 
 
+@dataclasses.dataclass
 class JwtHandler:
-    JWT_EXPIRATION = 60
+    jwt: typing.Optional[str] = None
+    jwt_expiration: typing.Optional[float] = None
+    lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
 
-    def __init__(self):
-        self.jwt = None
-        self.jwt_expiration = None
-        self.lock = threading.Lock()
+    JWT_EXPIRATION: typing.ClassVar[int] = 60
 
-    def get_or_create(self, force=False):
+    def get_or_create(self, force: bool = False) -> str:
         now = int(time.time())
         with self.lock:
-            if force or self.jwt is None or self.jwt_expiration <= now:
+            if (
+                force
+                or self.jwt is None
+                or self.jwt_expiration is None
+                or self.jwt_expiration <= now
+            ):
                 self.jwt_expiration = now + self.JWT_EXPIRATION
                 payload = {
                     "iat": now,
@@ -73,13 +79,13 @@ class JwtHandler:
                     "iss": config.INTEGRATION_ID,
                 }
                 self.jwt = jwt.encode(
-                    payload, key=config.PRIVATE_KEY, algorithm="RS256"
+                    payload, key=config.PRIVATE_KEY.decode(), algorithm="RS256"
                 )
                 LOG.debug("New JWT created", expire_at=self.jwt_expiration)
         return self.jwt
 
 
-get_or_create_jwt = JwtHandler().get_or_create  # type: ignore[no-untyped-call]
+get_or_create_jwt = JwtHandler().get_or_create
 
 
 def permissions_need_to_be_updated(
@@ -102,7 +108,9 @@ def permissions_need_to_be_updated(
 
 
 class GithubBearerAuth(httpx.Auth):
-    def auth_flow(self, request):
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> typing.Generator[httpx.Request, httpx.Response, None]:
         bearer = get_or_create_jwt()
         request.headers["Authorization"] = f"Bearer {bearer}"
         response = yield request

@@ -51,23 +51,23 @@ RequestError = httpx.RequestError
 
 class HTTPServerSideError(httpx.HTTPStatusError):
     @property
-    def message(self):
+    def message(self) -> str:
         return self.response.text
 
     @property
-    def status_code(self):
+    def status_code(self) -> int:
         return self.response.status_code
 
 
 class HTTPClientSideError(httpx.HTTPStatusError):
     @property
-    def message(self):
+    def message(self) -> str:
         # TODO(sileht): do something with errors and documentation_url when present
         # https://developer.github.com/v3/#client-errors
-        return self.response.json()["message"]
+        return typing.cast(str, self.response.json()["message"])
 
     @property
-    def status_code(self):
+    def status_code(self) -> int:
         return self.response.status_code
 
 
@@ -121,12 +121,13 @@ class wait_retry_after_header(tenacity.wait.wait_base):
         return max(0, (d - date.utcnow()).total_seconds())
 
 
-def extract_organization_login(client):
+def extract_organization_login(client: httpx.AsyncClient) -> typing.Optional[str]:
     if client.auth and hasattr(client.auth, "_owner_login"):
-        return client.auth._owner_login
+        return client.auth._owner_login  # type: ignore[attr-defined,no-any-return]
+    return None
 
 
-def before_log(retry_state):
+def before_log(retry_state: tenacity.RetryCallState) -> None:
     client = retry_state.args[0]
     method = retry_state.args[1]
     gh_owner = extract_organization_login(client)
@@ -140,7 +141,7 @@ def before_log(retry_state):
     )
 
 
-def after_log(retry_state):
+def after_log(retry_state: tenacity.RetryCallState) -> None:
     client = retry_state.args[0]
     method = retry_state.args[1]
     url = retry_state.args[2]
@@ -148,13 +149,16 @@ def after_log(retry_state):
     error_message = None
     response = None
     exc_info = None
-    if retry_state.outcome.failed:
-        exc_info = retry_state.outcome.exception()
-        if isinstance(exc_info, httpx.HTTPStatusError):
-            response = exc_info.response
-            error_message = exc_info.response.text
+    if retry_state.outcome:
+        if retry_state.outcome.failed:
+            exc_info = retry_state.outcome.exception()
+            if isinstance(exc_info, httpx.HTTPStatusError):
+                response = exc_info.response
+                error_message = exc_info.response.text
+        else:
+            response = retry_state.outcome.result()
     else:
-        response = retry_state.outcome.result()
+        response = None
 
     LOG.debug(
         "http request ends",
@@ -206,7 +210,7 @@ class AsyncClient(httpx.AsyncClient):
         headers: typing.Optional[httpx_types.HeaderTypes] = None,
         timeout: httpx_types.TimeoutTypes = DEFAULT_TIMEOUT,
         base_url: httpx_types.URLTypes = "",
-    ):
+    ) -> None:
         final_headers = DEFAULT_HEADERS.copy()
         if headers is not None:
             final_headers.update(headers)

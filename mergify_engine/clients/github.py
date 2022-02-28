@@ -16,6 +16,7 @@
 import contextlib
 import dataclasses
 import datetime
+import types
 import typing
 from urllib import parse
 
@@ -58,7 +59,7 @@ class CachedToken:
     token: str
     expiration: datetime.datetime
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         CachedToken.STORAGE[self.installation_id] = self
 
     @classmethod
@@ -76,22 +77,26 @@ class InstallationInaccessible(Exception):
 
 
 class GithubTokenAuth(httpx.Auth):
+    _token: str
+
     def __init__(self, token: str) -> None:
         self._token = token
 
     @contextlib.contextmanager
-    def response_body_read(self):
+    def response_body_read(self) -> typing.Generator[None, None, None]:
         self.requires_response_body = True
         try:
             yield
         finally:
             self.requires_response_body = False
 
-    def auth_flow(self, request):
+    def auth_flow(
+        self, request: httpx.Request
+    ) -> typing.Generator[httpx.Request, httpx.Response, None]:
         request.headers["Authorization"] = f"token {self._token}"
         yield request
 
-    def build_request(self, method, url):
+    def build_request(self, method: str, url: str) -> httpx.Request:
         headers = http.DEFAULT_HEADERS.copy()
         headers["Authorization"] = f"token {self._token}"
         return httpx.Request(method, url, headers=headers)
@@ -108,11 +113,11 @@ class GithubAppInstallationAuth(httpx.Auth):
         self._cached_token = CachedToken.get(self._installation["id"])
 
     @property
-    def _owner_id(self):
+    def _owner_id(self) -> int:
         return self._installation["account"]["id"]
 
     @property
-    def _owner_login(self):
+    def _owner_login(self) -> str:
         return self._installation["account"]["login"]
 
     @contextlib.contextmanager
@@ -170,7 +175,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         self, method: str, url: str, force: bool = False
     ) -> httpx.Request:
         headers = http.DEFAULT_HEADERS.copy()
-        headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"  # type: ignore[no-untyped-call]
+        headers["Authorization"] = f"Bearer {github_app.get_or_create_jwt(force)}"
         return httpx.Request(method, url, headers=headers)
 
     def _set_access_token(
@@ -301,7 +306,7 @@ class AsyncGithubClient(http.AsyncClient):
         auth: typing.Union[
             github_app.GithubBearerAuth, GithubAppInstallationAuth, GithubTokenAuth
         ],
-    ):
+    ) -> None:
         super().__init__(
             base_url=config.GITHUB_REST_API_URL,
             auth=auth,
@@ -467,7 +472,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
             GithubAppInstallationAuth,
             GithubTokenAuth,
         ],
-    ):
+    ) -> None:
         self._requests: typing.List[typing.Tuple[str, str]] = []
         self._requests_ratio: int = 1
         super().__init__(auth=auth)
@@ -492,20 +497,26 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
             self._requests.append((method, url))
         return reply
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         await super().aclose()
         self._generate_metrics()
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        await super().__aexit__(exc_type, exc_value, traceback)
+    async def __aexit__(
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]] = None,
+        exc_value: typing.Optional[BaseException] = None,
+        traceback: typing.Optional[types.TracebackType] = None,
+    ) -> None:
+        # NOTE(sileht): httpx typing set default as None, but missed typing.Optional
+        await super().__aexit__(exc_type, exc_value, traceback)  # type: ignore[arg-type]
         self._generate_metrics()
 
     def set_requests_ratio(self, ratio: int) -> None:
         self._requests_ratio = ratio
 
-    def _generate_metrics(self):
+    def _generate_metrics(self) -> None:
         nb_requests = len(self._requests)
-        statsd.histogram(
+        statsd.histogram(  # type: ignore[no-untyped-call]
             "http.client.session",
             nb_requests,
             tags=[f"hostname:{self.base_url.host}"],
