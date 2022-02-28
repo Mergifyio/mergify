@@ -57,3 +57,21 @@ async def signature(request: requests.Request) -> None:
 
     LOG.warning("Webhook signature invalid")
     raise fastapi.HTTPException(status_code=403)
+
+
+async def dashboard(request: requests.Request) -> None:
+    authorization = request.headers.get("Authorization")
+    if authorization:
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:]
+            if token == config.DASHBOARD_TO_ENGINE_API_KEY:
+                return
+
+            if (
+                config.DASHBOARD_TO_ENGINE_API_KEY_PRE_ROTATION is not None
+                and token == config.DASHBOARD_TO_ENGINE_API_KEY_PRE_ROTATION
+            ):
+                return
+
+    # fallback to legacy signature authorization
+    await signature(request)

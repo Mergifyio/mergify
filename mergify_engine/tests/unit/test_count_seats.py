@@ -147,7 +147,7 @@ async def test_get_usage_count_seats(event_type, event, redis_cache):
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
         data = b"a" * 123
         headers = {
-            "X-Hub-Signature": f"sha1={utils.compute_hmac(data, config.WEBHOOK_SECRET)}",
+            "Authorization": f"Bearer {config.DASHBOARD_TO_ENGINE_API_KEY}",
             "Content-Type": f"application/json; charset={charset}",
         }
         reply = await client.request(

@@ -22,6 +22,7 @@ from mergify_engine import crypto
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
+from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
 
@@ -288,16 +289,15 @@ class ApplicationGitHubCom(ApplicationBase):
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
     ) -> "ApplicationGitHubCom":
-        async with http.AsyncClient() as client:
+        async with dashboard.AsyncDashboardSaasClient() as client:
             headers: typing.Dict[str, str]
             if account_scope is None:
                 headers = {}
             else:
                 headers = {"Mergify-Application-Account-Scope": account_scope}
             resp = await client.post(
-                f"{config.SUBSCRIPTION_BASE_URL}/engine/applications",
+                "/engine/applications",
                 json={"token": f"{api_access_key}{api_secret_key}"},
-                auth=(config.OAUTH_CLIENT_ID, config.OAUTH_CLIENT_SECRET),
                 headers=headers,
             )
             data = typing.cast(ApplicationDashboardJSON, resp.json())

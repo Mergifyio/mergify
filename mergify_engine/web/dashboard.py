@@ -36,7 +36,7 @@ router = fastapi.APIRouter()
 
 @router.get(
     "/organization/{owner_id}/usage",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def get_stats(
     owner_id: github_types.GitHubAccountIdType,
@@ -68,7 +68,7 @@ async def get_stats(
 
 @router.put(
     "/subscription-cache/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def subscription_cache_update(
     owner_id: github_types.GitHubAccountIdType,
@@ -92,7 +92,7 @@ async def subscription_cache_update(
 
 @router.delete(
     "/subscription-cache/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def subscription_cache_delete(
     owner_id: github_types.GitHubAccountIdType,
@@ -109,7 +109,7 @@ async def subscription_cache_delete(
 
 @router.delete(
     "/tokens-cache/{owner_id}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def tokens_cache_delete(
     owner_id: github_types.GitHubAccountIdType,
@@ -126,7 +126,7 @@ async def tokens_cache_delete(
 
 @router.put(
     "/application/{api_access_key}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def application_cache_update(
     api_access_key: str,
@@ -151,7 +151,7 @@ async def application_cache_update(
 
 @router.delete(
     "/application/{api_access_key}",  # noqa: FS003
-    dependencies=[fastapi.Depends(auth.signature)],
+    dependencies=[fastapi.Depends(auth.dashboard)],
 )
 async def application_cache_delete(
     api_access_key: str,
