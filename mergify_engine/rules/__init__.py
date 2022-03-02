@@ -22,6 +22,7 @@ import operator
 import typing
 
 import daiquiri
+from ddtrace import tracer
 import voluptuous
 import yaml
 
@@ -411,6 +412,7 @@ class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
         return []
 
 
+@tracer.wrap("yaml.load")
 def YAML(v: bytes) -> typing.Any:
     try:
         return yaml.safe_load(v)
