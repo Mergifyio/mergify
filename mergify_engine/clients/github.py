@@ -516,7 +516,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
 
     def _generate_metrics(self) -> None:
         nb_requests = len(self._requests)
-        statsd.histogram(  # type: ignore[no-untyped-call]
+        statsd.histogram(
             "http.client.session",
             nb_requests,
             tags=[f"hostname:{self.base_url.host}"],
