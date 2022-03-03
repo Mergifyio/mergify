@@ -314,6 +314,46 @@ second, minute, hour, day, week, or abbreviations or plurals of these units;
    1 d 15 h 6 m 42 s
 
 
+YAML Anchors and Aliases
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The configuration file supports `YAML anchors and aliases <https://yaml.org/spec/1.2.2/#anchors-and-aliases>`.
+It allows reusing configuration sections. For example, you could reuse the list of continuous integration checks:
+
+.. code-block:: yaml
+
+    queue_rules:
+      - name: hotfix
+        conditions:
+          - and: &CheckRuns
+            - check-success=linters
+            - check-success=unit
+            - check-success=functionnal
+            - check-success=e2e
+            - check-success=docker
+
+      - name: default
+        conditions:
+          - and: *CheckRuns
+          - schedule=Mon-Fri 09:00-17:30[Europe/Paris]
+
+    pull_request_rules:
+      - name: automatic merge for hotfix
+        conditions:
+          - label=hotfix
+          - and: *CheckRuns
+        actions:
+          queue:
+            name: hotfix
+
+      - name: automatic merge reviewed pull request
+        conditions:
+          - "#approved-reviews-by>=1"
+          - and: *CheckRuns
+        actions:
+          queue:
+            name: default
+
 
 Disabling Rules
 ~~~~~~~~~~~~~~~
