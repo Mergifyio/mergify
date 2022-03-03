@@ -565,7 +565,7 @@ class StreamProcessor:
             installation.client.set_requests_ratio(pulls_processed)
 
             messages = await self.redis_stream.xrange(bucket_sources_key)
-            statsd.histogram("engine.buckets.events.read_size", len(messages))  # type: ignore[no-untyped-call]
+            statsd.histogram("engine.buckets.events.read_size", len(messages))
 
             if messages:
                 # TODO(sileht): 4.x.x, will have repo_name optional
@@ -689,7 +689,7 @@ class StreamProcessor:
                 except (PullRetry, UnexpectedPullRetry):
                     need_retries_later.add((repo_id, pull_number))
 
-        statsd.histogram("engine.buckets.read_size", pulls_processed)  # type: ignore[no-untyped-call]
+        statsd.histogram("engine.buckets.read_size", pulls_processed)
 
     async def _convert_event_to_messages(
         self,
@@ -756,7 +756,7 @@ class StreamProcessor:
                 else:
                     metric = "engine.buckets.events.latency"
 
-                statsd.histogram(  # type: ignore[no-untyped-call]
+                statsd.histogram(
                     metric,
                     (
                         date.utcnow() - date.fromisoformat(source["timestamp"])
@@ -1053,9 +1053,9 @@ class Worker:
         # based on hash+modulo
         if len(org_buckets) > self.global_shared_tasks_count:
             latency = now - org_buckets[self.global_shared_tasks_count][1]
-            statsd.timing("engine.streams.latency", latency)  # type: ignore[no-untyped-call]
+            statsd.timing("engine.streams.latency", latency)
         else:
-            statsd.timing("engine.streams.latency", 0)  # type: ignore[no-untyped-call]
+            statsd.timing("engine.streams.latency", 0)
 
         statsd.gauge("engine.streams.backlog", len(org_buckets))
         statsd.gauge("engine.workers.count", self.global_shared_tasks_count)
