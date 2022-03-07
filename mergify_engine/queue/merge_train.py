@@ -1299,13 +1299,29 @@ class Train(queue.QueueBase):
             key=lambda c: c.embarked_pull.user_pull_request_number == pull_number,
         )
 
+    @staticmethod
+    def _waiting_pulls_sorter(
+        pull: EmbarkedPull,
+    ) -> typing.Tuple[int, datetime.datetime]:
+        return (
+            pull.config["effective_priority"] * -1,
+            pull.queued_at,
+        )
+
+    @property
+    def _waiting_pulls_ordered_by_priority(self) -> typing.List[EmbarkedPull]:
+        return sorted(
+            self._waiting_pulls,
+            key=self._waiting_pulls_sorter,
+        )
+
     def _iter_embarked_pulls(
         self,
     ) -> typing.Iterator[EmbarkedPullWithCar]:
         for car in self._cars:
             for embarked_pull in car.still_queued_embarked_pulls:
                 yield EmbarkedPullWithCar(embarked_pull, car)
-        for embarked_pull in self._waiting_pulls:
+        for embarked_pull in self._waiting_pulls_ordered_by_priority:
             # NOTE(sileht): NamedTuple doesn't support multiple inheritance
             # the Protocol can't be inherited
             yield EmbarkedPullWithCar(embarked_pull, None)
@@ -1371,20 +1387,14 @@ class Train(queue.QueueBase):
             return
 
         new_embarked_pull = EmbarkedPull(ctxt.pull["number"], config, date.utcnow())
+        self._waiting_pulls.append(new_embarked_pull)
 
-        if best_position == -1:
-            self._waiting_pulls.append(new_embarked_pull)
-        else:
+        if best_position != -1:
             await self._slice_cars(
                 best_position,
                 reason=f"Pull request #{ctxt.pull['number']} with higher priority has been queued",
             )
-            number_of_pulls_in_cars = sum(
-                len(c.still_queued_embarked_pulls) for c in self._cars
-            )
-            self._waiting_pulls.insert(
-                best_position - number_of_pulls_in_cars, new_embarked_pull
-            )
+
         await self.save()
         ctxt.log.info(
             "pull request added to train",
@@ -1441,10 +1451,11 @@ class Train(queue.QueueBase):
             position,
             reason=f"Pull request #{ctxt.pull['number']} which was ahead in the queue has been dequeued",
         )
-        number_of_pulls_in_cars = sum(
-            len(c.still_queued_embarked_pulls) for c in self._cars
-        )
-        del self._waiting_pulls[position - number_of_pulls_in_cars]
+        self._waiting_pulls = [
+            wp
+            for wp in self._waiting_pulls
+            if wp.user_pull_request_number != ctxt.pull["number"]
+        ]
         await self.save()
         ctxt.log.info("removed from train", position=position, **self.log_queue_extras)
         await self._refresh_pulls(
@@ -1657,7 +1668,7 @@ class Train(queue.QueueBase):
             # Not enough cars
             for _ in range(missing_cars):
                 pulls_to_check, remaining_pulls = self._get_next_batch(
-                    self._waiting_pulls,
+                    self._waiting_pulls_ordered_by_priority,
                     head.config["name"],
                     queue_rule.config["batch_size"],
                 )
