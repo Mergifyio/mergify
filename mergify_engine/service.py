@@ -16,6 +16,7 @@ import os
 from datadog import statsd
 import ddtrace
 import sentry_sdk
+from sentry_sdk.integrations import httpx
 
 from mergify_engine import config
 from mergify_engine import logs
@@ -32,6 +33,9 @@ def setup(service_name: str, dump_config: bool = True) -> None:
             max_breadcrumbs=10,
             release=_version,
             environment=config.SENTRY_ENVIRONMENT,
+            integrations=[
+                httpx.HttpxIntegration(),
+            ],
         )
         sentry_sdk.utils.MAX_STRING_LENGTH = 2048
 
