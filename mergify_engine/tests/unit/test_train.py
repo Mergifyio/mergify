@@ -81,23 +81,32 @@ def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
 
 MERGIFY_CONFIG = """
 queue_rules:
-  - name: 1x2
+  - name: high-1x1
+    conditions: []
+    speculative_checks: 1
+
+  - name: high-1x2
     conditions: []
     speculative_checks: 1
     batch_size: 2
     batch_max_wait_time: 0 s
+
   - name: 1x5
     conditions: []
     speculative_checks: 1
     batch_size: 5
     batch_max_wait_time: 0 s
-  - name: one
-    conditions: []
-    speculative_checks: 1
-  - name: two
+
+  - name: 2x1
     conditions: []
     speculative_checks: 2
-  - name: five
+  - name: 2x5
+    conditions: []
+    speculative_checks: 2
+    batch_size: 5
+    batch_max_wait_time: 0 s
+
+  - name: 5x1
     conditions: []
     speculative_checks: 5
   - name: 5x3
@@ -105,35 +114,26 @@ queue_rules:
     speculative_checks: 5
     batch_size: 3
     batch_max_wait_time: 0 s
-  - name: 2x5
-    conditions: []
-    speculative_checks: 2
-    batch_size: 5
-    batch_max_wait_time: 0 s
-  - name: noint
-    conditions: []
-    speculative_checks: 2
-    batch_size: 5
-    batch_max_wait_time: 0 s
-    allow_checks_interruption: False
-  - name: noint-bis
-    conditions: []
-    speculative_checks: 2
-    batch_size: 5
-    batch_max_wait_time: 0 s
-    allow_checks_interruption: False
+
   - name: batch-wait-time
     conditions: []
     speculative_checks: 2
     batch_size: 2
     batch_max_wait_time: 5 m
-  - name: noint-nospec
+
+  - name: high-2x5-noint
     conditions: []
-    speculative_checks: 1
+    speculative_checks: 2
     batch_size: 5
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
-  - name: noint-nospecbis
+  - name: low-2x5-noint
+    conditions: []
+    speculative_checks: 2
+    batch_size: 5
+    batch_max_wait_time: 0 s
+    allow_checks_interruption: False
+  - name: low-1x5-noint
     conditions: []
     speculative_checks: 1
     batch_size: 5
@@ -228,7 +228,7 @@ async def test_train_add_pull(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five")
+    config = get_config("5x1")
 
     await t.add_pull(await context_getter(1), config)
     await t.refresh()
@@ -261,7 +261,7 @@ async def test_train_remove_middle_merged(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five")
+    config = get_config("5x1")
     await t.add_pull(await context_getter(1), config)
     await t.add_pull(await context_getter(2), config)
     await t.add_pull(await context_getter(3), config)
@@ -281,9 +281,9 @@ async def test_train_remove_middle_not_merged(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("five", 1000))
-    await t.add_pull(await context_getter(3), get_config("five", 100))
-    await t.add_pull(await context_getter(2), get_config("five", 1000))
+    await t.add_pull(await context_getter(1), get_config("5x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("5x1", 100))
+    await t.add_pull(await context_getter(2), get_config("5x1", 1000))
 
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
@@ -299,7 +299,7 @@ async def test_train_remove_head_not_merged(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five")
+    config = get_config("5x1")
 
     await t.add_pull(await context_getter(1), config)
     await t.add_pull(await context_getter(2), config)
@@ -318,7 +318,7 @@ async def test_train_remove_head_merged(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five")
+    config = get_config("5x1")
 
     await t.add_pull(await context_getter(1), config)
     await t.add_pull(await context_getter(2), config)
@@ -339,7 +339,7 @@ async def test_train_add_remove_pull_idempotant(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five", priority=0)
+    config = get_config("5x1", priority=0)
 
     await t.add_pull(await context_getter(1), config)
     await t.add_pull(await context_getter(2), config)
@@ -347,7 +347,7 @@ async def test_train_add_remove_pull_idempotant(
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    config = get_config("five", priority=10)
+    config = get_config("5x1", priority=10)
 
     await t.add_pull(await context_getter(1), config)
     await t.refresh()
@@ -376,8 +376,8 @@ async def test_train_mutiple_queue(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config_two = get_config("two", priority=0)
-    config_five = get_config("five", priority=0)
+    config_two = get_config("2x1", priority=0)
+    config_five = get_config("5x1", priority=0)
 
     await t.add_pull(await context_getter(1), config_two)
     await t.add_pull(await context_getter(2), config_two)
@@ -435,10 +435,10 @@ async def test_train_remove_duplicates(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("two", 1000))
-    await t.add_pull(await context_getter(2), get_config("two", 1000))
-    await t.add_pull(await context_getter(3), get_config("two", 1000))
-    await t.add_pull(await context_getter(4), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(4), get_config("2x1", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -471,9 +471,9 @@ async def test_train_remove_end_wp(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("one", 1000))
-    await t.add_pull(await context_getter(2), get_config("one", 1000))
-    await t.add_pull(await context_getter(3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("high-1x1", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
@@ -491,9 +491,9 @@ async def test_train_remove_first_wp(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("one", 1000))
-    await t.add_pull(await context_getter(2), get_config("one", 1000))
-    await t.add_pull(await context_getter(3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("high-1x1", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
@@ -511,9 +511,9 @@ async def test_train_remove_last_cars(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("one", 1000))
-    await t.add_pull(await context_getter(2), get_config("one", 1000))
-    await t.add_pull(await context_getter(3), get_config("one", 1000))
+    await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("high-1x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("high-1x1", 1000))
 
     await t.refresh()
     assert [[1]] == get_cars_content(t)
@@ -531,10 +531,10 @@ async def test_train_with_speculative_checks_decreased(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("five", 1000)
+    config = get_config("5x1", 1000)
     await t.add_pull(await context_getter(1), config)
 
-    QUEUE_RULES["five"].config["speculative_checks"] = 2
+    QUEUE_RULES["5x1"].config["speculative_checks"] = 2
 
     await t.add_pull(await context_getter(2), config)
     await t.add_pull(await context_getter(3), config)
@@ -556,7 +556,7 @@ async def test_train_with_speculative_checks_decreased(
         "MERGIFY_CONFIG",
         """
 queue_rules:
-  - name: five
+  - name: 5x1
     conditions: []
     speculative_checks: 2
 """,
@@ -573,9 +573,9 @@ async def test_train_queue_config_change(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("two", 1000))
-    await t.add_pull(await context_getter(2), get_config("two", 1000))
-    await t.add_pull(await context_getter(3), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("2x1", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -586,7 +586,7 @@ async def test_train_queue_config_change(
         "MERGIFY_CONFIG",
         """
 queue_rules:
-  - name: two
+  - name: 2x1
     conditions: []
     speculative_checks: 1
 """,
@@ -606,9 +606,9 @@ async def test_train_queue_config_deleted(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("two", 1000))
-    await t.add_pull(await context_getter(2), get_config("two", 1000))
-    await t.add_pull(await context_getter(3), get_config("five", 1000))
+    await t.add_pull(await context_getter(1), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("5x1", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
@@ -638,27 +638,27 @@ async def test_train_priority_change(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    await t.add_pull(await context_getter(1), get_config("two", 1000))
-    await t.add_pull(await context_getter(2), get_config("two", 1000))
-    await t.add_pull(await context_getter(3), get_config("two", 1000))
+    await t.add_pull(await context_getter(1), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(2), get_config("2x1", 1000))
+    await t.add_pull(await context_getter(3), get_config("2x1", 1000))
 
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 81000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 71000
     )
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
     # update the position but update the prio
-    await t.add_pull(await context_getter(1), get_config("two", 2000))
+    await t.add_pull(await context_getter(1), get_config("2x1", 2000))
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 82000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 72000
     )
 
 
@@ -666,29 +666,29 @@ def test_train_batch_split(repository: context.Repository) -> None:
     now = datetime.datetime.utcnow()
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     p1_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(1), get_config("two"), now
+        github_types.GitHubPullRequestNumber(1), get_config("2x1"), now
     )
     p2_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(2), get_config("two"), now
+        github_types.GitHubPullRequestNumber(2), get_config("2x1"), now
     )
     p3_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(3), get_config("two"), now
+        github_types.GitHubPullRequestNumber(3), get_config("2x1"), now
     )
     p4_five = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(4), get_config("five"), now
+        github_types.GitHubPullRequestNumber(4), get_config("5x1"), now
     )
 
     assert ([p1_two], [p2_two, p3_two, p4_five]) == t._get_next_batch(
-        [p1_two, p2_two, p3_two, p4_five], "two", 1
+        [p1_two, p2_two, p3_two, p4_five], "2x1", 1
     )
     assert ([p1_two, p2_two], [p3_two, p4_five]) == t._get_next_batch(
-        [p1_two, p2_two, p3_two, p4_five], "two", 2
+        [p1_two, p2_two, p3_two, p4_five], "2x1", 2
     )
     assert ([p1_two, p2_two, p3_two], [p4_five]) == t._get_next_batch(
-        [p1_two, p2_two, p3_two, p4_five], "two", 10
+        [p1_two, p2_two, p3_two, p4_five], "2x1", 10
     )
     assert ([], [p1_two, p2_two, p3_two, p4_five]) == t._get_next_batch(
-        [p1_two, p2_two, p3_two, p4_five], "five", 10
+        [p1_two, p2_two, p3_two, p4_five], "5x1", 10
     )
 
 
@@ -703,9 +703,9 @@ async def test_train_queue_splitted_on_failure_1x2(
     await t.load()
 
     for i in range(41, 43):
-        await t.add_pull(await context_getter(i), get_config("1x2", 1000))
+        await t.add_pull(await context_getter(i), get_config("high-1x2", 1000))
     for i in range(6, 20):
-        await t.add_pull(await context_getter(i), get_config("1x2", 1000))
+        await t.add_pull(await context_getter(i), get_config("high-1x2", 1000))
 
     await t.refresh()
     assert [[41, 42]] == get_cars_content(t)
@@ -1074,7 +1074,7 @@ async def test_train_no_interrupt_add_pull(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("noint")
+    config = get_config("high-2x5-noint")
 
     await t.add_pull(await context_getter(1), config)
     await t.refresh()
@@ -1093,19 +1093,19 @@ async def test_train_no_interrupt_add_pull(
 
     # Inserting high prio didn't break started speculative checks, but the PR
     # move above other
-    await t.add_pull(await context_getter(4), get_config("noint", 20000))
+    await t.add_pull(await context_getter(4), get_config("high-2x5-noint", 20000))
     await t.refresh()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [4, 3] == get_waiting_content(t)
 
 
-async def test_train_no_interrupt_across_queue1(
+async def test_train_always_interrupt_across_queue(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("noint-bis")
+    config = get_config("low-2x5-noint")
 
     await t.add_pull(await context_getter(1), config)
     await t.refresh()
@@ -1122,43 +1122,15 @@ async def test_train_no_interrupt_across_queue1(
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [3] == get_waiting_content(t)
 
-    # Inserting pr in high queue didn't break started speculative checks, but the PR
-    # move above other
-    await t.add_pull(await context_getter(4), get_config("noint"))
+    # Inserting pr in high queue always break started speculative checks even
+    # if allow_checks_interruption is set
+    await t.add_pull(await context_getter(4), get_config("high-2x5-noint"))
     await t.refresh()
+    # FIXME(sileht): This must interrupt check !!!
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [4, 3] == get_waiting_content(t)
-
-
-async def test_train_no_interrupt_across_queue2(
-    repository: context.Repository, context_getter: conftest.ContextGetterFixture
-) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
-    await t.load()
-
-    config = get_config("noint-nospecbis")
-
-    await t.add_pull(await context_getter(1), config)
-    await t.refresh()
-    assert [[1]] == get_cars_content(t)
-    assert [] == get_waiting_content(t)
-
-    await t.add_pull(await context_getter(2), config)
-    await t.refresh()
-    assert [[1]] == get_cars_content(t)
-    assert [2] == get_waiting_content(t)
-
-    await t.add_pull(await context_getter(3), config)
-    await t.refresh()
-    assert [[1]] == get_cars_content(t)
-    assert [2, 3] == get_waiting_content(t)
-
-    # Inserting pr in high queue didn't break started speculative checks, but the PR
-    # move above other
-    await t.add_pull(await context_getter(4), get_config("noint-nospec"))
-    await t.refresh()
-    assert [[1]] == get_cars_content(t)
-    assert [4, 2, 3] == get_waiting_content(t)
+    # assert [[4]] == get_cars_content(t)
+    # assert [1, 2, 3] == get_waiting_content(t)
 
 
 async def test_train_interrupt_mixed_across_queue(
@@ -1167,7 +1139,7 @@ async def test_train_interrupt_mixed_across_queue(
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     await t.load()
 
-    config = get_config("noint-nospecbis")
+    config = get_config("low-1x5-noint")
 
     await t.add_pull(await context_getter(1), config)
     await t.refresh()
@@ -1184,8 +1156,8 @@ async def test_train_interrupt_mixed_across_queue(
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
 
-    # Inserting pr in high queue that allow interruption should break the train
-    await t.add_pull(await context_getter(4), get_config("1x2"))
+    # Inserting pr in high queue always break started speculative checks
+    await t.add_pull(await context_getter(4), get_config("high-1x2"))
     await t.refresh()
     assert [[4]] == get_cars_content(t)
     assert [1, 2, 3] == get_waiting_content(t)
