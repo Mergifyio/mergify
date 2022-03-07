@@ -24,6 +24,7 @@ from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import utils
+from mergify_engine.clients import http
 
 
 if typing.TYPE_CHECKING:
@@ -151,18 +152,24 @@ async def get_checks_for_ref(
         params = {}
     else:
         params = {"check_name": check_name}
-    checks = [
-        to_check_run_light(check)
-        async for check in typing.cast(
-            typing.AsyncGenerator[github_types.GitHubCheckRun, None],
-            ctxt.client.items(
-                f"{ctxt.base_url}/commits/{sha}/check-runs",
-                api_version="antiope",
-                list_items="check_runs",
-                params=params,
-            ),
-        )
-    ]
+    try:
+        checks = [
+            to_check_run_light(check)
+            async for check in typing.cast(
+                typing.AsyncGenerator[github_types.GitHubCheckRun, None],
+                ctxt.client.items(
+                    f"{ctxt.base_url}/commits/{sha}/check-runs",
+                    api_version="antiope",
+                    list_items="check_runs",
+                    params=params,
+                ),
+            )
+        ]
+    except http.HTTPClientSideError as e:
+        if e.status_code == 422 and e.message.startswith("No commit found for SHA"):
+            return []
+        raise
+
     return checks
 
 
