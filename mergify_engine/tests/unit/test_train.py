@@ -1161,6 +1161,36 @@ async def test_train_no_interrupt_across_queue2(
     assert [4, 2, 3] == get_waiting_content(t)
 
 
+async def test_train_interrupt_mixed_across_queue(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    config = get_config("noint-nospecbis")
+
+    await t.add_pull(await context_getter(1), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(2), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2] == get_waiting_content(t)
+
+    await t.add_pull(await context_getter(3), config)
+    await t.refresh()
+    assert [[1]] == get_cars_content(t)
+    assert [2, 3] == get_waiting_content(t)
+
+    # Inserting pr in high queue that allow interruption should break the train
+    await t.add_pull(await context_getter(4), get_config("1x2"))
+    await t.refresh()
+    assert [[4]] == get_cars_content(t)
+    assert [1, 2, 3] == get_waiting_content(t)
+
+
 async def test_train_batch_max_wait_time(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
