@@ -1126,11 +1126,8 @@ async def test_train_always_interrupt_across_queue(
     # if allow_checks_interruption is set
     await t.add_pull(await context_getter(4), get_config("high-2x5-noint"))
     await t.refresh()
-    # FIXME(sileht): This must interrupt check !!!
-    assert [[1], [1, 2]] == get_cars_content(t)
-    assert [4, 3] == get_waiting_content(t)
-    # assert [[4]] == get_cars_content(t)
-    # assert [1, 2, 3] == get_waiting_content(t)
+    assert [[4]] == get_cars_content(t)
+    assert [1, 2, 3] == get_waiting_content(t)
 
 
 async def test_train_interrupt_mixed_across_queue(
