@@ -77,7 +77,7 @@ class QueueConfig(typing.TypedDict):
     batch_size: int
     batch_max_wait_time: datetime.timedelta
     allow_inplace_checks: bool
-    allow_checks_interruption: bool
+    disallow_checks_interruption_from_queues: typing.List[str]
     checks_timeout: typing.Optional[datetime.timedelta]
     draft_bot_account: typing.Optional[github_types.GitHubLogin]
 
@@ -104,19 +104,17 @@ class QueueRule:
         conditions = d.pop("conditions")
 
         # NOTE(sileht): backward compat
-        # FIXME(sileht): need mypy>0.920 for type: ignore[typeddict-item]
-        allow_inplace_speculative_checks = d.pop(  # type: ignore
-            "allow_inplace_speculative_checks", None
-        )
+        allow_inplace_speculative_checks = d["allow_inplace_speculative_checks"]  # type: ignore[typeddict-item]
         if allow_inplace_speculative_checks is not None:
             d["allow_inplace_checks"] = allow_inplace_speculative_checks
 
-        # FIXME(sileht): need mypy>0.920 for type: ignore[typeddict-item]
-        allow_speculative_checks_interruption = d.pop(  # type: ignore
-            "allow_speculative_checks_interruption", None
-        )
-        if allow_speculative_checks_interruption is not None:
-            d["allow_checks_interruption"] = allow_speculative_checks_interruption
+        allow_checks_interruption = d["allow_checks_interruption"]  # type: ignore[typeddict-item]
+        if allow_checks_interruption is None:
+            allow_checks_interruption = d["allow_speculative_checks_interruption"]  # type: ignore[typeddict-item]
+
+        # TODO(sileht): We should just delete this option at some point and hardcode the false behavior by default
+        if allow_checks_interruption is False:
+            d["disallow_checks_interruption_from_queues"].append(name)
 
         return cls(name, conditions, d)
 
@@ -514,19 +512,26 @@ QueueRulesSchema = voluptuous.All(
                     "batch_max_wait_time", default="30 s"
                 ): voluptuous.Coerce(PositiveInterval),
                 voluptuous.Required("allow_inplace_checks", default=True): bool,
-                voluptuous.Required("allow_checks_interruption", default=True): bool,
                 voluptuous.Required(
-                    "allow_inplace_speculative_checks", default=None
-                ): voluptuous.Any(None, bool),
-                voluptuous.Required(
-                    "allow_speculative_checks_interruption", default=None
-                ): voluptuous.Any(None, bool),
+                    "disallow_checks_interruption_from_queues", default=[]
+                ): [str],
                 voluptuous.Required("checks_timeout", default=None): voluptuous.Any(
                     None, voluptuous.All(str, voluptuous.Coerce(ChecksTimeout))
                 ),
                 voluptuous.Required("draft_bot_account", default=None): voluptuous.Any(
                     None, str
                 ),
+                # TODO(sileht): options to deprecate
+                voluptuous.Required(
+                    "allow_checks_interruption", default=None
+                ): voluptuous.Any(None, bool),
+                # Deprecated options
+                voluptuous.Required(
+                    "allow_inplace_speculative_checks", default=None
+                ): voluptuous.Any(None, bool),
+                voluptuous.Required(
+                    "allow_speculative_checks_interruption", default=None
+                ): voluptuous.Any(None, bool),
             },
             voluptuous.Coerce(QueueRule.from_dict),
         )
