@@ -387,6 +387,13 @@ class QueueRules:
                 )
             names.add(rule.name)
 
+        for rule in self.rules:
+            for name in rule.config["disallow_checks_interruption_from_queues"]:
+                if name not in names:
+                    raise voluptuous.error.Invalid(
+                        f"disallow_checks_interruption_from_queues containes an unkown queue: {name}"
+                    )
+
 
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
     def __str__(self):
