@@ -14,7 +14,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import os
+import typing
 
+import github_types
 import yaml
 
 from mergify_engine import context
@@ -24,12 +26,12 @@ from mergify_engine.tests.functional import base
 class BackportActionTestBase(base.FunctionalTestBase):
     async def _do_test_backport(
         self,
-        method,
-        config=None,
-        expected_title=None,
-        expected_body=None,
-        expected_author=None,
-    ):
+        method: str,
+        config: typing.Any = None,
+        expected_title: typing.Optional[str] = None,
+        expected_body: typing.Optional[str] = None,
+        expected_author: typing.Optional[str] = None,
+    ) -> github_types.GitHubPullRequest:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -88,6 +90,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
             assert bp_pull["title"] == expected_title
 
         if expected_body is not None:
+            assert bp_pull["body"] is not None
             assert bp_pull["body"].startswith(expected_body)
 
         if expected_author is not None:
@@ -120,7 +123,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
 
 
 class TestBackportAction(BackportActionTestBase):
-    async def test_backport_no_branch(self):
+    async def test_backport_no_branch(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -164,7 +167,11 @@ class TestBackportAction(BackportActionTestBase):
             == checks[0]["output"]["summary"]
         )
 
-    async def _do_backport_conflicts(self, ignore_conflicts, labels=None):
+    async def _do_backport_conflicts(
+        self, ignore_conflicts: bool, labels: typing.Optional[typing.List[str]] = None
+    ) -> typing.Tuple[
+        github_types.GitHubPullRequest, typing.List[github_types.GitHubCheckRun]
+    ]:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         rules = {
             "pull_request_rules": [
@@ -192,13 +199,15 @@ class TestBackportAction(BackportActionTestBase):
             ]
         }
         if labels is not None:
-            rules["pull_request_rules"][1]["actions"]["backport"]["labels"] = labels
+            # NOTE(sileht): mypy thinks "actions" key is a Collection[str]... instead of a Dict
+            rules["pull_request_rules"][1]["actions"]["backport"]["labels"] = labels  # type: ignore[index]
 
         await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
         # Commit something in stable
         await self.git("checkout", "--quiet", stable_branch)
         # Write in the file that create_pr will create in main
+        assert self.git.tmp is not None
         with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
             f.write(b"conflicts incoming")
         await self.git("add", "conflicts")
@@ -222,7 +231,7 @@ class TestBackportAction(BackportActionTestBase):
             ],
         )
 
-    async def test_backport_conflicts(self):
+    async def test_backport_conflicts(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p, checks = await self._do_backport_conflicts(False)
 
@@ -258,7 +267,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
             == checks[0]["output"]["summary"]
         )
 
-    async def test_backport_ignore_conflicts(self):
+    async def test_backport_ignore_conflicts(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p, checks = await self._do_backport_conflicts(True, ["backported"])
 
@@ -281,18 +290,18 @@ no changes added to commit (use "git add" and/or "git commit -a")
         ]
         assert pull["assignees"] == []
 
-    async def test_backport_with_labels(self):
+    async def test_backport_with_labels(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         p = await self._do_test_backport(
             "merge", config={"branches": [stable_branch], "labels": ["backported"]}
         )
         assert [label["name"] for label in p["labels"]] == ["backported"]
 
-    async def test_backport_merge_commit(self):
+    async def test_backport_merge_commit(self) -> None:
         p = await self._do_test_backport("merge")
         assert 2 == p["commits"]
 
-    async def test_backport_merge_commit_regexes(self):
+    async def test_backport_merge_commit_regexes(self) -> None:
         prefix = self.get_full_branch_name("stable")
         p = await self._do_test_backport(
             "merge",
@@ -302,15 +311,15 @@ no changes added to commit (use "git add" and/or "git commit -a")
         assert len(p["assignees"]) == 1
         assert p["assignees"][0]["login"] == "mergify-test4"
 
-    async def test_backport_squash_and_merge(self):
+    async def test_backport_squash_and_merge(self) -> None:
         p = await self._do_test_backport("squash")
         assert 1 == p["commits"]
 
-    async def test_backport_rebase_and_merge(self):
+    async def test_backport_rebase_and_merge(self) -> None:
         p = await self._do_test_backport("rebase")
         assert 2 == p["commits"]
 
-    async def test_backport_with_title_and_body(self):
+    async def test_backport_with_title_and_body(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         await self._do_test_backport(
             "merge",
@@ -327,7 +336,7 @@ no changes added to commit (use "git add" and/or "git commit -a")
 class TestBackportActionWithSub(BackportActionTestBase):
     SUBSCRIPTION_ACTIVE = True
 
-    async def test_backport_with_bot_account(self):
+    async def test_backport_with_bot_account(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         await self._do_test_backport(
             "merge",
