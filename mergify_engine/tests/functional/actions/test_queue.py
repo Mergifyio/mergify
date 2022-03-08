@@ -2722,7 +2722,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_checks": True,
-                                    "allow_checks_interruption": True,
+                                    "disallow_checks_interruption_from_queues": [],
                                     "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
@@ -2749,7 +2749,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_checks": True,
-                                    "allow_checks_interruption": True,
+                                    "disallow_checks_interruption_from_queues": [],
                                     "batch_max_wait_time": 30.0,
                                     "batch_size": 1,
                                     "checks_timeout": None,
@@ -2769,7 +2769,7 @@ DO NOT EDIT
                             "queue_rule": {
                                 "config": {
                                     "allow_inplace_checks": True,
-                                    "allow_checks_interruption": True,
+                                    "disallow_checks_interruption_from_queues": [],
                                     "batch_size": 1,
                                     "batch_max_wait_time": 30.0,
                                     "checks_timeout": None,
@@ -3446,7 +3446,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             batch_size=1,
             batch_max_wait_time=datetime.timedelta(seconds=0),
             allow_inplace_checks=True,
-            allow_checks_interruption=True,
+            disallow_checks_interruption_from_queues=[],
             checks_timeout=None,
             draft_bot_account=None,
         )
@@ -3521,7 +3521,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             batch_size=1,
             batch_max_wait_time=datetime.timedelta(seconds=0),
             allow_inplace_checks=True,
-            allow_checks_interruption=True,
+            disallow_checks_interruption_from_queues=[],
             checks_timeout=None,
             draft_bot_account=None,
         )

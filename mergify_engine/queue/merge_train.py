@@ -1305,11 +1305,12 @@ class Train(queue.QueueBase):
 
             car_can_be_interrupted = car is None or (
                 car.checks_conclusion == check_api.Conclusion.PENDING
-                and (
-                    embarked_pull.config["queue_config"]["priority"]
-                    < config["queue_config"]["priority"]
-                    or embarked_pull.config["queue_config"]["allow_checks_interruption"]
-                )
+                and config["queue_config"]["priority"]
+                >= embarked_pull.config["queue_config"]["priority"]
+                and config["name"]
+                not in embarked_pull.config["queue_config"][
+                    "disallow_checks_interruption_from_queues"
+                ]
             )
 
             if embarked_pull.user_pull_request_number == ctxt.pull["number"]:

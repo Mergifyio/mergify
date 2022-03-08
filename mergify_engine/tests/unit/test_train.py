@@ -140,6 +140,26 @@ queue_rules:
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
 
+  - name: urgent-1x4
+    conditions: []
+    speculative_checks: 1
+    batch_size: 4
+    batch_max_wait_time: 0 s
+  - name: fastlane-1x8-noint
+    conditions: []
+    speculative_checks: 1
+    batch_size: 8
+    batch_max_wait_time: 0 s
+    allow_checks_interruption: False
+  - name: regular-1x8-noint-from-fastlane-and-regular
+    conditions: []
+    speculative_checks: 1
+    batch_size: 4
+    batch_max_wait_time: 0 s
+    disallow_checks_interruption_from_queues:
+      - regular-1x8-noint-from-fastlane-and-regular
+      - fastlane-1x8-noint
+
 """
 
 QUEUE_RULES = voluptuous.Schema(rules.QueueRulesSchema)(
@@ -647,7 +667,8 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 71000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"]
+        == QUEUE_RULES["2x1"].config["priority"] * queue.QUEUE_PRIORITY_OFFSET + 1000
     )
 
     # NOTE(sileht): pull request got requeued with new configuration that don't
@@ -658,7 +679,8 @@ async def test_train_priority_change(
     assert [3] == get_waiting_content(t)
 
     assert (
-        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"] == 72000
+        t._cars[0].still_queued_embarked_pulls[0].config["effective_priority"]
+        == QUEUE_RULES["2x1"].config["priority"] * queue.QUEUE_PRIORITY_OFFSET + 2000
     )
 
 
@@ -1160,6 +1182,82 @@ async def test_train_interrupt_mixed_across_queue(
     assert [1, 2, 3] == get_waiting_content(t)
 
 
+async def test_train_disallow_checks_interruption_scenario_1(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    urgent = get_config("urgent-1x4")
+    fastlane = get_config("fastlane-1x8-noint")
+    regular = get_config("regular-1x8-noint-from-fastlane-and-regular")
+
+    await t.add_pull(await context_getter(1), fastlane)
+    await t.add_pull(await context_getter(2), fastlane)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    # regular doesn't interrupt the checks as it's below fastlane
+    await t.add_pull(await context_getter(3), regular)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    # fastlane doesn't interrupt the checks because of noint, but goes before
+    # regular
+    await t.add_pull(await context_getter(4), fastlane)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [4, 3] == get_waiting_content(t)
+
+    # urgent breaks everything, and all fastlane got pack together, regular move behind
+    await t.add_pull(await context_getter(5), urgent)
+    await t.refresh()
+    assert [[5]] == get_cars_content(t)
+    assert [1, 2, 4, 3] == get_waiting_content(t)
+
+
+async def test_train_disallow_checks_interruption_scenario_2(
+    repository: context.Repository, context_getter: conftest.ContextGetterFixture
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    await t.load()
+
+    urgent = get_config("urgent-1x4")
+    fastlane = get_config("fastlane-1x8-noint")
+    regular = get_config("regular-1x8-noint-from-fastlane-and-regular")
+
+    await t.add_pull(await context_getter(1), regular)
+    await t.add_pull(await context_getter(2), regular)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [] == get_waiting_content(t)
+
+    # fastlane doesn't interrupt the checks as
+    # disallow_checks_interruption_from_queues of regular disallow it
+    await t.add_pull(await context_getter(3), fastlane)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [3] == get_waiting_content(t)
+
+    # fastlane doesn't interrupt the checks because of noint, but goes before
+    # regular
+    await t.add_pull(await context_getter(4), regular)
+    await t.refresh()
+    assert [[1, 2]] == get_cars_content(t)
+    assert [3, 4] == get_waiting_content(t)
+
+    # urgent breaks everything, then we put the fastlane one, and all regulars goes behind
+    await t.add_pull(await context_getter(5), urgent)
+    await t.refresh()
+    assert [[5]] == get_cars_content(t)
+    # FIXME(sileht): This is buggy it should be:
+    # assert [3, 1, 2, 4] == get_waiting_content(t)
+    # MRGFY-975
+    assert [1, 2, 3, 4] == get_waiting_content(t)
+
+
 async def test_train_batch_max_wait_time(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
@@ -1282,7 +1380,7 @@ async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_2x
     ] == get_cars_content(t)
     assert [51] == get_waiting_content(t)
 
-    await t.add_pull(await context_getter(7), get_config("2x5", 10000))
+    await t.add_pull(await context_getter(7), get_config("2x5", 2000))
 
     await t.refresh()
     assert [[44, 45], [44, 45, 7, 46, 47, 48, 49]] == get_cars_content(t)
