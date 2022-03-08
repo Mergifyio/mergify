@@ -250,6 +250,18 @@ class TrainCar:
             ]
             still_queued_embarked_pulls = initial_embarked_pulls.copy()
 
+        # backward compat allow_checks_interruption ->
+        # disallow_checks_interruption_from_queues option migration
+        for ep in initial_embarked_pulls + still_queued_embarked_pulls:
+            ep.config["queue_config"].setdefault(
+                "disallow_checks_interruption_from_queues", []
+            )
+            if "allow_checks_interruption" in ep.config["queue_config"]:
+                ep.config["queue_config"][
+                    "disallow_checks_interruption_from_queues"
+                ].append(ep.config["name"])
+                del ep.config["queue_config"]["allow_checks_interruption"]  # type: ignore[typeddict-item]
+
         if "creation_state" in data:
             creation_state = data["creation_state"]
         else:
