@@ -183,7 +183,6 @@ async def push(
                 "data": data,
                 "timestamp": now.isoformat(),
             },
-            use_bin_type=True,
         )
         scheduled_at = now + datetime.timedelta(seconds=WORKER_PROCESSING_DELAY)
 
@@ -465,7 +464,7 @@ class StreamProcessor:
             for bucket in buckets:
                 messages = await self.redis_stream.xrange(bucket)
                 for _, message in messages:
-                    LOG.info(msgpack.unpackb(message[b"source"], raw=False))
+                    LOG.info(msgpack.unpackb(message[b"source"]))
                 await self.redis_stream.delete(bucket)
                 await self.redis_stream.delete(ATTEMPTS_KEY)
                 await self.redis_stream.zrem(bucket_org_key, bucket)
@@ -626,7 +625,7 @@ class StreamProcessor:
                 for message_id, message in messages:
                     source = typing.cast(
                         context.T_PayloadEventSource,
-                        msgpack.unpackb(message[b"source"], raw=False),
+                        msgpack.unpackb(message[b"source"]),
                     )
                     converted_messages = await self._convert_event_to_messages(
                         installation,
@@ -648,7 +647,7 @@ class StreamProcessor:
                 sources = [
                     typing.cast(
                         context.T_PayloadEventSource,
-                        msgpack.unpackb(message[b"source"], raw=False),
+                        msgpack.unpackb(message[b"source"]),
                     )
                     for _, message in messages
                 ]
