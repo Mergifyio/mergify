@@ -451,7 +451,7 @@ class TrainCar:
             ctxt.has_been_refreshed_by_timer(),
         )
         await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
-        await self.update_summaries(check_api.Conclusion.PENDING)
+        await self.update_summaries(check_api.Conclusion.PENDING, force_refresh=True)
 
     def _get_pulls_branch_ref(self) -> str:
         return "-".join(
@@ -599,7 +599,7 @@ class TrainCar:
             False,
         )
         await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
-        await self.update_summaries(check_api.Conclusion.PENDING)
+        await self.update_summaries(check_api.Conclusion.PENDING, force_refresh=True)
 
     async def generate_merge_queue_summary(
         self,
@@ -828,6 +828,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         conclusion: check_api.Conclusion,
         *,
         unexpected_change: typing.Optional[UnexpectedChange] = None,
+        force_refresh: bool = False,
     ) -> None:
         refs = self._get_user_refs()
         if conclusion == check_api.Conclusion.SUCCESS:
@@ -1003,7 +1004,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 report,
             )
 
-            if (
+            if force_refresh or (
                 self.creation_state == "created"
                 and conclusion != check_api.Conclusion.PENDING
             ):
