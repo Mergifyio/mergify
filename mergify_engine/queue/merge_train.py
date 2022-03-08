@@ -450,10 +450,13 @@ class TrainCar:
         retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
         stop=tenacity.stop_after_attempt(2),
     )
-    async def _prepare_empty_draft_pr_branch(self, branch_name: str) -> None:
+    async def _prepare_empty_draft_pr_branch(
+        self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
+    ) -> None:
         try:
             await self.train.repository.installation.client.post(
                 f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
+                oauth_token=github_user["oauth_access_token"] if github_user else None,
                 json={
                     "ref": f"refs/heads/{branch_name}",
                     "sha": self.initial_current_base_sha,
@@ -497,7 +500,7 @@ class TrainCar:
                 )
                 raise TrainCarPullRequestCreationFailure(self)
 
-        await self._prepare_empty_draft_pr_branch(branch_name)
+        await self._prepare_empty_draft_pr_branch(branch_name, github_user)
 
         for pull_number in self.parent_pull_request_numbers + [
             ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
@@ -505,6 +508,9 @@ class TrainCar:
             try:
                 await self.train.repository.installation.client.post(
                     f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/merges",
+                    oauth_token=github_user["oauth_access_token"]
+                    if github_user
+                    else None,
                     json={
                         "base": branch_name,
                         "head": f"refs/pull/{pull_number}/head",
