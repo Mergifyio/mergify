@@ -17,6 +17,7 @@
 import base64
 from unittest import mock
 
+import pytest
 from pytest_httpserver import httpserver
 
 from mergify_engine import context
@@ -217,6 +218,16 @@ async def test_configuration_changed(
         ),
         status=200,
     )
+
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.github/mergify.yml",
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond_with_json({}, status=404)
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify/config.yml",
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond_with_json({}, status=404)
+
     github_server.expect_oneshot_request(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
     ).respond_with_json({"check_runs": []}, status=200)
@@ -361,8 +372,8 @@ async def test_configuration_duplicated(
         assert main_config_file is not None
         assert main_config_file["decoded_content"] == b"pull_request_rules:"
 
-        changed = await engine._check_configuration_changes(ctxt, main_config_file)
-        assert changed
+        with pytest.raises(engine.MultipleConfigurationFileFound):
+            await engine._check_configuration_changes(ctxt, main_config_file)
 
     github_server.check_assertions()  # type: ignore [no-untyped-call]
 
@@ -512,6 +523,14 @@ async def test_configuration_initial(
         ),
         status=200,
     )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.github/mergify.yml",
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond_with_json({}, status=404)
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify/config.yml",
+        query_string={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond_with_json({}, status=404)
 
     github_server.expect_oneshot_request(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"

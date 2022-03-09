@@ -18,7 +18,6 @@ import time
 import typing
 from unittest import mock
 
-import pytest
 import yaml
 
 from mergify_engine import check_api
@@ -40,69 +39,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     Tests user github resource and are slow, so we must reduce the number
     of scenario as much as possible for now.
     """
-
-    async def test_no_configuration(self):
-        await self.setup_repo()
-        p, _ = await self.create_pr()
-        await self.run_engine()
-
-        p = await self.get_pull(p["number"])
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-        assert summary is not None
-        assert (
-            "no rules configured, just listening for commands"
-            == summary["output"]["title"]
-        )
-
-    async def test_empty_configuration(self):
-        await self.setup_repo("")
-        p, _ = await self.create_pr()
-        await self.run_engine()
-
-        p = await self.get_pull(p["number"])
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-        assert summary is not None
-        assert (
-            "no rules configured, just listening for commands"
-            == summary["output"]["title"]
-        )
-
-    async def test_merge_with_not_merged_attribute(self):
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "merge on main",
-                    "conditions": [f"base={self.main_branch_name}", "-merged"],
-                    "actions": {"merge": {}},
-                },
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules))
-
-        p, _ = await self.create_pr()
-        await self.run_engine()
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        assert await self.is_pull_merged(p["number"])
-
-        p = await self.get_pull(p["number"])
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        for check in await ctxt.pull_check_runs:
-            if check["name"] == "Rule: merge on main (merge)":
-                assert (
-                    "The pull request has been merged automatically"
-                    == check["output"]["title"]
-                )
-                assert (
-                    f"The pull request has been merged automatically at *{ctxt.pull['merge_commit_sha']}*"
-                    == check["output"]["summary"]
-                )
-                break
-        else:
-            pytest.fail("Merge check not found")
 
     async def test_merge_squash(self):
         rules = {
