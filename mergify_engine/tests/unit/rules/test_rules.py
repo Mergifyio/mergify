@@ -1750,3 +1750,55 @@ pull_request_rules:
     print(pull_request_rules)
     assert pull_request_rules[0].actions["queue"].config["name"] == "default"
     assert pull_request_rules[0].actions["queue"].config["method"] == "squash"
+
+
+def queue_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
+    return typing.cast(
+        rules.PullRequestRules,
+        voluptuous.Schema(rules.get_pull_request_rules_schema())(lst),
+    )
+
+
+def test_invalid_disallow_checks_interruption_from_queues():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+- name: default
+  conditions: []
+  disallow_checks_interruption_from_queues:
+    - whatever
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as i:
+        rules.get_mergify_config(file)
+    assert (
+        "disallow_checks_interruption_from_queues containes an unkown queue: whatever"
+        in str(i.value)
+    )
+
+
+def test_valid_disallow_checks_interruption_from_queues():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+- name: default
+  conditions: []
+- name: low
+  conditions: []
+  disallow_checks_interruption_from_queues:
+    - default
+""",
+    )
+
+    assert rules.get_mergify_config(file)["queue_rules"]["low"].config[
+        "disallow_checks_interruption_from_queues"
+    ] == ["default"]
