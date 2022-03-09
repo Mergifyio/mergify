@@ -1330,6 +1330,7 @@ class Train(queue.QueueBase):
     async def add_pull(
         self, ctxt: context.Context, config: queue.PullQueueConfig
     ) -> None:
+        ctxt.log.info("adding to train", **self.log_queue_extras)
 
         # NOTE(sileht): first, ensure the pull is not in another branch
         await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
@@ -1447,6 +1448,7 @@ class Train(queue.QueueBase):
 
         position = await self.get_position(ctxt)
         if position is None:
+            ctxt.log.info("already absent from train", **self.log_queue_extras)
             return
         await self._slice_cars(
             position,
