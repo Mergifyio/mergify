@@ -114,10 +114,62 @@ class EmbarkedPullWithCar(typing.NamedTuple):
     car: typing.Optional["TrainCar"]
 
 
-class EmbarkedPull(typing.NamedTuple):
+@dataclasses.dataclass
+class EmbarkedPull:
+    train: "Train" = dataclasses.field(repr=False)
     user_pull_request_number: github_types.GitHubPullRequestNumber
     config: queue.PullQueueConfig
     queued_at: datetime.datetime
+
+    class Serialized(typing.TypedDict):
+        user_pull_request_number: github_types.GitHubPullRequestNumber
+        config: queue.PullQueueConfig
+        queued_at: datetime.datetime
+
+    class OldSerialized(typing.NamedTuple):
+        user_pull_request_number: github_types.GitHubPullRequestNumber
+        config: queue.PullQueueConfig
+        queued_at: datetime.datetime
+
+    @classmethod
+    def deserialize(
+        cls,
+        train: "Train",
+        data: typing.Union["EmbarkedPull.Serialized", "EmbarkedPull.OldSerialized"],
+    ) -> "EmbarkedPull":
+        if isinstance(data, cls.OldSerialized):
+
+            # backward compat allow_checks_interruption ->
+            # disallow_checks_interruption_from_queues option migration
+            data.config["queue_config"].setdefault(
+                "disallow_checks_interruption_from_queues", []
+            )
+            if "allow_checks_interruption" in data.config["queue_config"]:
+                data.config["queue_config"][
+                    "disallow_checks_interruption_from_queues"
+                ].append(data.config["name"])
+                del data.config["queue_config"]["allow_checks_interruption"]  # type: ignore[typeddict-item]
+
+            return cls(
+                train=train,
+                user_pull_request_number=data.user_pull_request_number,
+                config=data.config,
+                queued_at=data.queued_at,
+            )
+        else:
+            return cls(
+                train=train,
+                user_pull_request_number=data["user_pull_request_number"],
+                config=data["config"],
+                queued_at=data["queued_at"],
+            )
+
+    def serialized(self) -> "EmbarkedPull.Serialized":
+        return self.Serialized(
+            user_pull_request_number=self.user_pull_request_number,
+            config=self.config,
+            queued_at=self.queued_at,
+        )
 
 
 TrainCarState = typing.Literal[
@@ -185,8 +237,8 @@ class TrainCar:
     checks_ended_timestamp: typing.Optional[datetime.datetime] = None
 
     class Serialized(typing.TypedDict):
-        initial_embarked_pulls: typing.List[EmbarkedPull]
-        still_queued_embarked_pulls: typing.List[EmbarkedPull]
+        initial_embarked_pulls: typing.List[EmbarkedPull.Serialized]
+        still_queued_embarked_pulls: typing.List[EmbarkedPull.Serialized]
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
         initial_current_base_sha: github_types.SHAType
         checks_conclusion: check_api.Conclusion
@@ -203,8 +255,12 @@ class TrainCar:
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
-            initial_embarked_pulls=self.initial_embarked_pulls,
-            still_queued_embarked_pulls=self.still_queued_embarked_pulls,
+            initial_embarked_pulls=[
+                ep.serialized() for ep in self.initial_embarked_pulls
+            ],
+            still_queued_embarked_pulls=[
+                ep.serialized() for ep in self.still_queued_embarked_pulls
+            ],
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
             creation_date=self.creation_date,
@@ -233,34 +289,25 @@ class TrainCar:
     ) -> "TrainCar":
         if "initial_embarked_pulls" in data:
             initial_embarked_pulls = [
-                EmbarkedPull(*ep) for ep in data["initial_embarked_pulls"]
+                EmbarkedPull.deserialize(train, ep)
+                for ep in data["initial_embarked_pulls"]
             ]
             still_queued_embarked_pulls = [
-                EmbarkedPull(*ep) for ep in data["still_queued_embarked_pulls"]
+                EmbarkedPull.deserialize(train, ep)
+                for ep in data["still_queued_embarked_pulls"]
             ]
 
         else:
             # old format
             initial_embarked_pulls = [
                 EmbarkedPull(
+                    train,
                     data["user_pull_request_number"],  # type: ignore
                     data["config"],  # type: ignore[typeddict-item]
                     data["queued_at"],  # type: ignore[typeddict-item]
                 )
             ]
             still_queued_embarked_pulls = initial_embarked_pulls.copy()
-
-        # backward compat allow_checks_interruption ->
-        # disallow_checks_interruption_from_queues option migration
-        for ep in initial_embarked_pulls + still_queued_embarked_pulls:
-            ep.config["queue_config"].setdefault(
-                "disallow_checks_interruption_from_queues", []
-            )
-            if "allow_checks_interruption" in ep.config["queue_config"]:
-                ep.config["queue_config"][
-                    "disallow_checks_interruption_from_queues"
-                ].append(ep.config["name"])
-                del ep.config["queue_config"]["allow_checks_interruption"]  # type: ignore[typeddict-item]
 
         if "creation_state" in data:
             creation_state = data["creation_state"]
@@ -1065,7 +1112,7 @@ class Train(queue.QueueBase):
 
     class Serialized(typing.TypedDict):
         cars: typing.List[TrainCar.Serialized]
-        waiting_pulls: typing.List[EmbarkedPull]
+        waiting_pulls: typing.List[EmbarkedPull.Serialized]
         current_base_sha: typing.Optional[github_types.SHAType]
 
     @classmethod
@@ -1140,7 +1187,9 @@ class Train(queue.QueueBase):
 
         if train_raw:
             train = typing.cast(Train.Serialized, json.loads(train_raw))
-            self._waiting_pulls = [EmbarkedPull(*wp) for wp in train["waiting_pulls"]]
+            self._waiting_pulls = [
+                EmbarkedPull.deserialize(self, wp) for wp in train["waiting_pulls"]
+            ]
             self._current_base_sha = train["current_base_sha"]
             self._cars = [TrainCar.deserialize(self, c) for c in train["cars"]]
         else:
@@ -1173,7 +1222,7 @@ class Train(queue.QueueBase):
     async def save(self) -> None:
         if self._waiting_pulls or self._cars:
             prepared = self.Serialized(
-                waiting_pulls=self._waiting_pulls,
+                waiting_pulls=[ep.serialized() for ep in self._waiting_pulls],
                 current_base_sha=self._current_base_sha,
                 cars=[c.serialized() for c in self._cars],
             )
@@ -1388,7 +1437,9 @@ class Train(queue.QueueBase):
             await self.add_pull(ctxt, config)
             return
 
-        new_embarked_pull = EmbarkedPull(ctxt.pull["number"], config, date.utcnow())
+        new_embarked_pull = EmbarkedPull(
+            self, ctxt.pull["number"], config, date.utcnow()
+        )
         self._waiting_pulls.append(new_embarked_pull)
 
         if best_position != -1:

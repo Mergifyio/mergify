@@ -3554,8 +3554,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         car = merge_train.TrainCar(
             q,
-            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
-            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(q, p2["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(q, p2["number"], config, date.utcnow())],
             [p1["number"]],
             base_sha,
         )
@@ -3629,8 +3629,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         car = merge_train.TrainCar(
             q,
-            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
-            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(q, p3["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(q, p3["number"], config, date.utcnow())],
             [p1["number"], p2["number"]],
             base_sha,
         )
