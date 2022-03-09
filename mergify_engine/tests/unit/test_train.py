@@ -220,7 +220,9 @@ def get_cars_content(
 def get_waiting_content(
     train: merge_train.Train,
 ) -> typing.List[github_types.GitHubPullRequestNumber]:
-    return [wp.user_pull_request_number for wp in train._waiting_pulls]
+    return [
+        wp.user_pull_request_number for wp in train._waiting_pulls_ordered_by_priority
+    ]
 
 
 def get_config(queue_name: str, priority: int = 100) -> queue.PullQueueConfig:
@@ -477,7 +479,7 @@ async def test_train_remove_duplicates(
     )
     t._cars = t._cars + t._cars
     assert [[1], [1, 2], [1], [1, 2]] == get_cars_content(t)
-    assert [3, 4, 1, 3] == get_waiting_content(t)
+    assert [1, 3, 3, 4] == get_waiting_content(t)
 
     # Everything should be back to normal
     await t.refresh()
@@ -1252,10 +1254,7 @@ async def test_train_disallow_checks_interruption_scenario_2(
     await t.add_pull(await context_getter(5), urgent)
     await t.refresh()
     assert [[5]] == get_cars_content(t)
-    # FIXME(sileht): This is buggy it should be:
-    # assert [3, 1, 2, 4] == get_waiting_content(t)
-    # MRGFY-975
-    assert [1, 2, 3, 4] == get_waiting_content(t)
+    assert [3, 1, 2, 4] == get_waiting_content(t)
 
 
 async def test_train_batch_max_wait_time(
