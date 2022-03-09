@@ -351,7 +351,8 @@ A ``queue_rules`` takes the following parameter:
    * - ``disallow_checks_interruption_from_queues``
      - list of ``queue`` names
      -
-     - The list of higher priorities ``queue`` that are not allowed to interrupt the ongoing checks of this queue.
+     - |premium plan tag| The list of higher priorities ``queue`` that are not
+       allowed to interrupt the ongoing checks of this queue.
    * - ``allow_checks_interruption``
      - bool
      - True
