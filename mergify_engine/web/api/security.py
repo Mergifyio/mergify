@@ -20,11 +20,14 @@ import daiquiri
 import fastapi
 
 from mergify_engine import config
+from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.clients import github
+from mergify_engine.clients import http
 from mergify_engine.dashboard import application as application_mod
+from mergify_engine.dashboard import subscription
 from mergify_engine.web import redis
 
 
@@ -85,3 +88,50 @@ async def get_installation(
         )
     except exceptions.MergifyNotInstalled:
         raise fastapi.HTTPException(status_code=403)
+
+
+async def get_repository_context_with_queue_freeze_feat_check(
+    owner: github_types.GitHubLogin = fastapi.Path(  # noqa: B008
+        ..., description="The owner of the repository"
+    ),
+    repository: github_types.GitHubRepositoryName = fastapi.Path(  # noqa: B008
+        ..., description="The name of the repository"
+    ),
+    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
+        redis.get_redis_cache
+    ),
+    redis_queue: utils.RedisQueue = fastapi.Depends(  # noqa: B008
+        redis.get_redis_queue
+    ),
+    installation_json: github_types.GitHubInstallation = fastapi.Depends(  # noqa: B008
+        get_installation
+    ),
+) -> context.Repository:
+
+    async with github.aget_client(installation_json) as client:
+        try:
+            # Check this token has access to this repository
+            repo = typing.cast(
+                github_types.GitHubRepository,
+                await client.item(f"/repos/{owner}/{repository}"),
+            )
+        except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
+            raise fastapi.HTTPException(status_code=404)
+
+        sub = await subscription.Subscription.get_subscription(
+            redis_cache, installation_json["account"]["id"]
+        )
+
+        installation = context.Installation(
+            installation_json, sub, client, redis_cache, redis_queue
+        )
+
+        # Check this sub has access to queue_freeze feature
+        if installation.subscription.has_feature(subscription.Features.QUEUE_FREEZE):
+            return installation.get_repository_from_github_data(repo)
+
+        else:
+            raise fastapi.HTTPException(
+                status_code=403,
+                detail=f"⚠ The [subscription](https://dashboard.mergify.com/github/{owner}/subscription) needs to be upgraded to enable the `queue_freeze` feature.",
+            )

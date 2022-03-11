@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    Mergify allows to freeze the merge of one or several queues through new added API endpoints.
+    (``/api/repos/<owner>/<repo>/queue/<queue_name>/freeze``,
+    ``/api/repos/<owner>/<repo>/queue/<queue_name>/unfreeze``,
+    ``/api/repos/<owner>/<repo>/queues/freezes``)
