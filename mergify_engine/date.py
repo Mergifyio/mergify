@@ -267,10 +267,10 @@ def pretty_datetime(dt: datetime.datetime) -> str:
 _INTERVAL_RE = re.compile(
     r"""
     (?P<filled>
-        ((?P<days>[-+]?\d+) \s+ d(ays?)? \s* )?
-        ((?P<hours>[-+]?\d+) \s+ h(ours?)? \s* )?
-        ((?P<minutes>[-+]?\d+) \s+ m(inutes?)? \s* )?
-        ((?P<seconds>[-+]?\d+) \s+ s(econds?)? \s* )?
+        ((?P<days>[-+]?\d+)\s*d(ays?)? \s* )?
+        ((?P<hours>[-+]?\d+)\s*h(ours?)? \s* )?
+        ((?P<minutes>[-+]?\d+)\s*m((inutes?|ins?)?)? \s* )?
+        ((?P<seconds>[-+]?\d+)\s*s(econds?)? \s* )?
     )
     """,
     re.VERBOSE,
