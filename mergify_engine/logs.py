@@ -84,10 +84,9 @@ def config_log() -> None:
         name = str(key)
         if (
             name == "OAUTH_CLIENT_ID"
-            or "PRIVATE_KEY" in name
             or "TOKEN" in name
             or "SECRET" in name
-            or "PRIVATE_KEY" in name
+            or "KEY" in name
         ) and value is not None:
             value = "*****"
         if "URL" in name and value is not None:
