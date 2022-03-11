@@ -487,14 +487,21 @@ def get_pull_request_rules_schema(partial_validation: bool = False) -> voluptuou
 
 
 def PositiveInterval(v: str) -> datetime.timedelta:
-    td = date.interval_from_string(v)
+    try:
+        td = date.interval_from_string(v)
+    except date.InvalidDate as e:
+        raise voluptuous.Invalid(e.message)
+
     if td < datetime.timedelta(seconds=0):
         raise voluptuous.Invalid("Interval must be positive")
     return td
 
 
 def ChecksTimeout(v: str) -> datetime.timedelta:
-    td = date.interval_from_string(v)
+    try:
+        td = date.interval_from_string(v)
+    except date.InvalidDate as e:
+        raise voluptuous.Invalid(e.message)
     if td < datetime.timedelta(seconds=60):
         raise voluptuous.Invalid("Interval must be greater than 60 seconds")
     return td
