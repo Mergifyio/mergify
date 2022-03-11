@@ -1802,3 +1802,30 @@ queue_rules:
     assert rules.get_mergify_config(file)["queue_rules"]["low"].config[
         "disallow_checks_interruption_from_queues"
     ] == ["default"]
+
+
+def test_invalid_interval():
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+- name: default
+  conditions: []
+  checks_timeout: whatever
+  batch_max_wait_time: whatever
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as i:
+        rules.get_mergify_config(file)
+    assert (
+        "* Invalid date interval for dictionary value @ queue_rules → item 0 → batch_max_wait_time"
+        in str(i.value)
+    )
+    assert (
+        "* not a valid value for dictionary value @ queue_rules → item 0 → checks_timeout"
+        in str(i.value)
+    )
