@@ -227,7 +227,7 @@ class EventReader:
             for key, expected in expected_data.items():
                 if key not in data:
                     return False
-                if not self._match(data[key], expected):  # type: ignore[misc]
+                if not self._match(data[key], expected):  # type: ignore[literal-required]
                     return False
             return True
         else:
