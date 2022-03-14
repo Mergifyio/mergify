@@ -305,8 +305,8 @@ Duration
 ~~~~~~~~
 
 Duration can be expressed as ``quantity unit [quantity unit...]`` where
-quantity is a number (possibly signed); unit is microsecond, millisecond,
-second, minute, hour, day, week, or abbreviations or plurals of these units;
+quantity is a number (possibly signed); unit is second, minute, hour, day,
+week, or abbreviations or plurals of these units;
 
 .. code-block::
 
