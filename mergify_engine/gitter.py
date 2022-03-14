@@ -96,7 +96,9 @@ class Gitter(object):
     GIT_COMMAND_TIMEOUT: int = dataclasses.field(init=False, default=4 * 60 + 30)
 
     async def init(self) -> None:
-        self.tmp = await asyncio.to_thread(tempfile.mkdtemp, prefix="mergify-gitter")
+        self.tmp = await asyncio.to_thread(  # type: ignore[call-arg]
+            tempfile.mkdtemp, prefix="mergify-gitter"
+        )
         version = await self("version")
         self.logger.info("git directory created", path=self.tmp, version=version)
         await self("init", "--initial-branch=tmp-mergify-trunk")
