@@ -234,8 +234,13 @@ def test_invalid_date_string(date_type, value, expected_message):
         ("1 seconds", datetime.timedelta(seconds=1)),
         ("1 second", datetime.timedelta(seconds=1)),
         ("1 s", datetime.timedelta(seconds=1)),
+        ("1s", datetime.timedelta(seconds=1)),
         (
             "1 days 15 hours 6 minutes 42 seconds",
+            datetime.timedelta(days=1, hours=15, minutes=6, seconds=42),
+        ),
+        (
+            "1days 15hours 6min 42s",
             datetime.timedelta(days=1, hours=15, minutes=6, seconds=42),
         ),
         (
