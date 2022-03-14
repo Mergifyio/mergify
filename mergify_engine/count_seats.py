@@ -332,25 +332,34 @@ class Seats:
                     installation["account"]["id"], installation["account"]["login"]
                 )
                 async with github.aget_client(installation) as client:
-                    async for repository in client.items(
-                        "/installation/repositories", list_items="repositories"
-                    ):
-                        repository = typing.cast(
-                            github_types.GitHubRepository, repository
-                        )
-                        repo = SeatRepository(repository["id"], repository["name"])
-                        async for collaborator in client.items(
-                            f"{repository['url']}/collaborators"
+                    try:
+                        async for repository in client.items(
+                            "/installation/repositories", list_items="repositories"
                         ):
-                            if collaborator["permissions"]["push"]:
-                                seat = SeatAccount(
-                                    collaborator["id"], collaborator["login"]
-                                )
-                                repo_seats = self.seats[org][repo]
-                                if repo_seats["write_users"] is None:
-                                    repo_seats["write_users"] = {seat}
-                                else:
-                                    repo_seats["write_users"].add(seat)
+                            repository = typing.cast(
+                                github_types.GitHubRepository, repository
+                            )
+                            repo = SeatRepository(repository["id"], repository["name"])
+                            async for collaborator in client.items(
+                                f"{repository['url']}/collaborators"
+                            ):
+                                if collaborator["permissions"]["push"]:
+                                    seat = SeatAccount(
+                                        collaborator["id"], collaborator["login"]
+                                    )
+                                    repo_seats = self.seats[org][repo]
+                                    if repo_seats["write_users"] is None:
+                                        repo_seats["write_users"] = {seat}
+                                    else:
+                                        repo_seats["write_users"].add(seat)
+                    except exceptions.MergifyNotInstalled:
+                        LOG.warning(
+                            "can't retrieve collaborators with write users access",
+                            account_id=installation["account"]["id"],
+                            account_login=installation["account"]["login"],
+                            suspended_at=installation["suspended_at"],
+                            suspended_by=installation["suspended_by"],
+                        )
 
 
 @tenacity.retry(
