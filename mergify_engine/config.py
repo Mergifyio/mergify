@@ -256,6 +256,7 @@ Schema = voluptuous.Schema(
 
 # Config variables available
 VERSION: str
+BASE_URL: str
 API_ENABLE: bool
 SENTRY_URL: str
 SENTRY_ENVIRONMENT: str

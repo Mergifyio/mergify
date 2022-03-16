@@ -16,38 +16,35 @@
 
 import argparse
 import asyncio
-import os
+import secrets
+import typing
 
 from mergify_engine import config
 from mergify_engine import utils
 from mergify_engine.clients import http
 
 
-async def api_call(url, method="post"):
-    data = os.urandom(250)
-    hmac = utils.compute_hmac(data)
-
+async def api_call(*args: typing.Any, **kwargs: typing.Any) -> None:
     async with http.AsyncClient() as client:
-        r = await client.request(
-            method, url, headers={"X-Hub-Signature": "sha1=" + hmac}, content=data
-        )
+        r = await client.request(*args, **kwargs)
     r.raise_for_status()
     print(r.text)
 
 
-def clear_token_cache():
+def clear_token_cache() -> None:
     parser = argparse.ArgumentParser(description="Force refresh of installation token")
     parser.add_argument("owner_id")
     args = parser.parse_args()
     asyncio.run(
         api_call(
+            "DELETE",
             config.BASE_URL + f"/subscription-cache/{args.owner_id}",
-            method="delete",
+            headers={"Authorization": f"bearer {config.DASHBOARD_TO_ENGINE_API_KEY}"},
         )
     )
 
 
-def refresher():
+def refresher() -> None:
     parser = argparse.ArgumentParser(description="Force refresh of mergify_engine")
     parser.add_argument(
         "--action", default="user", choices=["user", "admin", "internal"]
@@ -67,21 +64,15 @@ def refresher():
     if args.urls:
         for url in args.urls:
             url = url.replace("https://github.com/", "")
+            data = secrets.token_hex(250)
+            hmac = utils.compute_hmac(data.encode(), config.WEBHOOK_SECRET)
             asyncio.run(
-                api_call(f"{config.BASE_URL}/refresh/{url}?action={args.action}")
+                api_call(
+                    "POST",
+                    f"{config.BASE_URL}/refresh/{url}?action={args.action}",
+                    headers={"X-Hub-Signature": "sha1=" + hmac},
+                    content=data,
+                )
             )
     else:
         parser.print_help()
-
-
-def queues():
-    parser = argparse.ArgumentParser(description="Show queue of mergify_engine")
-    parser.add_argument("owner_id", type=int)
-
-    args = parser.parse_args()
-    asyncio.run(
-        api_call(
-            config.BASE_URL + f"/queues/{args.owner_id}",
-            method="GET",
-        )
-    )
