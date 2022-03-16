@@ -52,6 +52,7 @@ class Features(enum.Enum):
     SHOW_SPONSOR = "show_sponsor"
     DEDICATED_WORKER = "dedicated_worker"
     ADVANCED_MONITORING = "advanced_monitoring"
+    QUEUE_FREEZE = "queue_freeze"
 
 
 class SubscriptionDict(typing.TypedDict):
@@ -69,6 +70,7 @@ class SubscriptionDict(typing.TypedDict):
             "show_sponsor",
             "dedicated_worker",
             "advanced_monitoring",
+            "queue_freeze",
         ]
     ]
 

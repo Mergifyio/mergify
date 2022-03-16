@@ -29,6 +29,7 @@ from mergify_engine import utils
 from mergify_engine.actions import merge_base
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
+from mergify_engine.queue import freeze
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import conditions
 from mergify_engine.rules import types
@@ -258,10 +259,14 @@ Then, re-embark the pull request into the merge queue by posting the comment
             if await self._should_be_queued(ctxt, q):
                 await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
                 try:
-                    if await self._should_be_merged(ctxt, rule, q):
+                    qf = await freeze.QueueFreeze.get(
+                        ctxt.repository, self.config["name"]
+                    )
+                    if await self._should_be_merged(ctxt, q, qf):
                         result = await self._merge(ctxt, rule, q, merge_bot_account)
                     else:
-                        result = await self.get_queue_status(ctxt, rule, q)
+                        result = await self.get_queue_status(ctxt, rule, q, qf)
+
                 except Exception:
                     await q.remove_pull(ctxt)
                     raise
@@ -394,8 +399,15 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ]
 
     async def _should_be_merged(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueT
+        self,
+        ctxt: context.Context,
+        q: queue.QueueT,
+        qf: typing.Optional[freeze.QueueFreeze],
     ) -> bool:
+
+        if qf is not None:
+            return False
+
         if not await q.is_first_pull(ctxt):
             return False
 
@@ -463,9 +475,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
         q: typing.Optional[queue.QueueBase],
+        qf: typing.Optional[freeze.QueueFreeze] = None,
     ) -> check_api.Result:
         if q is None:
             title = "The pull request will be merged soon"
+        elif qf is not None:
+            title = f'The queue "{qf.name}" is currently frozen, for the following reason: {qf.reason}'
         else:
             position = await q.get_position(ctxt)
             if position is None:

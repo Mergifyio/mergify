@@ -22,13 +22,17 @@ import fastapi
 import pydantic
 
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
+from mergify_engine.dashboard import application as application_mod
 from mergify_engine.dashboard import subscription
+from mergify_engine.queue import freeze
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import get_mergify_config
 from mergify_engine.web import api
 from mergify_engine.web import redis
 from mergify_engine.web.api import security
@@ -137,6 +141,41 @@ class Queues:
     )
 
 
+@pydantic.dataclasses.dataclass
+class QueueFreezePayload:
+    reason: str = dataclasses.field(
+        metadata={"description": "The reason of the queue freeze"}
+    )
+
+
+@pydantic.dataclasses.dataclass
+class QueueFreeze:
+    application_name: str = dataclasses.field(
+        metadata={"description": "Application name responsible for the freeze"},
+    )
+    application_id: int = dataclasses.field(
+        metadata={"description": "Application ID responsible for the freeze"},
+    )
+    name: str = dataclasses.field(
+        default_factory=str, metadata={"description": "Queue name"}
+    )
+    reason: str = dataclasses.field(
+        default_factory=str, metadata={"description": "The reason of the queue freeze"}
+    )
+    freeze_date: datetime.datetime = dataclasses.field(
+        default_factory=date.utcnow,
+        metadata={"description": "The date and time of the freeze"},
+    )
+
+
+@pydantic.dataclasses.dataclass
+class QueueFreezeResponse:
+    queue_freezes: typing.List[QueueFreeze] = dataclasses.field(
+        default_factory=list,
+        metadata={"description": "The frozen queues of the repository"},
+    )
+
+
 @router.get(
     "/repos/{owner}/{repository}/queues",  # noqa: FS003
     summary="Get merge queues",
@@ -235,9 +274,10 @@ async def repository_queues(
         security.get_installation
     ),
 ) -> Queues:
+
     async with github.aget_client(installation_json) as client:
         try:
-            # Check this token as access to this repository
+            # Check this token has access to this repository
             repo = typing.cast(
                 github_types.GitHubRepository,
                 await client.item(f"/repos/{owner}/{repository}"),
@@ -246,7 +286,7 @@ async def repository_queues(
             raise fastapi.HTTPException(status_code=404)
 
         sub = await subscription.Subscription.get_subscription(
-            redis_cache, repo["owner"]["id"]
+            redis_cache, installation_json["account"]["id"]
         )
         installation = context.Installation(
             installation_json, sub, client, redis_cache, redis_queue
@@ -319,3 +359,159 @@ async def repository_queues(
             queues.queues.append(queue)
 
         return queues
+
+
+@router.put(
+    "/repos/{owner}/{repository}/queue/{queue_name}/freeze",  # noqa: FS003
+    summary="Freezes merge queue",
+    description="Freezes the merge of the requested queue and the queues following it",
+    response_model=QueueFreezeResponse,
+)
+async def create_queue_freeze(
+    queue_freeze_payload: QueueFreezePayload,
+    application: application_mod.Application = fastapi.Depends(  # noqa: B008
+        security.get_application
+    ),
+    queue_name: rules.QueueName = fastapi.Path(  # noqa: B008
+        ..., description="The name of the queue"
+    ),
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context_with_queue_freeze_feat_check
+    ),
+) -> QueueFreezeResponse:
+
+    if queue_freeze_payload.reason == "":
+        queue_freeze_payload.reason = "No freeze reason was specified."
+
+    config_file = await repository_ctxt.get_mergify_config_file()
+    if config_file is None:
+        raise fastapi.HTTPException(
+            status_code=404, detail="Mergify configuration file is missing."
+        )
+
+    config = get_mergify_config(config_file)
+    queue_rules = config["queue_rules"]
+    if all(queue_name != rule.name for rule in queue_rules):
+        raise fastapi.HTTPException(
+            status_code=404, detail=f'The queue "{queue_name}" does not exists.'
+        )
+
+    qf = await freeze.QueueFreeze.get(repository_ctxt, queue_name)
+    if qf is None:
+        qf = freeze.QueueFreeze(
+            repository=repository_ctxt,
+            name=queue_name,
+            reason=queue_freeze_payload.reason,
+            application_name=application.name,
+            application_id=application.id,
+            freeze_date=date.utcnow(),
+        )
+        await qf.save()
+
+    elif qf.reason != queue_freeze_payload.reason:
+        qf.reason = queue_freeze_payload.reason
+        await qf.save()
+
+    return QueueFreezeResponse(
+        queue_freezes=[
+            QueueFreeze(
+                name=qf.name,
+                reason=qf.reason,
+                application_name=qf.application_name,
+                application_id=qf.application_id,
+                freeze_date=qf.freeze_date,
+            )
+        ],
+    )
+
+
+@router.delete(
+    "/repos/{owner}/{repository}/queue/{queue_name}/unfreeze",  # noqa: FS003
+    summary="Unfreeze merge queue",
+    description="Unfreeze the specified merge queue",
+    status_code=204,
+)
+async def delete_queue_freeze(
+    application: application_mod.Application = fastapi.Depends(  # noqa: B008
+        security.get_application
+    ),
+    queue_name: rules.QueueName = fastapi.Path(  # noqa: B008
+        ..., description="The name of the queue"
+    ),
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context_with_queue_freeze_feat_check
+    ),
+) -> None:
+
+    qf = freeze.QueueFreeze(
+        repository=repository_ctxt,
+        name=queue_name,
+        application_name=application.name,
+        application_id=application.id,
+    )
+    if not await qf.delete():
+        raise fastapi.HTTPException(
+            status_code=404,
+            detail=f'The queue "{queue_name}" does not exists or is not currently frozen.',
+        )
+
+
+@router.get(
+    "/repos/{owner}/{repository}/queue/{queue_name}/freeze",  # noqa: FS003
+    summary="Get queue freeze data",
+    description="Checks if the queue is frozen and get the queue freeze data",
+    response_model=QueueFreezeResponse,
+)
+async def get_queue_freeze(
+    queue_name: rules.QueueName = fastapi.Path(  # noqa: B008
+        ..., description="The name of the queue"
+    ),
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context_with_queue_freeze_feat_check
+    ),
+) -> QueueFreezeResponse:
+
+    qf = await freeze.QueueFreeze.get(repository_ctxt, queue_name)
+    if qf is None:
+        raise fastapi.HTTPException(
+            status_code=404,
+            detail=f'The queue "{queue_name}" does not exists or is not currently frozen.',
+        )
+
+    return QueueFreezeResponse(
+        queue_freezes=[
+            QueueFreeze(
+                name=qf.name,
+                reason=qf.reason,
+                application_name=qf.application_name,
+                application_id=qf.application_id,
+                freeze_date=qf.freeze_date,
+            )
+        ],
+    )
+
+
+@router.get(
+    "/repos/{owner}/{repository}/queues/freezes",  # noqa: FS003
+    summary="Get the list of frozen queues",
+    description="Get the list of frozen queues inside the requested repository",
+    response_model=QueueFreezeResponse,
+)
+async def get_list_queue_freeze(
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context_with_queue_freeze_feat_check
+    ),
+) -> QueueFreezeResponse:
+
+    return QueueFreezeResponse(
+        queue_freezes=[
+            QueueFreeze(
+                name=qf.name,
+                reason=qf.reason,
+                application_name=qf.application_name,
+                application_id=qf.application_id,
+                freeze_date=qf.freeze_date,
+            )
+            async for qf in freeze.QueueFreeze.get_all(repository_ctxt)
+        ]
+    )

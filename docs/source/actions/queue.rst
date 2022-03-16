@@ -213,6 +213,30 @@ For example, if your queue is 15 pull requests long and you have
 draft pull requests of 5 pull requests each being tested at the same time. If
 your CI time is 10 min, you can merge those 15 pull requests in only 10 minutes.
 
+Queue Freeze
+~~~~~~~~~~~~
+
+|premium plan tag|
+
+Mergify allows freezing the merge of one or several queues simultaneously to provide maximum control
+and flexibility on how and when you want the code to be merged.
+
+The freeze feature is available through `the Mergify API <https://docs.mergify.com/api>`_.
+A set of API endpoints allows you to create, get, update and delete freezes on your queues.
+
+When a queue is frozen, all the checks and CI configured on the queue rules are still scheduled and triggered;
+only the merge is blocked. Freezing allows you to continue your work, development, and testing while ensuring
+that no pull requests will be merged from the queue.
+
+For example, let's say you have three queues, respectively ``hotfix``, ``default`` and ``lowprio``, in this order.
+
+You are in the middle of an incident for your project, and want your production branch
+not to receive anything other than bug fixes. By creating a freeze on the ``default`` queue, you are now
+assured that nothing from this queue  — nor the queue after it, ``lowprio`` — will be merged.
+
+Meanwhile, you can still merge pull requests pushed to the ``hotfix`` queue.
+
+Once your incident is resolved, you can unfreeze the queue ``default`` and returns to the previous state.
 
 Options
 -------

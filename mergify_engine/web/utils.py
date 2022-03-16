@@ -44,3 +44,29 @@ def setup_exception_handlers(app: fastapi.FastAPI) -> None:
             status_code=403,
             content={"message": "Organization or user has hit GitHub API rate limit"},
         )
+
+    @app.exception_handler(fastapi.exceptions.RequestValidationError)
+    async def request_validation_error_handler(
+        request: requests.Request, exc: fastapi.exceptions.RequestValidationError
+    ) -> responses.JSONResponse:
+
+        validation_errors = exc.errors()
+        for err in validation_errors:
+            if err["type"] == "value_error.missing":
+                return responses.JSONResponse(
+                    status_code=422,
+                    content={"detail": "Missing request body parameter"},
+                )
+
+            if err["type"] == "type_error":
+                return responses.JSONResponse(
+                    status_code=422,
+                    content={
+                        "detail": f'Body parameter got an unexpected keyword argument {err["msg"].split(" ")[-1]}'
+                    },
+                )
+
+        return responses.JSONResponse(
+            status_code=400,
+            content={"detail": str(exc.errors())},
+        )

@@ -89,7 +89,7 @@ class Installation:
     subscription: subscription_mod.Subscription = dataclasses.field(repr=False)
     client: github.AsyncGithubInstallationClient = dataclasses.field(repr=False)
     redis: utils.RedisCache = dataclasses.field(repr=False)
-    redis_queue: typing.Optional[utils.RedisQueue] = dataclasses.field(repr=False)
+    redis_queue: utils.RedisQueue = dataclasses.field(repr=False)
 
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
         dataclasses.field(default_factory=dict, repr=False)
