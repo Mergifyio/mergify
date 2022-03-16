@@ -337,12 +337,18 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # We just rebase the pull request, don't cancel it yet if CIs are
             # running. The pull request will be merged if all rules match again.
             # if not we will delete it when we received all CIs termination
-            if await self._should_be_cancel(ctxt, rule, q):
-                result = actions.CANCELLED_CHECK_REPORT
+            if await self._should_be_queued(ctxt, q):
+                if await self._should_be_cancel(ctxt, rule, q):
+                    result = actions.CANCELLED_CHECK_REPORT
+                else:
+                    result = await self.get_queue_status(ctxt, rule, q)
             else:
-                result = await self.get_queue_status(ctxt, rule, q)
-        elif not ctxt.closed:
-            result = actions.CANCELLED_CHECK_REPORT
+                result = check_api.Result(
+                    check_api.Conclusion.CANCELLED,
+                    "The pull request has been removed from the queue",
+                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
+                    f"{self.UNQUEUE_DOCUMENTATION}",
+                )
 
         if result.conclusion is not check_api.Conclusion.PENDING:
             await q.remove_pull(ctxt)
@@ -433,40 +439,20 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.creation_state == "updated":
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
-                ctxt.repository,
-                ctxt.pull["base"]["ref"],
-                [ctxt.pull_request],
-                ctxt.log,
-                ctxt.has_been_refreshed_by_timer(),
-            )
-
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await merge_base.get_rule_checks_status(
                 ctxt.log, ctxt.repository, [ctxt.pull_request], rule
             )
-            if pull_rule_checks_status == check_api.Conclusion.FAILURE:
-                return True
-
             # NOTE(sileht): if the pull request rules are pending we wait their
             # match before checking queue rules states, in case of one
             # condition suddently unqueue the pull request.
             # TODO(sileht): we may want to make this behavior configurable as
             # people having slow/long CI running only on pull request rules, we
             # may want to merge it before it finishes.
-            elif pull_rule_checks_status == check_api.Conclusion.PENDING:
-                return False
-
-            # NOTE(sileht): This car have been updated/rebased, so we should not cancel
-            # the merge until we have a check that doesn't pass
-            queue_rule_checks_status = await merge_base.get_rule_checks_status(
-                ctxt.log,
-                ctxt.repository,
-                [ctxt.pull_request],
-                queue_rule_evaluated,
-                unmatched_conditions_return_failure=False,
+            return pull_rule_checks_status not in (
+                check_api.Conclusion.PENDING,
+                check_api.Conclusion.SUCCESS,
             )
-            return queue_rule_checks_status == check_api.Conclusion.FAILURE
 
         return True
 

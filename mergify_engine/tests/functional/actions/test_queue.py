@@ -3167,7 +3167,7 @@ DO NOT EDIT
 
         await self._assert_cars_contents(q, None, [])
 
-    async def test_queue_ci_timeout(self):
+    async def test_queue_ci_timeout_inplace(self):
         config = {
             "queue_rules": [
                 {
@@ -3181,7 +3181,10 @@ DO NOT EDIT
             "pull_request_rules": [
                 {
                     "name": "queue",
-                    "conditions": [f"base={self.main_branch_name}"],
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "check-success=continuous-integration/fake-ci",
+                    ],
                     "actions": {"queue": {"name": "default"}},
                 },
             ],
@@ -3189,10 +3192,25 @@ DO NOT EDIT
         with freeze_time("2021-05-30T10:00:00", tick=True):
             await self.setup_repo(yaml.dump(config))
 
+            p1, _ = await self.create_pr()
+
+            # To force others to be rebased
             p, _ = await self.create_pr()
+            await self.merge_pull(p["number"])
+            await self.wait_for("pull_request", {"action": "closed"})
             await self.run_engine()
+
+            await self.create_status(p1)
+            await self.run_engine()
+
+            await self.wait_for("pull_request", {"action": "synchronize"})
+            await self.run_engine()
+
+            # p1 has been rebased
+            p1 = await self.get_pull(p1["number"])
+
             check = first(
-                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
             assert (
@@ -3208,16 +3226,89 @@ DO NOT EDIT
 
             await self.run_engine()
             check = first(
-                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
-
             assert (
                 check["output"]["title"]
                 == "The pull request has been removed from the queue"
             )
             check = first(
-                await context.Context(self.repository_ctxt, p).pull_engine_check_runs,
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Queue: Embarked in merge train",
+            )
+
+            assert "checks have timed out" in check["output"]["summary"]
+
+    async def test_queue_ci_timeout_draft_pr(self):
+        config = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "checks_timeout": "10 m",
+                    "allow_inplace_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        with freeze_time("2021-05-30T10:00:00", tick=True):
+            await self.setup_repo(yaml.dump(config))
+
+            p1, _ = await self.create_pr()
+
+            # To force others to be rebased
+            p, _ = await self.create_pr()
+            await self.merge_pull(p["number"])
+            await self.wait_for("pull_request", {"action": "closed"})
+            await self.run_engine()
+
+            await self.create_status(p1)
+            await self.run_engine()
+
+            await self.wait_for("pull_request", {"action": "opened"})
+            await self.run_engine()
+
+            # p1 has been rebased
+            p1 = await self.get_pull(p1["number"])
+
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+                "delayed-refresh", "-inf", "+inf", withscores=True
+            )
+            assert len(pulls_to_refresh) == 1
+
+        with freeze_time("2021-05-30T10:12:00", tick=True):
+
+            await self.run_engine()
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request has been removed from the queue"
+            )
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
 
