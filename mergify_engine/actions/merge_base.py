@@ -38,84 +38,6 @@ FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
 
-async def get_rule_checks_status_next(
-    log: "logging.LoggerAdapter[logging.Logger]",
-    repository: context.Repository,
-    pulls: typing.List[context.BasePullRequest],
-    rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
-) -> check_api.Conclusion:
-    tree = rule.conditions.extract_raw_filter_tree()
-    results: typing.Dict[int, filter.IncompleteChecksResult] = {}
-
-    for pull in pulls:
-        f = filter.IncompleteChecksFilter(
-            tree,
-            pending_checks=await getattr(pull, "check-pending"),
-            all_checks=await pull.check,  # type: ignore[attr-defined]
-        )
-        live_resolvers.configure_filter(repository, f)
-
-        ret = await f(pull)
-        if ret is filter.IncompleteCheck:
-            log.debug("found an incomplete check")
-            return check_api.Conclusion.PENDING
-
-        pr_number = await pull.number  # type: ignore[attr-defined]
-        results[pr_number] = ret
-
-    if all(results.values()):
-        # This can't occur!, we should have returned SUCCESS earlier.
-        log.error(
-            "filter.IncompleteChecksFilter unexpectly returned true",
-            tree=tree,
-            results=results,
-        )
-        # So don't merge broken stuff
-        return check_api.Conclusion.PENDING
-    else:
-        return check_api.Conclusion.FAILURE
-
-
-async def get_rule_checks_status_legacy(
-    log: "logging.LoggerAdapter[logging.Logger]",
-    pulls: typing.List[context.BasePullRequest],
-    rule: typing.Union["rules.EvaluatedRule", "rules.EvaluatedQueueRule"],
-) -> check_api.Conclusion:
-
-    conditions_with_all_checks = rule.conditions.copy()
-    conditions_with_check_not_failing = rule.conditions.copy()
-    for (condition_with_all_check, condition_with_check_not_failing,) in zip(
-        conditions_with_all_checks.walk(),
-        conditions_with_check_not_failing.walk(),
-    ):
-        attr = condition_with_all_check.get_attribute_name()
-        if attr.startswith("check-") or attr.startswith("status-"):
-            condition_with_check_not_failing.update_attribute_name(
-                "check-success-or-neutral-or-pending"
-            )
-            condition_with_all_check.update_attribute_name("check")
-
-    # NOTE(sileht): Have all checks reported their status?
-    await conditions_with_all_checks(pulls)
-    log.debug(
-        "did check report their status? %s",
-        conditions_with_all_checks.get_summary(),
-    )
-    if not conditions_with_all_checks.match:
-        return check_api.Conclusion.PENDING
-
-    # NOTE(sileht): Are remaining unmatch checks success or pending?
-    await conditions_with_check_not_failing(pulls)
-    log.debug(
-        "did checks report success-or-neutral-or-pending? %s",
-        conditions_with_check_not_failing.get_summary(),
-    )
-    if conditions_with_check_not_failing.match:
-        return check_api.Conclusion.PENDING
-    else:
-        return check_api.Conclusion.FAILURE
-
-
 async def get_rule_checks_status(
     log: "logging.LoggerAdapter[logging.Logger]",
     repository: context.Repository,
@@ -154,32 +76,40 @@ async def get_rule_checks_status(
         else:
             return check_api.Conclusion.PENDING
 
-    legacy_status = await get_rule_checks_status_legacy(log, pulls, rule)
-    new_status = await get_rule_checks_status_next(log, repository, pulls, rule)
+    # NOTE(sileht): we replace BinaryFilter by IncompleteChecksFilter to ensure
+    # all required CIs have finished. IncompleteChecksFilter return 3 states
+    # instead of just True/False, this allows us to known if a condition can
+    # change in the future or if its a final state.
+    tree = rule.conditions.extract_raw_filter_tree()
+    results: typing.Dict[int, filter.IncompleteChecksResult] = {}
 
-    if legacy_status != new_status:
-        checks_attr = [
-            attr
-            for attr in context.QueuePullRequest.QUEUE_ATTRIBUTES
-            if attr.startswith("status-")
-            or attr.startswith("check-")
-            or attr == "check"
-        ]
-        log.warning(
-            "get_rule_checks_status_next() returns different result than legacy one",
-            legacy_status=legacy_status,
-            new_status=new_status,
-            tree=rule.conditions.extract_raw_filter_tree(),
-            checks={
-                await pull.number: {attr: await getattr(pull, attr) for attr in checks_attr}  # type: ignore[attr-defined]
-                for pull in pulls
-            },
+    for pull in pulls:
+        f = filter.IncompleteChecksFilter(
+            tree,
+            pending_checks=await getattr(pull, "check-pending"),
+            all_checks=await pull.check,  # type: ignore[attr-defined]
         )
+        live_resolvers.configure_filter(repository, f)
 
-    if use_new_rule_checks_status:
-        return new_status
+        ret = await f(pull)
+        if ret is filter.IncompleteCheck:
+            log.debug("found an incomplete check")
+            return check_api.Conclusion.PENDING
+
+        pr_number = await pull.number  # type: ignore[attr-defined]
+        results[pr_number] = ret
+
+    if all(results.values()):
+        # This can't occur!, we should have returned SUCCESS earlier.
+        log.error(
+            "filter.IncompleteChecksFilter unexpectly returned true",
+            tree=tree,
+            results=results,
+        )
+        # So don't merge broken stuff
+        return check_api.Conclusion.PENDING
     else:
-        return legacy_status
+        return check_api.Conclusion.FAILURE
 
 
 class MergeBaseAction(actions.Action, abc.ABC):
