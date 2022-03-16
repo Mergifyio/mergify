@@ -580,6 +580,8 @@ enqueued pull requests.
             check-run.
 
 
+To receive ``mentions`` on Slack, you can then use the `native GitHub integration <https://github.com/integrations/slack#scheduled-reminder>`_.
+
 .. _merge-depends-on:
 
 ⛓️ Defining Pull Request Dependencies
