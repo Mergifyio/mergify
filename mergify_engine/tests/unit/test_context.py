@@ -531,7 +531,6 @@ def a_pull_request() -> github_types.GitHubPullRequest:
                     "avatar_url": "",
                 },
                 "ref": github_types.GitHubRefType("ref"),
-                "label": "",
                 "repo": gh_repo,
             },
             "head": {
