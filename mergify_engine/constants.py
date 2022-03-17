@@ -18,6 +18,11 @@ SUMMARY_NAME = "Summary"
 
 MERGE_QUEUE_BRANCH_PREFIX = "mergify/merge-queue"
 MERGE_QUEUE_SUMMARY_NAME = "Queue: Embarked in merge train"
+CONFIGURATION_CHANGED_CHECK_NAME = "Configuration changed"
+CONFIGURATION_DELETED_CHECK_NAME = "Configuration has been deleted"
+CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE = (
+    "Multiple Mergify configurations have been found in the repository"
+)
 
 CHECKS_TIMEOUT_CONDITION_LABEL = "checks-are-on-time"
 

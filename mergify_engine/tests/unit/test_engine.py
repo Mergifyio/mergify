@@ -20,6 +20,8 @@ from unittest import mock
 import pytest
 from pytest_httpserver import httpserver
 
+from mergify_engine import config
+from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import github_types
@@ -164,6 +166,117 @@ CHECK_RUN = github_types.GitHubCheckRun(
             "annotations_count": 0,
             "annotations_url": "https://example.com",
         },
+    }
+)
+
+SUMMARY_CHECK = github_types.GitHubCheckRun(
+    {
+        "id": 123,
+        "name": constants.SUMMARY_NAME,
+        "head_sha": GH_PULL["head"]["sha"],
+        "output": {
+            "title": "whatever",
+            "summary": "whatever",
+            "annotations": [],
+            "annotations_count": 0,
+            "annotations_url": "",
+            "text": "",
+        },
+        "pull_requests": [],
+        "status": "completed",
+        "conclusion": "success",
+        "before": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "after": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "started_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "completed_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "html_url": "https://example.com",
+        "check_suite": {"id": 1234},
+        "app": {
+            "id": config.INTEGRATION_ID,
+            "name": "Mergify",
+            "owner": {
+                "type": "Bot",
+                "id": github_types.GitHubAccountIdType(config.BOT_USER_ID),
+                "login": github_types.GitHubLogin(config.BOT_USER_LOGIN),
+                "avatar_url": "https://example.com",
+            },
+        },
+        "details_url": "",
+        "external_id": "",
+    }
+)
+
+CONFIGURATION_DELETED_CHECK = github_types.GitHubCheckRun(
+    {
+        "id": 123,
+        "name": constants.CONFIGURATION_DELETED_CHECK_NAME,
+        "head_sha": GH_PULL["head"]["sha"],
+        "output": {
+            "title": "Configuration deleted!",
+            "summary": "whatever",
+            "annotations": [],
+            "annotations_count": 0,
+            "annotations_url": "",
+            "text": "",
+        },
+        "pull_requests": [],
+        "status": "completed",
+        "conclusion": "success",
+        "before": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "after": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "started_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "completed_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "html_url": "https://example.com",
+        "check_suite": {"id": 1234},
+        "app": {
+            "id": config.INTEGRATION_ID,
+            "name": "Mergify",
+            "owner": {
+                "type": "Bot",
+                "id": github_types.GitHubAccountIdType(config.BOT_USER_ID),
+                "login": github_types.GitHubLogin(config.BOT_USER_LOGIN),
+                "avatar_url": "https://example.com",
+            },
+        },
+        "details_url": "",
+        "external_id": "",
+    }
+)
+
+CONFIGURATION_CHANGED_CHECK = github_types.GitHubCheckRun(
+    {
+        "id": 123,
+        "name": constants.CONFIGURATION_CHANGED_CHECK_NAME,
+        "head_sha": GH_PULL["head"]["sha"],
+        "output": {
+            "title": "Configuration chcanged!",
+            "summary": "whatever",
+            "annotations": [],
+            "annotations_count": 0,
+            "annotations_url": "",
+            "text": "",
+        },
+        "pull_requests": [],
+        "status": "completed",
+        "conclusion": "success",
+        "before": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "after": github_types.SHAType("4eef79d038b0327a5e035fd65059e556a55c6aa4"),
+        "started_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "completed_at": github_types.ISODateTimeType("2004-12-02T22:00"),
+        "html_url": "https://example.com",
+        "check_suite": {"id": 1234},
+        "app": {
+            "id": config.INTEGRATION_ID,
+            "name": "Mergify",
+            "owner": {
+                "type": "Bot",
+                "id": github_types.GitHubAccountIdType(config.BOT_USER_ID),
+                "login": github_types.GitHubLogin(config.BOT_USER_LOGIN),
+                "avatar_url": "https://example.com",
+            },
+        },
+        "details_url": "",
+        "external_id": "",
     }
 )
 
@@ -565,6 +678,216 @@ async def test_configuration_initial(
         main_config_file = await repository.get_mergify_config_file()
         assert main_config_file is None
 
+        changed = await engine._check_configuration_changes(ctxt, main_config_file)
+        assert changed
+
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
+
+
+async def test_configuration_check_not_needed_with_configuration_not_changed(
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
+        }
+    )
+    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
+        GH_PULL,
+        status=200,
+    )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml"
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
+
+    # Summary is present, no need to redo the check
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
+    ).respond_with_json(
+        {"check_runs": [SUMMARY_CHECK]},
+        status=200,
+    )
+
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        installation = context.Installation(
+            installation_json,
+            subscription.Subscription(
+                redis_cache,
+                0,
+                "",
+                frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+                0,
+            ),
+            client,
+            redis_cache,
+            mock.Mock(),
+        )
+        repository = context.Repository(installation, GH_REPO)
+        ctxt = await repository.get_pull_request_context(
+            github_types.GitHubPullRequestNumber(1)
+        )
+
+        main_config_file = await repository.get_mergify_config_file()
+        changed = await engine._check_configuration_changes(ctxt, main_config_file)
+        assert not changed
+
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
+
+
+async def test_configuration_check_not_needed_with_configuration_changed(
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
+        }
+    )
+    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
+        GH_PULL,
+        status=200,
+    )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml"
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
+
+    # Summary is present, no need to redo the check
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
+    ).respond_with_json(
+        {"check_runs": [SUMMARY_CHECK, CONFIGURATION_CHANGED_CHECK]},
+        status=200,
+    )
+
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        installation = context.Installation(
+            installation_json,
+            subscription.Subscription(
+                redis_cache,
+                0,
+                "",
+                frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+                0,
+            ),
+            client,
+            redis_cache,
+            mock.Mock(),
+        )
+        repository = context.Repository(installation, GH_REPO)
+        ctxt = await repository.get_pull_request_context(
+            github_types.GitHubPullRequestNumber(1)
+        )
+
+        main_config_file = await repository.get_mergify_config_file()
+        changed = await engine._check_configuration_changes(ctxt, main_config_file)
+        assert changed
+
+    github_server.check_assertions()  # type: ignore [no-untyped-call]
+
+
+async def test_configuration_check_not_needed_with_configuration_deleted(
+    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+) -> None:
+    github_server.expect_request("/user/12345/installation").respond_with_json(
+        {
+            "id": 12345,
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "target_type": GH_OWNER["type"],
+            "account": GH_OWNER,
+        }
+    )
+    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
+        GH_PULL,
+        status=200,
+    )
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/contents/.mergify.yml"
+    ).respond_with_json(
+        github_types.GitHubContentFile(
+            {
+                "type": "file",
+                "content": FAKE_MERGIFY_CONTENT,
+                "path": ".mergify.yml",
+                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
+            }
+        ),
+        status=200,
+    )
+
+    # Summary is present, no need to redo the check
+    github_server.expect_oneshot_request(
+        f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
+    ).respond_with_json(
+        {"check_runs": [SUMMARY_CHECK, CONFIGURATION_DELETED_CHECK]},
+        status=200,
+    )
+
+    installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        installation = context.Installation(
+            installation_json,
+            subscription.Subscription(
+                redis_cache,
+                0,
+                "",
+                frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+                0,
+            ),
+            client,
+            redis_cache,
+            mock.Mock(),
+        )
+        repository = context.Repository(installation, GH_REPO)
+        ctxt = await repository.get_pull_request_context(
+            github_types.GitHubPullRequestNumber(1)
+        )
+
+        main_config_file = await repository.get_mergify_config_file()
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
