@@ -910,8 +910,7 @@ DO NOT EDIT
         ] = f"base={self.main_branch_name}"
         p_config, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.merge_pull(p_config["number"])
-        await self.wait_for("pull_request", {"action": "closed"})
-        await self.wait_for("push", {})
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
