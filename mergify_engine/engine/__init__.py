@@ -10,6 +10,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import dataclasses
 import typing
 
 import daiquiri
@@ -60,6 +61,11 @@ DEFAULT_CONFIG_FILE = context.MergifyConfigFile(
 )
 
 
+@dataclasses.dataclass
+class MultipleConfigurationFileFound(Exception):
+    files: typing.List[context.MergifyConfigFile]
+
+
 async def _check_configuration_changes(
     ctxt: context.Context,
     current_mergify_config_file: typing.Optional[context.MergifyConfigFile],
@@ -73,7 +79,6 @@ async def _check_configuration_changes(
         # As the PR is closed, we don't care about the config change detector.
         return False
 
-    config_file_to_validate: typing.Optional[context.MergifyConfigFile] = None
     preferred_filename = (
         None
         if current_mergify_config_file is None
@@ -84,26 +89,45 @@ async def _check_configuration_changes(
     # open and not the merge-base/fork-point. So we compare the configuration from the base
     # branch with the one of the merge commit. If the configuration is changed by the PR, they will be
     # different.
+    config_files: typing.Dict[str, context.MergifyConfigFile] = {}
     async for config_file in ctxt.repository.iter_mergify_config_files(
         ref=ctxt.pull["merge_commit_sha"], preferred_filename=preferred_filename
     ):
-        if (
-            current_mergify_config_file is None
-            or config_file["path"] != current_mergify_config_file["path"]
-        ):
-            config_file_to_validate = config_file
-            break
-        elif config_file["sha"] != current_mergify_config_file["sha"]:
-            config_file_to_validate = config_file
-            break
+        config_files[config_file["path"]] = config_file
 
-    # NOTE(sileht): semgrep didn't see the variable has been updated in the loop
-    # nosemgrep: python.lang.correctness.common-mistakes.is-comparison-string.identical-is-comparison
-    if config_file_to_validate is None:
-        return False
+    if len(config_files) >= 2:
+        raise MultipleConfigurationFileFound(list(config_files.values()))
+
+    future_mergify_config_file = (
+        list(config_files.values())[0] if config_files else None
+    )
+
+    if current_mergify_config_file is None:
+        if future_mergify_config_file is None:
+            return False
+    else:
+        if future_mergify_config_file is None:
+            # Configuration is deleted by the pull request
+            await check_api.set_check_run(
+                ctxt,
+                "Configuration has been deleted",
+                check_api.Result(
+                    check_api.Conclusion.SUCCESS,
+                    title="The Mergify configuration has been deleted",
+                    summary="Mergify will still continue to listen to commands.",
+                ),
+            )
+            return True
+
+        elif (
+            current_mergify_config_file["path"] == future_mergify_config_file["path"]
+            and current_mergify_config_file["sha"] == future_mergify_config_file["sha"]
+        ):
+            # Nothing change between main branch and the pull request
+            return False
 
     try:
-        rules.get_mergify_config(config_file_to_validate)
+        rules.get_mergify_config(future_mergify_config_file)
     except rules.InvalidRules as e:
         # Not configured, post status check with the error message
         await check_api.set_check_run(
@@ -126,7 +150,7 @@ async def _check_configuration_changes(
                 summary="This pull request has to be merged manually",
             ),
         )
-        pass
+
     return True
 
 
@@ -286,7 +310,17 @@ async def run(
 
     config_file = await ctxt.repository.get_mergify_config_file()
 
-    ctxt.configuration_changed = await _check_configuration_changes(ctxt, config_file)
+    try:
+        ctxt.configuration_changed = await _check_configuration_changes(
+            ctxt, config_file
+        )
+    except MultipleConfigurationFileFound as e:
+        files = "\n * " + "\n * ".join(f["path"] for f in e.files)
+        return check_api.Result(
+            check_api.Conclusion.FAILURE,
+            title="Multiple Mergify configurations have been found in the repository",
+            summary=f"You must keep only one of these configuration files in the repository: {files}",
+        )
 
     ctxt.log.debug("engine get configuration")
     if config_file is None:
