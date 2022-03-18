@@ -79,6 +79,25 @@ async def _check_configuration_changes(
         # As the PR is closed, we don't care about the config change detector.
         return False
 
+    # NOTE(sileht): This heuristic works only if _ensure_summary_on_head_sha()
+    # is called after _check_configuration_changes().
+    # If we don't have a summary yet, it means the pull request has just been
+    # open or synchronize or we never see it.
+    summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+    if (
+        summary
+        and summary["output"]["title"]
+        != constants.CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE
+    ):
+        if await ctxt.get_engine_check_run(constants.CONFIGURATION_CHANGED_CHECK_NAME):
+            return True
+        elif await ctxt.get_engine_check_run(
+            constants.CONFIGURATION_DELETED_CHECK_NAME
+        ):
+            return True
+        else:
+            return False
+
     preferred_filename = (
         None
         if current_mergify_config_file is None
@@ -110,7 +129,7 @@ async def _check_configuration_changes(
             # Configuration is deleted by the pull request
             await check_api.set_check_run(
                 ctxt,
-                "Configuration has been deleted",
+                constants.CONFIGURATION_DELETED_CHECK_NAME,
                 check_api.Result(
                     check_api.Conclusion.SUCCESS,
                     title="The Mergify configuration has been deleted",
@@ -132,7 +151,7 @@ async def _check_configuration_changes(
         # Not configured, post status check with the error message
         await check_api.set_check_run(
             ctxt,
-            "Configuration changed",
+            constants.CONFIGURATION_CHANGED_CHECK_NAME,
             check_api.Result(
                 check_api.Conclusion.FAILURE,
                 title="The new Mergify configuration is invalid",
@@ -143,7 +162,7 @@ async def _check_configuration_changes(
     else:
         await check_api.set_check_run(
             ctxt,
-            "Configuration changed",
+            constants.CONFIGURATION_CHANGED_CHECK_NAME,
             check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 title="The new Mergify configuration is valid",
@@ -316,9 +335,12 @@ async def run(
         )
     except MultipleConfigurationFileFound as e:
         files = "\n * " + "\n * ".join(f["path"] for f in e.files)
+        # NOTE(sileht): This replaces the summary, so we will may lost the
+        # state of queue/comment action. But since we can't choice which config
+        # file we need to use... we can't do much.
         return check_api.Result(
             check_api.Conclusion.FAILURE,
-            title="Multiple Mergify configurations have been found in the repository",
+            title=constants.CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE,
             summary=f"You must keep only one of these configuration files in the repository: {files}",
         )
 
