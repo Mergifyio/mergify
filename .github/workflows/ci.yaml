@@ -1,0 +1,145 @@
+name: Continuous Integration
+permissions: read-all
+
+on:
+  pull_request:
+    branches:
+      - main
+      - git_push_stack/**
+
+jobs:
+  pep8:
+    timeout-minutes: 5
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.2
+
+      - name: Build 🔧 & Test 🔍
+        run: |
+          pip install tox
+          tox -e pep8
+
+  requirements:
+    timeout-minutes: 5
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.2
+
+      - name: Build 🔧 & Test 🔍
+        run: |
+          pip install tox
+          tox -e requirements
+          tox -e missing-imports
+          tox -e genreqs
+          git diff --exit-code
+  test:
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6363:6379
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.2
+
+      - name: Build 🔧 & Test 🔍
+        run: |
+          sudo apt install -y redis-server
+          pip install tox
+          tox -e py310
+  docs:
+    timeout-minutes: 5
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Setup Python 🔧
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.2
+
+      - name: Setup Node 🔧
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Build 🔧
+        run: |
+          sudo apt-get install graphviz
+          pip install tox
+          tox -e docs
+
+      # NOTE(sileht): workflow run on/pull_request doesn't have access to
+      # secrets
+      # So, we upload it as artifact, then another workflow
+      # docs-upload-gcp.yaml will upload it on gcp.
+      - name: Upload ☁️
+        uses: actions/upload-artifact@v2
+        with:
+          name: docs-pr-${{ github.event.pull_request.number }}
+          path: docs/build
+
+      # yamllint disable-line rule:line-length
+      - run: echo "::set-output name=docs::https://docs-preview.mergify.com/${{ github.event.pull_request.number }}/docs"
+        shell: bash
+
+  docker:
+    timeout-minutes: 30
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Build 🔧
+        uses: docker/build-push-action@v2.10.0
+
+  heroku:
+    timeout-minutes: 10
+    runs-on: ubuntu-20.04
+    services:
+      redis:
+        image: redis:latest
+        ports:
+          - 6363:6379
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Build 🔧 & Run 🏃
+        run: |
+          echo '-e .' >> requirements.txt
+          curl -sSL \
+            "https://github.com/buildpacks/pack/releases/download/v0.22.0/pack-v0.22.0-linux.tgz" \
+            | tar -xz pack
+          ./pack build test_img --builder heroku/buildpacks:20 --buildpack heroku/python
+          docker run \
+            --env-file fake.env \
+            -e MERGIFYENGINE_STORAGE_URL=redis://redis:6363 \
+            --entrypoint /bin/bash \
+            test_img \
+            -c 'cd /app; \
+                for i in .profile.d/*.sh; do source $i; done; \
+                mergify-import-check-worker; \
+                mergify-import-check-web;'
