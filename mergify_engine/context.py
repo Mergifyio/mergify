@@ -1149,10 +1149,14 @@ class Context(object):
             return [label["name"] for label in self.pull["labels"]]
 
         elif name == "review-requested":
-            return [
-                typing.cast(str, u["login"]) for u in self.pull["requested_reviewers"]
-            ] + ["@" + t["slug"] for t in self.pull["requested_teams"]]
-
+            return (
+                [typing.cast(str, u["login"]) for u in self.pull["requested_reviewers"]]
+                + [f"@{t['slug']}" for t in self.pull["requested_teams"]]
+                + [
+                    f"@{self.repository.installation.owner_login}/{t['slug']}"
+                    for t in self.pull["requested_teams"]
+                ]
+            )
         elif name == "draft":
             return self.pull["draft"]
 
