@@ -193,6 +193,7 @@ def fake_client() -> mock.Mock:
 
     client = mock.Mock()
     client.item = mock.AsyncMock(side_effect=item_call)
+    client.items = mock.MagicMock()
     client.update_base_sha = update_base_sha
     return client
 

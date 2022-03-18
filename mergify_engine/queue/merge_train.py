@@ -1230,7 +1230,46 @@ class Train(queue.QueueBase):
         await self._sync_configuration_change(queue_rules)
         await self._split_failed_batches(queue_rules)
         await self._populate_cars(queue_rules)
+        await self._clean_unsused_merge_queue_branches()
         await self.save()
+
+    async def _clean_unsused_merge_queue_branches(self) -> None:
+        match = (
+            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
+            f"{parse.quote(self.ref, safe='')}"
+        )
+
+        list_car_branch_refs = [
+            (
+                f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
+                + f"{self.ref}/"
+                + f"{car.head_branch}"
+            )
+            for car in self._cars
+        ]
+
+        async for branch in typing.cast(
+            typing.AsyncGenerator[github_types.GitHubGitRef, None],
+            self.repository.installation.client.items(
+                f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/matching-refs/heads/{match}",
+            ),
+        ):
+            branch_ref = branch["ref"].split("heads/")[-1]
+            if branch_ref not in list_car_branch_refs:
+                try:
+                    await self.repository.installation.client.delete(
+                        f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/refs/heads/{branch_ref}"
+                    )
+                except http.HTTPNotFound:
+                    pass
+                except http.HTTPClientSideError as exc:
+                    if (
+                        exc.status_code == 422
+                        and "Reference does not exist" in exc.message
+                    ):
+                        pass
+                    else:
+                        raise
 
     async def _remove_duplicate_pulls(self) -> None:
         known_prs = set()
