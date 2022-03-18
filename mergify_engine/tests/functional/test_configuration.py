@@ -352,7 +352,7 @@ expected alphabetic or numeric character, but found"""
         assert ".github/mergify.yml" in summary["output"]["summary"]
 
     async def test_empty_configuration(self):
-        await self.setup_repo()
+        await self.setup_repo("")
         p, _ = await self.create_pr()
         await self.run_engine()
 
