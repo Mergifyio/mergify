@@ -20,6 +20,7 @@ import typing
 import daiquiri
 import fastapi
 import pydantic
+from starlette.status import HTTP_204_NO_CONTENT
 
 from mergify_engine import context
 from mergify_engine import date
@@ -429,7 +430,6 @@ async def create_queue_freeze(
     "/repos/{owner}/{repository}/queue/{queue_name}/freeze",  # noqa: FS003
     summary="Unfreeze merge queue",
     description="Unfreeze the specified merge queue",
-    status_code=204,
 )
 async def delete_queue_freeze(
     application: application_mod.Application = fastapi.Depends(  # noqa: B008
@@ -441,7 +441,7 @@ async def delete_queue_freeze(
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
         security.get_repository_context_with_queue_freeze_feat_check
     ),
-) -> None:
+) -> fastapi.Response:
 
     qf = freeze.QueueFreeze(
         repository=repository_ctxt,
@@ -454,6 +454,8 @@ async def delete_queue_freeze(
             status_code=404,
             detail=f'The queue "{queue_name}" does not exists or is not currently frozen.',
         )
+
+    return fastapi.Response(status_code=HTTP_204_NO_CONTENT)
 
 
 @router.get(
