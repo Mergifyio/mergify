@@ -16,24 +16,35 @@
 import base64
 import binascii
 import os
+import typing
 
 import cryptography.exceptions
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
+from datadog import statsd
 
 from mergify_engine import config
 
 
-digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-digest.update(config.CACHE_TOKEN_SECRET.encode())
+digest_current = hashes.Hash(hashes.SHA256(), backend=default_backend())
+digest_current.update(config.CACHE_TOKEN_SECRET.encode())
+SECRET_KEY = digest_current.finalize()
+del digest_current
 
-SECRET_KEY = digest.finalize()
+SECRET_KEY_OLD: typing.Optional[bytes]
+
+if config.CACHE_TOKEN_SECRET_OLD:
+    digest_old = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    digest_old.update(config.CACHE_TOKEN_SECRET_OLD.encode())
+    SECRET_KEY_OLD = digest_old.finalize()
+    del digest_old
+else:
+    SECRET_KEY_OLD = None
+
 IV_BYTES_NEEDED = 12
 BLOCK_SIZE = 16
 TAG_SIZE_BYTES = BLOCK_SIZE
-
-del digest
 
 
 class CryptoError(Exception):
@@ -56,28 +67,39 @@ def encrypt(value: bytes) -> bytes:
     return encrypted  # type: ignore[no-any-return]
 
 
+def _decrypt(iv: bytes, tag: bytes, value: bytes, secret: bytes) -> bytes:
+    cipher = ciphers.Cipher(
+        ciphers.algorithms.AES(secret),
+        ciphers.modes.GCM(iv, tag),
+        backend=default_backend(),
+    )
+    decryptor = cipher.decryptor()  # type: ignore[no-untyped-call]
+    return decryptor.update(value) + decryptor.finalize()  # type: ignore[no-any-return]
+
+
 def decrypt(value: bytes) -> bytes:
     """Decrypt a string.
 
     :return: A decrypted string."""
     try:
-        decrypted = base64.b64decode(value)
+        decoded = base64.b64decode(value)
     except binascii.Error:
         raise CryptoError("Invalid encrypted token: invalid base64")
 
-    if len(decrypted) < IV_BYTES_NEEDED + TAG_SIZE_BYTES:
+    if len(decoded) < IV_BYTES_NEEDED + TAG_SIZE_BYTES:
         raise CryptoError("Invalid encrypted token: size check failure")
 
-    iv = decrypted[:IV_BYTES_NEEDED]
-    tag = decrypted[IV_BYTES_NEEDED : IV_BYTES_NEEDED + TAG_SIZE_BYTES]
-    decrypted = decrypted[IV_BYTES_NEEDED + TAG_SIZE_BYTES :]
-    cipher = ciphers.Cipher(
-        ciphers.algorithms.AES(SECRET_KEY),
-        ciphers.modes.GCM(iv, tag),
-        backend=default_backend(),
-    )
-    decryptor = cipher.decryptor()  # type: ignore[no-untyped-call]
+    iv = decoded[:IV_BYTES_NEEDED]
+    tag = decoded[IV_BYTES_NEEDED : IV_BYTES_NEEDED + TAG_SIZE_BYTES]
+    value = decoded[IV_BYTES_NEEDED + TAG_SIZE_BYTES :]
+
     try:
-        return decryptor.update(decrypted) + decryptor.finalize()  # type: ignore[no-any-return]
+        try:
+            return _decrypt(iv, tag, value, SECRET_KEY)
+        except cryptography.exceptions.InvalidTag:
+            if SECRET_KEY_OLD is not None:
+                statsd.increment("engine.crypto.old-secret-used")
+                return _decrypt(iv, tag, value, SECRET_KEY_OLD)
+            raise
     except cryptography.exceptions.InvalidTag:
         raise CryptoError("Invalid encrypted token: decryptor() failure")

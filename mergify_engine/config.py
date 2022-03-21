@@ -203,6 +203,9 @@ Schema = voluptuous.Schema(
             "BUCKET_PROCESSING_MAX_SECONDS", default=30
         ): voluptuous.Coerce(int),
         voluptuous.Required("CACHE_TOKEN_SECRET"): str,
+        voluptuous.Required("CACHE_TOKEN_SECRET_OLD", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("CONTEXT", default="mergify"): str,
         voluptuous.Required("GIT_EMAIL", default="noreply@mergify.com"): str,
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
@@ -261,6 +264,7 @@ API_ENABLE: bool
 SENTRY_URL: str
 SENTRY_ENVIRONMENT: str
 CACHE_TOKEN_SECRET: str
+CACHE_TOKEN_SECRET_OLD: typing.Optional[str]
 PRIVATE_KEY: bytes
 GITHUB_URL: str
 GITHUB_REST_API_URL: str
