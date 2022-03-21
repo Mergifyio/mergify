@@ -143,6 +143,23 @@ pull_request_rules:
       label:
         remove:
           - conflict
+
+  - name: label on unresolved
+    conditions:
+      - "#review-threads-unresolved>0"
+    actions:
+      label:
+        add:
+          - Review Threads Unresolved
+
+  - name: unlabel on resolved
+    conditions:
+      - "#review-threads-unresolved=0"
+    actions:
+      label:
+        remove:
+          - Review Threads Unresolved
+
   - name: warn on CI failure for hotfix
     conditions:
       - label=hotfix
