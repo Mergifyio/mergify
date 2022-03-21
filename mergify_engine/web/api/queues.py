@@ -426,7 +426,7 @@ async def create_queue_freeze(
 
 
 @router.delete(
-    "/repos/{owner}/{repository}/queue/{queue_name}/unfreeze",  # noqa: FS003
+    "/repos/{owner}/{repository}/queue/{queue_name}/freeze",  # noqa: FS003
     summary="Unfreeze merge queue",
     description="Unfreeze the specified merge queue",
     status_code=204,

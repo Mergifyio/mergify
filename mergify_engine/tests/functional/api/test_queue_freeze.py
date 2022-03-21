@@ -491,7 +491,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         queue_name = "false_queue_name"
 
         r = await self.app.delete(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/unfreeze",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/freeze",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
@@ -506,7 +506,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         queue_name = "default"
 
         r = await self.app.delete(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/unfreeze",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/freeze",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
@@ -604,7 +604,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         assert queue_freeze_data_default.reason == "test freeze reason"
 
         r = await self.app.delete(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/unfreeze",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/freeze",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
@@ -925,7 +925,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         queue_name = "default"
 
         r = await self.app.delete(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/unfreeze",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/freeze",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
@@ -958,7 +958,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         queue_name = "low-priority"
 
         r = await self.app.delete(
-            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/unfreeze",
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/{queue_name}/freeze",
             headers={
                 "Authorization": f"bearer {self.api_key_admin}",
                 "Content-type": "application/json",
