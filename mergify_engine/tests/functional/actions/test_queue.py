@@ -3591,6 +3591,222 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 2
 
+    async def test_delete_unused_merge_queue_branch_no_cars(self):
+        test_default_branch = self.get_full_branch_name("default")
+        test_hotfix_branch = self.get_full_branch_name("hotfix")
+
+        await self.setup_repo(
+            yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
+        )
+
+        p1, _ = await self.create_pr()
+        ctxt = context.Context(self.repository_ctxt, p1)
+        q = await merge_train.Train.from_context(ctxt)
+
+        assert 4 == len(await self.get_branches())
+        assert 0 == len(q._cars)
+
+        await q._clean_unsused_merge_queue_branches()
+
+        assert 4 == len(await self.get_branches())
+        assert 0 == len(q._cars)
+
+    async def test_delete_unused_merge_queue_branch_multiple_queue(self):
+        test_default_branch = self.get_full_branch_name("default")
+        test_hotfix_branch = self.get_full_branch_name("hotfix")
+
+        await self.setup_repo(
+            yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
+        )
+
+        queue_config = rules.QueueConfig(
+            priority=0,
+            speculative_checks=5,
+            batch_size=1,
+            batch_max_wait_time=datetime.timedelta(seconds=0),
+            allow_inplace_checks=False,
+            disallow_checks_interruption_from_queues=[],
+            checks_timeout=None,
+            draft_bot_account=None,
+        )
+
+        config = queue.PullQueueConfig(
+            name="foo",
+            strict_method="merge",
+            update_method="merge",
+            priority=0,
+            effective_priority=0,
+            bot_account=None,
+            update_bot_account=None,
+            queue_config=queue_config,
+        )
+
+        queue_rule = rules.QueueRule(
+            name="foo",
+            conditions=conditions.QueueRuleConditions([]),
+            config=queue_config,
+        )
+
+        p1, _ = await self.create_pr()
+        ctxt1 = context.Context(self.repository_ctxt, p1)
+        q1 = await merge_train.Train.from_context(ctxt1)
+        base_sha1 = await q1.get_base_sha()
+
+        car1 = merge_train.TrainCar(
+            q1,
+            [merge_train.EmbarkedPull(p1["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p1["number"], config, date.utcnow())],
+            [],
+            base_sha1,
+        )
+        q1._cars.append(car1)
+
+        p2, _ = await self.create_pr(base=test_hotfix_branch)
+        p3, _ = await self.create_pr(base=test_hotfix_branch)
+        ctxt2 = context.Context(self.repository_ctxt, p2)
+        q2 = await merge_train.Train.from_context(ctxt2)
+        base_sha2 = await q2.get_base_sha()
+
+        car2 = merge_train.TrainCar(
+            q2,
+            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
+            [],
+            base_sha2,
+        )
+        q2._cars.append(car2)
+
+        car_to_delete = merge_train.TrainCar(
+            q2,
+            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
+            [p2["number"]],
+            base_sha2,
+        )
+
+        await car1.create_pull(queue_rule)
+        await car2.create_pull(queue_rule)
+        await car_to_delete.create_pull(queue_rule)
+
+        assert 7 == len(await self.get_branches())
+        assert 1 == len(q1._cars)
+        assert 1 == len(q2._cars)
+
+        await q1._clean_unsused_merge_queue_branches()
+
+        # Ensure q1 don't cleanup q2
+        assert 7 == len(await self.get_branches())
+        assert 1 == len(q1._cars)
+        assert 1 == len(q2._cars)
+
+        await q2._clean_unsused_merge_queue_branches()
+
+        assert 6 == len(await self.get_branches())
+        assert 1 == len(q1._cars)
+        assert 1 == len(q2._cars)
+
+    async def test_delete_unused_merge_queue_branch(self):
+        test_default_branch = self.get_full_branch_name("default")
+        test_hotfix_branch = self.get_full_branch_name("hotfix")
+
+        await self.setup_repo(
+            yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
+        )
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+        p3, _ = await self.create_pr()
+        p4, _ = await self.create_pr()
+        p5, _ = await self.create_pr()
+
+        ctxt = context.Context(self.repository_ctxt, p1)
+        q = await merge_train.Train.from_context(ctxt)
+        base_sha = await q.get_base_sha()
+
+        queue_config = rules.QueueConfig(
+            priority=0,
+            speculative_checks=5,
+            batch_size=1,
+            batch_max_wait_time=datetime.timedelta(seconds=0),
+            allow_inplace_checks=True,
+            disallow_checks_interruption_from_queues=[],
+            checks_timeout=None,
+            draft_bot_account=None,
+        )
+
+        config = queue.PullQueueConfig(
+            name="foo",
+            strict_method="merge",
+            update_method="merge",
+            priority=0,
+            effective_priority=0,
+            bot_account=None,
+            update_bot_account=None,
+            queue_config=queue_config,
+        )
+
+        car1 = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(p1["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p1["number"], config, date.utcnow())],
+            [p1["number"]],
+            base_sha,
+        )
+        q._cars.append(car1)
+
+        car2 = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p2["number"], config, date.utcnow())],
+            [p1["number"]],
+            base_sha,
+        )
+
+        car3 = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p3["number"], config, date.utcnow())],
+            [p2["number"]],
+            base_sha,
+        )
+
+        car4 = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(p4["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p4["number"], config, date.utcnow())],
+            [p2["number"]],
+            base_sha,
+        )
+        q._cars.append(car4)
+
+        car5 = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(p5["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(p5["number"], config, date.utcnow())],
+            [p3["number"]],
+            base_sha,
+        )
+        q._cars.append(car5)
+
+        queue_rule = rules.QueueRule(
+            name="foo",
+            conditions=conditions.QueueRuleConditions([]),
+            config=queue_config,
+        )
+
+        await car1.create_pull(queue_rule)
+        await car2.create_pull(queue_rule)
+        await car3.create_pull(queue_rule)
+        await car4.create_pull(queue_rule)
+
+        assert 8 == len(await self.get_branches())
+        assert 3 == len(q._cars)
+
+        await q._clean_unsused_merge_queue_branches()
+
+        assert 6 == len(await self.get_branches())
+        assert 3 == len(q._cars)
+
     async def test_create_pull_conflicts(self):
         await self.setup_repo(yaml.dump({}), files={"conflicts": "foobar"})
 
