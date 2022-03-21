@@ -179,7 +179,7 @@ def fake_client() -> mock.Mock:
                 "content": base64.b64encode(MERGIFY_CONFIG.encode()).decode(),
                 "path": ".mergify.yml",
             }
-        elif url == "repos/Mergifyio/mergify-engine/branches/branch":
+        elif url == "repos/Mergifyio/mergify-engine/branches/main":
             return branch
 
         for i in range(40, 49):
@@ -248,7 +248,7 @@ async def test_train_add_pull(
     context_getter: conftest.ContextGetterFixture,
     repository: context.Repository,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1")
@@ -265,7 +265,7 @@ async def test_train_add_pull(
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
@@ -273,7 +273,7 @@ async def test_train_add_pull(
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[1], [1, 3]] == get_cars_content(t)
 
@@ -281,7 +281,7 @@ async def test_train_add_pull(
 async def test_train_remove_middle_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1")
@@ -301,7 +301,7 @@ async def test_train_remove_middle_merged(
 async def test_train_remove_middle_not_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("5x1", 1000))
@@ -319,7 +319,7 @@ async def test_train_remove_middle_not_merged(
 async def test_train_remove_head_not_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1")
@@ -338,7 +338,7 @@ async def test_train_remove_head_not_merged(
 async def test_train_remove_head_merged(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1")
@@ -359,7 +359,7 @@ async def test_train_remove_head_merged(
 async def test_train_add_remove_pull_idempotant(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1", priority=0)
@@ -376,7 +376,7 @@ async def test_train_add_remove_pull_idempotant(
     await t.refresh()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[1], [1, 2], [1, 2, 3]] == get_cars_content(t)
 
@@ -388,7 +388,7 @@ async def test_train_add_remove_pull_idempotant(
     await t.refresh()
     assert [[1], [1, 3]] == get_cars_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[1], [1, 3]] == get_cars_content(t)
 
@@ -396,7 +396,7 @@ async def test_train_add_remove_pull_idempotant(
 async def test_train_mutiple_queue(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config_two = get_config("2x1", priority=0)
@@ -424,7 +424,7 @@ async def test_train_mutiple_queue(
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[1], [1, 2]] == get_cars_content(t)
     assert [5, 3, 4, 6, 7, 8, 9] == get_waiting_content(t)
@@ -444,7 +444,7 @@ async def test_train_mutiple_queue(
     )
     assert [9] == get_waiting_content(t)
 
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
     assert [[3], [3, 4], [3, 4, 6], [3, 4, 6, 7], [3, 4, 6, 7, 8]] == get_cars_content(
         t
@@ -455,7 +455,7 @@ async def test_train_mutiple_queue(
 async def test_train_remove_duplicates(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("2x1", 1000))
@@ -491,7 +491,7 @@ async def test_train_remove_duplicates(
 async def test_train_remove_end_wp(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
@@ -511,7 +511,7 @@ async def test_train_remove_end_wp(
 async def test_train_remove_first_wp(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
@@ -531,7 +531,7 @@ async def test_train_remove_first_wp(
 async def test_train_remove_last_cars(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("high-1x1", 1000))
@@ -551,7 +551,7 @@ async def test_train_remove_last_cars(
 async def test_train_with_speculative_checks_decreased(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("5x1", 1000)
@@ -593,7 +593,7 @@ queue_rules:
 async def test_train_queue_config_change(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("2x1", 1000))
@@ -626,7 +626,7 @@ async def test_train_queue_config_deleted(
     repository: context.Repository,
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("2x1", 1000))
@@ -658,7 +658,7 @@ async def test_train_priority_change(
     repository: context.Repository,
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     await t.add_pull(await context_getter(1), get_config("2x1", 1000))
@@ -689,7 +689,7 @@ async def test_train_priority_change(
 
 def test_train_batch_split(repository: context.Repository) -> None:
     now = datetime.datetime.utcnow()
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     p1_two = merge_train.EmbarkedPull(
         github_types.GitHubPullRequestNumber(1), get_config("2x1"), now
     )
@@ -724,7 +724,7 @@ async def test_train_queue_splitted_on_failure_1x2(
     fake_client: mock.Mock,
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 43):
@@ -773,7 +773,7 @@ async def test_train_queue_splitted_on_failure_1x5(
     fake_client: mock.Mock,
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 46):
@@ -864,7 +864,7 @@ async def test_train_queue_splitted_on_failure_2x5(
     fake_client: mock.Mock,
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 46):
@@ -966,7 +966,7 @@ async def test_train_queue_splitted_on_failure_5x3(
     context_getter: conftest.ContextGetterFixture,
     fake_client: mock.Mock,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 47):
@@ -1096,7 +1096,7 @@ async def test_train_queue_splitted_on_failure_5x3(
 async def test_train_no_interrupt_add_pull(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("high-2x5-noint")
@@ -1127,7 +1127,7 @@ async def test_train_no_interrupt_add_pull(
 async def test_train_always_interrupt_across_queue(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("low-2x5-noint")
@@ -1158,7 +1158,7 @@ async def test_train_always_interrupt_across_queue(
 async def test_train_interrupt_mixed_across_queue(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     config = get_config("low-1x5-noint")
@@ -1188,7 +1188,7 @@ async def test_train_interrupt_mixed_across_queue(
 async def test_train_disallow_checks_interruption_scenario_1(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     urgent = get_config("urgent-1x4")
@@ -1224,7 +1224,7 @@ async def test_train_disallow_checks_interruption_scenario_1(
 async def test_train_disallow_checks_interruption_scenario_2(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     urgent = get_config("urgent-1x4")
@@ -1262,7 +1262,7 @@ async def test_train_batch_max_wait_time(
     repository: context.Repository, context_getter: conftest.ContextGetterFixture
 ) -> None:
     with freeze_time("2021-09-22T08:00:00") as freezed_time:
-        t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+        t = merge_train.Train(repository, github_types.GitHubRefType("main"))
         await t.load()
 
         config = get_config("batch-wait-time")
@@ -1304,7 +1304,7 @@ async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_1x
     context_getter: conftest.ContextGetterFixture,
     fake_client: mock.Mock,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 46):
@@ -1344,7 +1344,7 @@ async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_2x
     context_getter: conftest.ContextGetterFixture,
     fake_client: mock.Mock,
 ) -> None:
-    t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
     await t.load()
 
     for i in range(41, 52):
