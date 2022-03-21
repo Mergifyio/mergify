@@ -43,6 +43,7 @@ EventName = typing.Literal[
     "action.request_reviewers",
     "action.review",
     "action.squash",
+    "action.unqueue",
     "action.update",
 ]
 
