@@ -273,6 +273,31 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         )
 
 
+def _log_allow_inplace_checks_usage(
+    ctxt: context.Context,
+    pull_request_rules: rules.PullRequestRules,
+) -> None:
+
+    for rule in pull_request_rules:
+        for name, action in rule.actions.items():
+            if name in ("merge", "queue"):
+                if "allow_inplace_checks" in action.raw_config:
+                    ctxt.log.info(
+                        "repository uses allow_inplace_checks",
+                        allow_inplace_checks=action.raw_config["allow_inplace_checks"],
+                        speculative_checks=action.config["speculative_checks"],
+                    )
+
+                if "allow_inplace_speculative_checks" in action.raw_config:
+                    ctxt.log.info(
+                        "repository uses allow_inplace_speculative_checks",
+                        allow_inplace_speculative_checks=action.raw_config[
+                            "allow_inplace_speculative_checks"
+                        ],
+                        speculative_checks=action.config["speculative_checks"],
+                    )
+
+
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
     event_type: github_types.GitHubEventType
     data: github_types.GitHubEventIssueComment
@@ -375,6 +400,8 @@ async def run(
     mergify_config["pull_request_rules"].rules.extend(
         MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
     )
+
+    _log_allow_inplace_checks_usage(ctxt, mergify_config["pull_request_rules"])
 
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
