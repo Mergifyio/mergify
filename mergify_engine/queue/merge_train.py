@@ -1472,7 +1472,7 @@ class Train(queue.QueueBase):
         if need_to_be_readded:
             # FIXME(sileht): this can be optimised by not dropping spec checks,
             # if the position in the queue does not change
-            await self.remove_pull(ctxt)
+            await self._remove_pull(ctxt)
             await self.add_pull(ctxt, config)
             return
 
@@ -1505,8 +1505,17 @@ class Train(queue.QueueBase):
     async def remove_pull(self, ctxt: context.Context) -> None:
         ctxt.log.info("removing from train", **self.log_queue_extras)
 
+        # NOTE(sileht): Remove the pull request from all trains, just in case
+        # the base branch change in the meantime
+        await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
+        await self._remove_pull(ctxt)
+
+    async def _remove_pull(self, ctxt: context.Context) -> None:
+        ctxt.log.info("removing from train", **self.log_queue_extras)
+
         if (
             ctxt.pull["merged"]
+            and ctxt.pull["base"]["ref"] == self.ref
             and self._cars
             and ctxt.pull["number"]
             == self._cars[0].still_queued_embarked_pulls[0].user_pull_request_number
@@ -1935,7 +1944,7 @@ class Train(queue.QueueBase):
             ctxt.repository,
             exclude_ref=exclude_ref,
         ):
-            await train.remove_pull(ctxt)
+            await train._remove_pull(ctxt)
 
     async def generate_merge_queue_summary_footer(
         self,
