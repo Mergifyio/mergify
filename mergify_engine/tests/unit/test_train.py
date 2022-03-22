@@ -471,6 +471,7 @@ async def test_train_remove_duplicates(
     t._waiting_pulls.extend(
         [
             merge_train.EmbarkedPull(
+                t,
                 t._cars[0].still_queued_embarked_pulls[0].user_pull_request_number,
                 t._cars[0].still_queued_embarked_pulls[0].config,
                 t._cars[0].still_queued_embarked_pulls[0].queued_at,
@@ -691,16 +692,16 @@ def test_train_batch_split(repository: context.Repository) -> None:
     now = datetime.datetime.utcnow()
     t = merge_train.Train(repository, github_types.GitHubRefType("branch"))
     p1_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(1), get_config("2x1"), now
+        t, github_types.GitHubPullRequestNumber(1), get_config("2x1"), now
     )
     p2_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(2), get_config("2x1"), now
+        t, github_types.GitHubPullRequestNumber(2), get_config("2x1"), now
     )
     p3_two = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(3), get_config("2x1"), now
+        t, github_types.GitHubPullRequestNumber(3), get_config("2x1"), now
     )
     p4_five = merge_train.EmbarkedPull(
-        github_types.GitHubPullRequestNumber(4), get_config("5x1"), now
+        t, github_types.GitHubPullRequestNumber(4), get_config("5x1"), now
     )
 
     assert ([p1_two], [p2_two, p3_two, p4_five]) == t._get_next_batch(
