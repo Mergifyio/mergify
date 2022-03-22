@@ -39,6 +39,7 @@
 # Pull key format: f"bucket-sources~{repo_id}~{pull_number or 0}"
 #
 
+
 import argparse
 import asyncio
 import collections
@@ -408,11 +409,14 @@ class StreamProcessor:
                         installation.owner_id,
                         owner_login_for_tracing,
                     )
-                    # Sync the cache with the root span
+
+                    # Sync Sentry scope and Datadog span with final gh_owner
                     root_span = tracer.current_root_span()
                     if root_span:
                         root_span.resource = owner_login_for_tracing
                         root_span.set_tag("gh_owner", owner_login_for_tracing)
+                    sentry_sdk.set_tag("gh_owner", owner_login_for_tracing)
+
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
 
@@ -1006,9 +1010,11 @@ class Worker:
                 resource=owner_login_for_tracing,
             ) as span:
                 span.set_tag("gh_owner", owner_login_for_tracing)
-                await stream_processor.consume(
-                    bucket_org_key, owner_id, owner_login_for_tracing
-                )
+                with sentry_sdk.push_scope() as scope:
+                    scope.set_tag("gh_owner", owner_login_for_tracing)
+                    await stream_processor.consume(
+                        bucket_org_key, owner_id, owner_login_for_tracing
+                    )
         finally:
             LOG.debug(
                 "worker %s release org bucket: %s",
