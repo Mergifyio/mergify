@@ -271,13 +271,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     await q.remove_pull(ctxt)
                     raise
             else:
-                await q.remove_pull(ctxt)
-                result = check_api.Result(
-                    check_api.Conclusion.CANCELLED,
-                    "The pull request has been removed from the queue",
-                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
-                    f"{self.UNQUEUE_DOCUMENTATION}",
-                )
+                result = await self.get_unqueue_status(ctxt, q)
 
         if result.conclusion is not check_api.Conclusion.PENDING:
             await q.remove_pull(ctxt)
@@ -343,12 +337,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 else:
                     result = await self.get_queue_status(ctxt, rule, q)
             else:
-                result = check_api.Result(
-                    check_api.Conclusion.CANCELLED,
-                    "The pull request has been removed from the queue",
-                    "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
-                    f"{self.UNQUEUE_DOCUMENTATION}",
-                )
+                result = await self.get_unqueue_status(ctxt, q)
 
         if result.conclusion is not check_api.Conclusion.PENDING:
             await q.remove_pull(ctxt)
@@ -395,6 +384,28 @@ Then, re-embark the pull request into the merge queue by posting the comment
             int,
             self.config["priority"]
             + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
+        )
+
+    async def get_unqueue_status(
+        self, ctxt: context.Context, q: queue.QueueT
+    ) -> check_api.Result:
+        check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
+        manually_unqueued = (
+            check
+            and check_api.Conclusion(check["conclusion"])
+            == check_api.Conclusion.CANCELLED
+        )
+        if manually_unqueued:
+            reason = "The pull request has been manually removed from the queue by an `unqueue` command."
+        else:
+            reason = (
+                "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
+                f"{self.UNQUEUE_DOCUMENTATION}"
+            )
+        return check_api.Result(
+            check_api.Conclusion.CANCELLED,
+            "The pull request has been removed from the queue",
+            reason,
         )
 
     async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
