@@ -362,6 +362,8 @@ class QueueRuleConditions:
                     if evaluated_conditions[first_key].operator == "and"
                     else "any of"
                 )
+                if evaluated_conditions[first_key].description:
+                    label += f" [{evaluated_conditions[first_key].description}]"
                 global_match = all(c.match for c in evaluated_conditions.values())
                 checked = "X" if global_match else " "
                 summary += f"- [{checked}] {label}:\n"

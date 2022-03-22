@@ -1560,17 +1560,27 @@ async def test_queue_rules_summary():
             "base=main",
             {"or": ["head=feature-1", "head=feature-2", "head=feature-3"]},
             {"or": ["label=urgent", "status-failure!=noway"]},
-            {"or": ["label=bar", "check-success-or-neutral=first-ci"]},
-            {"or": ["label=foo", "check-success-or-neutral!=first-ci"]},
-            {"and": ["label=foo", "check-success-or-neutral=first-ci"]},
-            {"and": ["label=foo", "check-success-or-neutral!=first-ci"]},
+            {"or": ["label=bar", "check-success=first-ci"]},
+            {"or": ["label=foo", "check-success!=first-ci"]},
+            {"and": ["label=foo", "check-success=first-ci"]},
+            {"and": ["label=foo", "check-success!=first-ci"]},
             "current-year=2018",
         ]
     )
     c.condition.conditions.extend(
         [
             conditions.RuleCondition(
-                "check-success-or-neutral=my-awesome-ci",
+                "#approved-reviews-by>=2",
+                description="🛡 GitHub branch protection",
+            ),
+            conditions.RuleConditionGroup(
+                {
+                    "or": [
+                        conditions.RuleCondition("check-success=my-awesome-ci"),
+                        conditions.RuleCondition("check-neutral=my-awesome-ci"),
+                        conditions.RuleCondition("check-skipped=my-awesome-ci"),
+                    ]
+                },
                 description="🛡 GitHub branch protection",
             ),
             conditions.RuleCondition(
@@ -1589,8 +1599,11 @@ async def test_queue_rules_summary():
                 "base": "main",
                 "head": "feature-1",
                 "label": ["foo", "bar"],
-                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "check-success": ["first-ci", "my-awesome-ci"],
+                "check-neutral": [],
+                "check-skipped": [],
                 "status-failure": ["noway"],
+                "approved-reviews-by": ["jd", "sileht"],
             }
         ),
         FakeQueuePullRequest(
@@ -1601,8 +1614,11 @@ async def test_queue_rules_summary():
                 "base": "main",
                 "head": "feature-2",
                 "label": ["foo", "urgent"],
-                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "check-success": ["first-ci", "my-awesome-ci"],
+                "check-neutral": [],
+                "check-skipped": [],
                 "status-failure": ["noway"],
+                "approved-reviews-by": ["jd", "sileht"],
             }
         ),
         FakeQueuePullRequest(
@@ -1613,8 +1629,11 @@ async def test_queue_rules_summary():
                 "base": "main",
                 "head": "feature-3",
                 "label": ["foo", "urgent"],
-                "check-success-or-neutral": ["first-ci", "my-awesome-ci"],
+                "check-success": ["first-ci", "my-awesome-ci"],
+                "check-neutral": [],
+                "check-skipped": [],
                 "status-failure": ["noway"],
+                "approved-reviews-by": ["jd", "sileht"],
             }
         ),
     ]
@@ -1647,27 +1666,34 @@ async def test_queue_rules_summary():
     - [X] #1
     - [ ] #2
     - [ ] #3
-  - [X] `check-success-or-neutral=first-ci`
+  - [X] `check-success=first-ci`
 - [X] any of:
   - `label=foo`
     - [X] #1
     - [X] #2
     - [X] #3
-  - [ ] `check-success-or-neutral!=first-ci`
+  - [ ] `check-success!=first-ci`
 - [X] all of:
   - `label=foo`
     - [X] #1
     - [X] #2
     - [X] #3
-  - [X] `check-success-or-neutral=first-ci`
+  - [X] `check-success=first-ci`
 - [ ] all of:
   - `label=foo`
     - [X] #1
     - [X] #2
     - [X] #3
-  - [ ] `check-success-or-neutral!=first-ci`
+  - [ ] `check-success!=first-ci`
 - [X] `current-year=2018`
-- [X] `check-success-or-neutral=my-awesome-ci` [🛡 GitHub branch protection]
+- `#approved-reviews-by>=2` [🛡 GitHub branch protection]
+  - [X] #1
+  - [X] #2
+  - [X] #3
+- [X] any of [🛡 GitHub branch protection]:
+  - [X] `check-success=my-awesome-ci`
+  - [ ] `check-neutral=my-awesome-ci`
+  - [ ] `check-skipped=my-awesome-ci`
 - `author=me` [Another mechanism to get condtions]
   - [X] #1
   - [X] #2
