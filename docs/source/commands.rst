@@ -118,4 +118,20 @@ Re-evaluates your Mergify rules on this pull request.
   * - Example
     - ``@Mergifyio refresh``
 
+unqueue
+=======
+
+Removes this pull request from the merge queue if it has been queued with
+:ref:`queue action` action.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio unqueue``
+  * - Example
+    - ``@Mergifyio unqueue``
+
+
 .. include:: global-substitutions.rst
