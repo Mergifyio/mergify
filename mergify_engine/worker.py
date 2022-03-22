@@ -58,6 +58,7 @@ from datadog import statsd
 from ddtrace import tracer
 import first
 import msgpack
+import sentry_sdk
 import tenacity
 import yaaredis
 
@@ -1135,12 +1136,10 @@ class Worker:
         await redis_utils.load_scripts(self._redis_stream)
         await migrations.run(self._redis_cache)
 
-        self._dedicated_workers_syncer_task = asyncio.create_task(
-            self.loop_and_sleep_forever(
-                "dedicated workers cache syncer",
-                self.dedicated_workers_syncer_idle_time,
-                self._sync_dedicated_workers_cache,
-            )
+        self._dedicated_workers_syncer_task = self.create_task(
+            "dedicated workers cache syncer",
+            self.dedicated_workers_syncer_idle_time,
+            self._sync_dedicated_workers_cache,
         )
 
         if "shared-stream" in self.enabled_services:
@@ -1148,52 +1147,59 @@ class Worker:
             LOG.info("workers starting", count=len(worker_ids))
             for worker_id in worker_ids:
                 self._shared_worker_tasks.append(
-                    asyncio.create_task(
-                        self.loop_and_sleep_forever(
-                            f"worker {worker_id}",
-                            self.idle_sleep_time,
-                            functools.partial(
-                                self.shared_stream_worker_task,
-                                worker_id,
-                            ),
+                    self.create_task(
+                        f"worker {worker_id}",
+                        self.idle_sleep_time,
+                        functools.partial(
+                            self.shared_stream_worker_task,
+                            worker_id,
                         ),
-                        name=f"worker {worker_id}",
                     )
                 )
             LOG.info("workers started", count=len(worker_ids))
 
         if "dedicated-stream" in self.enabled_services:
             LOG.info("dedicated worker spawner starting")
-            self._dedicated_workers_spawner_task = asyncio.create_task(
-                self.loop_and_sleep_forever(
-                    "dedicated workers spawner",
-                    self.dedicated_workers_spawner_idle_time,
-                    self.dedicated_workers_spawner_task,
-                )
+            self._dedicated_workers_spawner_task = self.create_task(
+                "dedicated workers spawner",
+                self.dedicated_workers_spawner_idle_time,
+                self.dedicated_workers_spawner_task,
             )
             LOG.info("dedicated worker spawner started")
 
         if "delayed-refresh" in self.enabled_services:
             LOG.info("delayed refresh starting")
-            self._delayed_refresh_task = asyncio.create_task(
-                self.loop_and_sleep_forever(
-                    "delayed_refresh",
-                    self.delayed_refresh_idle_time,
-                    self.delayed_refresh_task,
-                ),
-                name="delayed refresh",
+            self._delayed_refresh_task = self.create_task(
+                "delayed_refresh",
+                self.delayed_refresh_idle_time,
+                self.delayed_refresh_task,
             )
             LOG.info("delayed refresh started")
 
         if "stream-monitoring" in self.enabled_services:
             LOG.info("monitoring starting")
-            self._stream_monitoring_task = asyncio.create_task(
-                self.loop_and_sleep_forever(
-                    "monitoring", self.monitoring_idle_time, self.monitoring_task
-                ),
-                name="monitoring",
+            self._stream_monitoring_task = self.create_task(
+                "monitoring", self.monitoring_idle_time, self.monitoring_task
             )
             LOG.info("monitoring started")
+
+    def create_task(
+        self,
+        name: str,
+        sleep_time: float,
+        func: typing.Callable[[], typing.Awaitable[None]],
+    ) -> asyncio.Task[typing.Any]:
+        return asyncio.create_task(
+            self.with_dedicated_sentry_hub(
+                self.loop_and_sleep_forever(name, sleep_time, func)
+            ),
+            name=name,
+        )
+
+    @staticmethod
+    async def with_dedicated_sentry_hub(coro: typing.Awaitable[None]) -> None:
+        with sentry_sdk.Hub(sentry_sdk.Hub.current):
+            await coro
 
     async def loop_and_sleep_forever(
         self,
