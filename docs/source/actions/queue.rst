@@ -559,6 +559,22 @@ enqueued pull requests.
             name: default
 
 
+🚫 Unqueued Pull Request
+------------------------
+
+Mergify removes a pull request from the queue if:
+
+* a user has manually unqueued the pull request;
+* there are CI failures;
+* there is a CI timeout.
+
+To get the pull request back in the queue, you can either:
+
+* retrigger the CI if the problem was due to a CI failure (such as a flaky test) or a timeout;
+* update the code inside the pull request, which will retrigger the CI
+* use the :ref:`requeue command` to inform Mergify that the CI failure was not due to the pull request itself, but to a, e.g., a flaky test.
+
+
 .. _unqueue_notification:
 
 🤙 Get notified when a pull request is unexpectedly unqueued
@@ -575,7 +591,7 @@ enqueued pull requests.
             Hey @{{ author }}, this pull request failed to merge and has been
             dequeued from the merge train.  If you believe your PR failed in
             the merge train because of a flaky test, requeue it by commenting
-            with `@mergifyio refresh`.
+            with `@mergifyio requeue`.
             More details can be found on the `Queue: Embarked in merge train`
             check-run.
 

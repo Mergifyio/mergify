@@ -241,6 +241,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             if check and check_api.Conclusion(check["conclusion"]) not in [
                 check_api.Conclusion.SUCCESS,
                 check_api.Conclusion.PENDING,
+                check_api.Conclusion.NEUTRAL,
             ]:
                 await check_api.set_check_run(
                     ctxt,
@@ -413,6 +414,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
             check_api.Conclusion.PENDING,
+            check_api.Conclusion.NEUTRAL,
         ]
 
     async def _should_be_merged(

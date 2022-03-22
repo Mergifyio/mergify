@@ -133,5 +133,25 @@ Removes this pull request from the merge queue if it has been queued with
   * - Example
     - ``@Mergifyio unqueue``
 
+.. _requeue command:
+
+requeue
+=======
+
+Inform Mergify that the CI failure was not due to the pull request itself, but to a, e.g., a flaky test.
+
+:ref:`queue action` action.
+
+.. list-table::
+  :widths: 1 7
+  :align: left
+
+  * - Syntax
+    - ``@Mergifyio requeue``
+  * - Example
+    - ``@Mergifyio requeue``
+
+
+
 
 .. include:: global-substitutions.rst
