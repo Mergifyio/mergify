@@ -27,10 +27,7 @@ from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine import utils
-from mergify_engine.clients import github
-from mergify_engine.clients import http
 from mergify_engine.dashboard import application as application_mod
-from mergify_engine.dashboard import subscription
 from mergify_engine.queue import freeze
 from mergify_engine.queue import merge_train
 from mergify_engine.rules import get_mergify_config
@@ -271,95 +268,71 @@ async def repository_queues(
     redis_queue: utils.RedisQueue = fastapi.Depends(  # noqa: B008
         redis.get_redis_queue
     ),
-    installation_json: github_types.GitHubInstallation = fastapi.Depends(  # noqa: B008
-        security.get_installation
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context
     ),
 ) -> Queues:
+    queues = Queues()
+    async for train in merge_train.Train.iter_trains(repository_ctxt):
+        queue_rules = await train.get_queue_rules()
+        if queue_rules is None:
+            # The train is going the be deleted, so skip it.
+            continue
 
-    async with github.aget_client(installation_json) as client:
-        try:
-            # Check this token has access to this repository
-            repo = typing.cast(
-                github_types.GitHubRepository,
-                await client.item(f"/repos/{owner}/{repository}"),
-            )
-        except (http.HTTPNotFound, http.HTTPForbidden, http.HTTPUnauthorized):
-            raise fastapi.HTTPException(status_code=404)
-
-        sub = await subscription.Subscription.get_subscription(
-            redis_cache, installation_json["account"]["id"]
-        )
-        installation = context.Installation(
-            installation_json, sub, client, redis_cache, redis_queue
-        )
-        repository_ctxt = installation.get_repository_from_github_data(repo)
-
-        queues = Queues()
-
-        async for train in merge_train.Train.iter_trains(installation, repository_ctxt):
-            queue_rules = await train.get_queue_rules()
-            if queue_rules is None:
-                # The train is going the be deleted, so skip it.
-                continue
-
-            queue = Queue(Branch(train.ref))
-            for position, (embarked_pull, car) in enumerate(
-                train._iter_embarked_pulls()
-            ):
-                if car is None:
-                    speculative_check_pull_request = None
-                elif car.creation_state == "updated":
-                    speculative_check_pull_request = SpeculativeCheckPullRequest(
-                        in_place=True,
-                        number=embarked_pull.user_pull_request_number,
-                        started_at=car.creation_date,
-                        ended_at=car.checks_ended_timestamp,
-                        state=car.checks_conclusion.value or "pending",
-                        checks=car.last_checks,
-                        evaluated_conditions=car.last_evaluated_conditions,
-                    )
-                elif car.creation_state == "created":
-                    if car.queue_pull_request_number is None:
-                        raise RuntimeError(
-                            "car state is created, but queue_pull_request_number is None"
-                        )
-                    speculative_check_pull_request = SpeculativeCheckPullRequest(
-                        in_place=False,
-                        number=car.queue_pull_request_number,
-                        started_at=car.creation_date,
-                        ended_at=car.checks_ended_timestamp,
-                        state=car.checks_conclusion.value or "pending",
-                        checks=car.last_checks,
-                        evaluated_conditions=car.last_evaluated_conditions,
-                    )
-                elif car.creation_state in ("failed", "pending"):
-                    speculative_check_pull_request = None
-                else:
-                    raise RuntimeError(
-                        f"Car creation state unknown: {car.creation_state}"
-                    )
-
-                try:
-                    queue_rule = queue_rules[embarked_pull.config["name"]]
-                except KeyError:
-                    # This car is going to be deleted so skip it
-                    continue
-                queue.pull_requests.append(
-                    PullRequestQueued(
-                        embarked_pull.user_pull_request_number,
-                        position,
-                        embarked_pull.config["priority"],
-                        QueueRule(
-                            name=embarked_pull.config["name"], config=queue_rule.config
-                        ),
-                        embarked_pull.queued_at,
-                        speculative_check_pull_request,
-                    )
+        queue = Queue(Branch(train.ref))
+        for position, (embarked_pull, car) in enumerate(train._iter_embarked_pulls()):
+            if car is None:
+                speculative_check_pull_request = None
+            elif car.creation_state == "updated":
+                speculative_check_pull_request = SpeculativeCheckPullRequest(
+                    in_place=True,
+                    number=embarked_pull.user_pull_request_number,
+                    started_at=car.creation_date,
+                    ended_at=car.checks_ended_timestamp,
+                    state=car.checks_conclusion.value or "pending",
+                    checks=car.last_checks,
+                    evaluated_conditions=car.last_evaluated_conditions,
                 )
+            elif car.creation_state == "created":
+                if car.queue_pull_request_number is None:
+                    raise RuntimeError(
+                        "car state is created, but queue_pull_request_number is None"
+                    )
+                speculative_check_pull_request = SpeculativeCheckPullRequest(
+                    in_place=False,
+                    number=car.queue_pull_request_number,
+                    started_at=car.creation_date,
+                    ended_at=car.checks_ended_timestamp,
+                    state=car.checks_conclusion.value or "pending",
+                    checks=car.last_checks,
+                    evaluated_conditions=car.last_evaluated_conditions,
+                )
+            elif car.creation_state in ("failed", "pending"):
+                speculative_check_pull_request = None
+            else:
+                raise RuntimeError(f"Car creation state unknown: {car.creation_state}")
 
-            queues.queues.append(queue)
+            try:
+                queue_rule = queue_rules[embarked_pull.config["name"]]
+            except KeyError:
+                # This car is going to be deleted so skip it
+                continue
+            queue.pull_requests.append(
+                PullRequestQueued(
+                    embarked_pull.user_pull_request_number,
+                    position,
+                    embarked_pull.config["priority"],
+                    QueueRule(
+                        name=embarked_pull.config["name"], config=queue_rule.config
+                    ),
+                    embarked_pull.queued_at,
+                    speculative_check_pull_request,
+                )
+            )
 
-        return queues
+        queues.queues.append(queue)
+
+    return queues
 
 
 @router.put(
@@ -367,6 +340,7 @@ async def repository_queues(
     summary="Freezes merge queue",
     description="Freezes the merge of the requested queue and the queues following it",
     response_model=QueueFreezeResponse,
+    dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
 )
 async def create_queue_freeze(
     queue_freeze_payload: QueueFreezePayload,
@@ -377,7 +351,7 @@ async def create_queue_freeze(
         ..., description="The name of the queue"
     ),
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
-        security.get_repository_context_with_queue_freeze_feat_check
+        security.get_repository_context
     ),
 ) -> QueueFreezeResponse:
 
@@ -430,6 +404,7 @@ async def create_queue_freeze(
     "/repos/{owner}/{repository}/queue/{queue_name}/freeze",  # noqa: FS003
     summary="Unfreeze merge queue",
     description="Unfreeze the specified merge queue",
+    dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
 )
 async def delete_queue_freeze(
     application: application_mod.Application = fastapi.Depends(  # noqa: B008
@@ -439,7 +414,7 @@ async def delete_queue_freeze(
         ..., description="The name of the queue"
     ),
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
-        security.get_repository_context_with_queue_freeze_feat_check
+        security.get_repository_context
     ),
 ) -> fastapi.Response:
 
@@ -463,13 +438,14 @@ async def delete_queue_freeze(
     summary="Get queue freeze data",
     description="Checks if the queue is frozen and get the queue freeze data",
     response_model=QueueFreezeResponse,
+    dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
 )
 async def get_queue_freeze(
     queue_name: rules.QueueName = fastapi.Path(  # noqa: B008
         ..., description="The name of the queue"
     ),
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
-        security.get_repository_context_with_queue_freeze_feat_check
+        security.get_repository_context
     ),
 ) -> QueueFreezeResponse:
 
@@ -498,10 +474,11 @@ async def get_queue_freeze(
     summary="Get the list of frozen queues",
     description="Get the list of frozen queues inside the requested repository",
     response_model=QueueFreezeResponse,
+    dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
 )
 async def get_list_queue_freeze(
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
-        security.get_repository_context_with_queue_freeze_feat_check
+        security.get_repository_context
     ),
 ) -> QueueFreezeResponse:
 

@@ -1156,7 +1156,6 @@ class Train(queue.QueueBase):
     @classmethod
     async def iter_trains(
         cls,
-        installation: context.Installation,
         repository: context.Repository,
         *,
         exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
@@ -1167,8 +1166,8 @@ class Train(queue.QueueBase):
         if repository is not None:
             repo_filter = repository.repo["id"]
 
-        async for key, train_raw in installation.redis.hscan_iter(
-            f"merge-trains~{installation.owner_id}",
+        async for key, train_raw in repository.installation.redis.hscan_iter(
+            f"merge-trains~{repository.installation.owner_id}",
             f"{repo_filter}~*",
             count=10000,
         ):
@@ -1942,7 +1941,6 @@ class Train(queue.QueueBase):
         exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
     ) -> None:
         async for train in cls.iter_trains(
-            ctxt.repository.installation,
             ctxt.repository,
             exclude_ref=exclude_ref,
         ):
