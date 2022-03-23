@@ -137,24 +137,26 @@ class EmbarkedPull:
         train: "Train",
         data: typing.Union["EmbarkedPull.Serialized", "EmbarkedPull.OldSerialized"],
     ) -> "EmbarkedPull":
-        if isinstance(data, cls.OldSerialized):
+        if isinstance(data, (tuple, list)):
+            user_pull_request_number = data[0]
+            config = data[1]
+            queued_at = data[2]
 
             # backward compat allow_checks_interruption ->
             # disallow_checks_interruption_from_queues option migration
-            data.config["queue_config"].setdefault(
+            config["queue_config"].setdefault(
                 "disallow_checks_interruption_from_queues", []
             )
-            if "allow_checks_interruption" in data.config["queue_config"]:
-                data.config["queue_config"][
+            if "allow_checks_interruption" in config["queue_config"]:
+                config["queue_config"][
                     "disallow_checks_interruption_from_queues"
-                ].append(data.config["name"])
-                del data.config["queue_config"]["allow_checks_interruption"]  # type: ignore[typeddict-item]
+                ].append(config["name"])
 
             return cls(
                 train=train,
-                user_pull_request_number=data.user_pull_request_number,
-                config=data.config,
-                queued_at=data.queued_at,
+                user_pull_request_number=user_pull_request_number,
+                config=config,
+                queued_at=queued_at,
             )
         else:
             return cls(

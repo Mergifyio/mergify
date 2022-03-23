@@ -26,8 +26,10 @@ import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import date
 from mergify_engine import delayed_refresh
 from mergify_engine import github_types
+from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import utils
@@ -1386,3 +1388,36 @@ async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_2x
     await t.refresh()
     assert [[44, 45], [44, 45, 7, 46, 47, 48, 49]] == get_cars_content(t)
     assert [50, 51] == get_waiting_content(t)
+
+
+def test_embarked_pull_old_serialization() -> None:
+    queue_config = rules.QueueConfig(
+        priority=0,
+        speculative_checks=5,
+        batch_size=1,
+        batch_max_wait_time=datetime.timedelta(seconds=0),
+        allow_inplace_checks=True,
+        disallow_checks_interruption_from_queues=[],
+        checks_timeout=None,
+        draft_bot_account=None,
+    )
+    config = queue.PullQueueConfig(
+        name=rules.QueueName("foo"),
+        strict_method="merge",
+        update_method="merge",
+        priority=0,
+        effective_priority=0,
+        bot_account=None,
+        update_bot_account=None,
+        queue_config=queue_config,
+    )
+
+    now = date.utcnow()
+    old_typed = merge_train.EmbarkedPull.OldSerialized(
+        github_types.GitHubPullRequestNumber(1234), config, now
+    )
+    old_untyped = json.loads(json.dumps(old_typed))
+    ep = merge_train.EmbarkedPull.deserialize(mock.Mock(), old_untyped)
+    assert ep.user_pull_request_number == 1234
+    assert ep.config == config
+    assert ep.queued_at == now
