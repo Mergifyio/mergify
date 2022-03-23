@@ -42,7 +42,7 @@ jobs:
       # it creates a second clone of the repository
       - name: Create the Pull Request
         id: cpr
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v4
         with:
           title: Bump python version to ${{ steps.updatecli.outputs.PYTHON_VERSION }}
           body: This is an automated bump of python version to ${{ steps.updatecli.outputs.PYTHON_VERSION }}
