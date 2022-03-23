@@ -148,9 +148,5 @@ class QueueFreeze:
         return result
 
     async def _refresh_pulls(self, source: str) -> None:
-
         async for train in merge_train.Train.iter_trains(self.repository):
-            await train.refresh_pulls(
-                repository=self.repository.repo,
-                source=source,
-            )
+            await train.refresh_pulls(source=source)
