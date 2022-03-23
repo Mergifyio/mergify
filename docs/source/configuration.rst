@@ -407,13 +407,13 @@ will render to:
 when used in your configuration file — considering the pull request author
 login is ``jd``.
 
-`Jinja2 filters <https://jinja.palletsprojects.com/en/3.0.x/templates/#builtin-filters>` are supported, you can build string from list for example with:
+`Jinja2 filters <https://jinja.palletsprojects.com/en/3.0.x/templates/#builtin-filters>`_ are supported, you can build string from list for example with:
 
 .. code-block:: jinja
 
     Approved by: @{{ approved-reviews-by | join(', @') }}
 
-`Jinja2 string manipulation <https://jinja.palletsprojects.com/en/3.0.x/templates/#python-methods>` are also supported, you can split string for example with:
+`Jinja2 string manipulation <https://jinja.palletsprojects.com/en/3.0.x/templates/#python-methods>`_ are also supported, you can split string for example with:
 
 .. code-block:: jinja
 
