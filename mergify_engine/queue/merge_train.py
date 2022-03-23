@@ -1498,7 +1498,7 @@ class Train(queue.QueueBase):
         )
 
         # Refresh summary of all pull requests
-        await self._refresh_pulls(
+        await self.refresh_pulls(
             ctxt.pull["base"]["repo"],
             source=f"pull {ctxt.pull['number']} added to queue",
         )
@@ -1539,7 +1539,7 @@ class Train(queue.QueueBase):
             ctxt.log.info(
                 "removed from head train", position=0, **self.log_queue_extras
             )
-            await self._refresh_pulls(
+            await self.refresh_pulls(
                 ctxt.pull["base"]["repo"],
                 source=f"merged pull {ctxt.pull['number']} removed from queue",
                 additional_pull_request=ctxt.pull["number"],
@@ -1561,7 +1561,7 @@ class Train(queue.QueueBase):
         ]
         await self.save()
         ctxt.log.info("removed from train", position=position, **self.log_queue_extras)
-        await self._refresh_pulls(
+        await self.refresh_pulls(
             ctxt.pull["base"]["repo"],
             source=f"pull {ctxt.pull['number']} removed from queue",
             additional_pull_request=ctxt.pull["number"],
@@ -1650,7 +1650,7 @@ class Train(queue.QueueBase):
         self._cars.append(car)
 
         # Refresh summary of others
-        await self._refresh_pulls(self.repository.repo, source="batch got split")
+        await self.refresh_pulls(self.repository.repo, source="batch got split")
 
     async def _split_failed_batches(self, queue_rules: rules.QueueRules) -> None:
         if (

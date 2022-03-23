@@ -22,6 +22,7 @@ import msgpack
 
 from mergify_engine import context
 from mergify_engine import date
+from mergify_engine.queue import merge_train
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -131,10 +132,25 @@ class QueueFreeze:
             ),
         )
 
+        await self._refresh_pulls(source="internal/queue_freeze_create")
+
     async def delete(self) -> bool:
-        return bool(
+
+        result = bool(
             await self.repository.installation.redis_queue.hdel(
                 self._get_redis_hash(self.repository),
                 self._get_redis_key(self.repository, self.name),
             )
         )
+
+        await self._refresh_pulls(source="internal/queue_freeze_delete")
+
+        return result
+
+    async def _refresh_pulls(self, source: str) -> None:
+
+        async for train in merge_train.Train.iter_trains(self.repository):
+            await train.refresh_pulls(
+                repository=self.repository.repo,
+                source=source,
+            )

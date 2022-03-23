@@ -121,7 +121,7 @@ class QueueBase(abc.ABC):
         except ValueError:
             return None
 
-    async def _refresh_pulls(
+    async def refresh_pulls(
         self,
         repository: github_types.GitHubRepository,
         source: str,
