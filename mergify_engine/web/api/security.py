@@ -18,6 +18,7 @@ import typing
 
 import daiquiri
 import fastapi
+import sentry_sdk
 
 from mergify_engine import config
 from mergify_engine import context
@@ -128,7 +129,14 @@ async def get_repository_context_with_queue_freeze_feat_check(
 
         # Check this sub has access to queue_freeze feature
         if installation.subscription.has_feature(subscription.Features.QUEUE_FREEZE):
-            yield installation.get_repository_from_github_data(repo)
+            repository_ctxt = installation.get_repository_from_github_data(repo)
+
+            # NOTE(sileht): Since this method is used as fastapi Depends only, it's safe to set this
+            # for the ongoing http request
+            sentry_sdk.set_tag("gh_owner", repository_ctxt.installation.owner_login)
+            sentry_sdk.set_tag("gh_repo", repository_ctxt.repo["name"])
+
+            yield repository_ctxt
 
         else:
             raise fastapi.HTTPException(
