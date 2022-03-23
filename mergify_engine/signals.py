@@ -40,6 +40,7 @@ EventName = typing.Literal[
     "action.post_check",
     "action.rebase",
     "action.refresh",
+    "action.requeue",
     "action.request_reviewers",
     "action.review",
     "action.squash",

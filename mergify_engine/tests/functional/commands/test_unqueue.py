@@ -75,8 +75,40 @@ class TestUnQueueCommand(base.FunctionalTestBase):
             == "The pull request is the 1st in the queue to be merged"
         )
 
+        await self.create_comment(p1["number"], "@mergifyio requeue")
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(p1["number"])
+        assert (
+            comments[-1]["body"]
+            == """> requeue
+
+#### ☑️ This pull request is already queued
+
+
+
+<!--
+DO NOT EDIT
+-*- Mergify Payload -*-
+{"command": "requeue", "conclusion": "neutral"}
+-*- Mergify Payload End -*-
+-->
+"""
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Queue (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
         await self.create_comment(p1["number"], "@mergifyio unqueue")
         await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
 
         await test_queue.TestQueueAction._assert_cars_contents(q, None, [])
 
@@ -103,3 +135,28 @@ class TestUnQueueCommand(base.FunctionalTestBase):
             check["output"]["title"]
             == "The pull request has been removed from the queue by an `unqueue` command"
         )
+
+        await self.create_comment(p1["number"], "@mergifyio requeue")
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
+        )
+        assert check["conclusion"] is None
+        assert check["output"]["title"].startswith("The pull request is embarked with")
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Queue (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+        await self.create_status(p1)
+        await self.run_engine()
+
+        p1 = await self.get_pull(p1["number"])
+        assert p1["merged"]
