@@ -416,6 +416,7 @@ class StreamProcessor:
                         root_span.resource = owner_login_for_tracing
                         root_span.set_tag("gh_owner", owner_login_for_tracing)
                     sentry_sdk.set_tag("gh_owner", owner_login_for_tracing)
+                    sentry_sdk.set_user({"username": owner_login_for_tracing})
 
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
@@ -1012,6 +1013,7 @@ class Worker:
                 span.set_tag("gh_owner", owner_login_for_tracing)
                 with sentry_sdk.push_scope() as scope:
                     scope.set_tag("gh_owner", owner_login_for_tracing)
+                    scope.set_user({"username": owner_login_for_tracing})
                     await stream_processor.consume(
                         bucket_org_key, owner_id, owner_login_for_tracing
                     )

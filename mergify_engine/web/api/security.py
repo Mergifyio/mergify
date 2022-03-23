@@ -130,6 +130,7 @@ async def get_repository_context(
 
         # NOTE(sileht): Since this method is used as fastapi Depends only, it's safe to set this
         # for the ongoing http request
+        sentry_sdk.set_user({"username": repository_ctxt.installation.owner_login})
         sentry_sdk.set_tag("gh_owner", repository_ctxt.installation.owner_login)
         sentry_sdk.set_tag("gh_repo", repository_ctxt.repo["name"])
 
