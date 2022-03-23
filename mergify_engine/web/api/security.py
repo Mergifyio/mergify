@@ -91,7 +91,7 @@ async def get_installation(
         raise fastapi.HTTPException(status_code=403)
 
 
-async def get_repository_context_with_queue_freeze_feat_check(
+async def get_repository_context(
     owner: github_types.GitHubLogin = fastapi.Path(  # noqa: B008
         ..., description="The owner of the repository"
     ),
@@ -108,7 +108,6 @@ async def get_repository_context_with_queue_freeze_feat_check(
         get_installation
     ),
 ) -> typing.AsyncGenerator[context.Repository, None]:
-
     async with github.aget_client(installation_json) as client:
         try:
             # Check this token has access to this repository
@@ -127,19 +126,25 @@ async def get_repository_context_with_queue_freeze_feat_check(
             installation_json, sub, client, redis_cache, redis_queue
         )
 
-        # Check this sub has access to queue_freeze feature
-        if installation.subscription.has_feature(subscription.Features.QUEUE_FREEZE):
-            repository_ctxt = installation.get_repository_from_github_data(repo)
+        repository_ctxt = installation.get_repository_from_github_data(repo)
 
-            # NOTE(sileht): Since this method is used as fastapi Depends only, it's safe to set this
-            # for the ongoing http request
-            sentry_sdk.set_tag("gh_owner", repository_ctxt.installation.owner_login)
-            sentry_sdk.set_tag("gh_repo", repository_ctxt.repo["name"])
+        # NOTE(sileht): Since this method is used as fastapi Depends only, it's safe to set this
+        # for the ongoing http request
+        sentry_sdk.set_tag("gh_owner", repository_ctxt.installation.owner_login)
+        sentry_sdk.set_tag("gh_repo", repository_ctxt.repo["name"])
 
-            yield repository_ctxt
+        yield repository_ctxt
 
-        else:
-            raise fastapi.HTTPException(
-                status_code=403,
-                detail=f"⚠ The [subscription](https://dashboard.mergify.com/github/{owner}/subscription) needs to be upgraded to enable the `queue_freeze` feature.",
-            )
+
+async def check_subscription_feature_queue_freeze(
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        get_repository_context
+    ),
+) -> None:
+    if not repository_ctxt.installation.subscription.has_feature(
+        subscription.Features.QUEUE_FREEZE
+    ):
+        raise fastapi.HTTPException(
+            status_code=403,
+            detail=f"⚠ The [subscription](https://dashboard.mergify.com/github/{repository_ctxt.installation.owner_login}/subscription) needs to be upgraded to enable the `queue_freeze` feature.",
+        )
