@@ -439,8 +439,7 @@ in the queue, it will be updated with the latest commit of its base branch.
 
     queue_rules:
       - name: default
-        conditions:
-          - check-success=Travis CI - Pull Request
+        conditions: []  # no extra conditions needed to get merged
 
     pull_request_rules:
       - name: merge using the merge queue
@@ -467,11 +466,11 @@ higher priority queue.
     queue_rules:
       - name: urgent
         conditions:
+          # A PR can be queued without the CI passing, but needs to get merged though
           - check-success=Travis CI - Pull Request
 
       - name: default
-        conditions:
-          - check-success=Travis CI - Pull Request
+        conditions: []
 
     pull_request_rules:
       - name: move to urgent queue when 2 reviews and label urgent
@@ -518,8 +517,7 @@ three enqueued pull requests are mergeable.
     queue_rules:
       - name: default
         speculative_checks: 2
-        conditions:
-          - check-success=Travis CI - Pull Request
+        conditions: []
 
     pull_request_rules:
       - name: merge using the merge queue and speculative checks
@@ -545,8 +543,7 @@ enqueued pull requests.
       - name: default
         speculative_checks: 2
         batch_size: 2
-        conditions:
-          - check-success=Travis CI - Pull Request
+        conditions: []
 
     pull_request_rules:
       - name: merge using the merge queue and speculative checks
