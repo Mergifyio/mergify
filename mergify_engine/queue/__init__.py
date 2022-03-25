@@ -123,7 +123,6 @@ class QueueBase(abc.ABC):
 
     async def refresh_pulls(
         self,
-        repository: github_types.GitHubRepository,
         source: str,
         additional_pull_request: typing.Optional[
             github_types.GitHubPullRequestNumber
@@ -140,7 +139,7 @@ class QueueBase(abc.ABC):
                 await utils.send_pull_refresh(
                     self.repository.installation.redis,
                     pipe,
-                    repository,
+                    self.repository.repo,
                     pull_request_number=pull_number,
                     action="internal",
                     source=source,
