@@ -13,6 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
+
 import pytest
 
 from mergify_engine import context
@@ -21,7 +23,7 @@ from mergify_engine.tests.unit import conftest
 
 
 @pytest.mark.parametrize(
-    "body, title, message, mode",
+    "body, title, message, mode, template",
     [
         (
             """Hello world
@@ -33,6 +35,7 @@ my body""",
             "my title",
             "my body",
             "default",
+            None,
         ),
         (
             """Hello world
@@ -45,6 +48,7 @@ is longer""",
             "my title",
             "my body\nis longer",
             "default",
+            None,
         ),
         (
             """Hello world
@@ -57,6 +61,7 @@ on two lines""",
             "My PR title",
             "Authored-By: contributor\non two lines",
             "default",
+            None,
         ),
         (
             """Hello world
@@ -73,6 +78,7 @@ CI worked:
             "My Title",
             "CI worked:\n\n- my CI\n",
             "default",
+            None,
         ),
         (
             """Hello world
@@ -85,6 +91,7 @@ my body""",
             "my title",
             "my body",
             "default",
+            None,
         ),
         (
             """Hello world
@@ -97,6 +104,7 @@ my body""",  # noqa:W293,W291
             "my title",
             "WATCHOUT ^^^ there is empty spaces above for testing ^^^^\nmy body",
             "default",
+            None,
         ),
         (
             # Should return an empty message
@@ -109,15 +117,38 @@ my title
             "my title",
             "",
             "default",
+            None,
         ),
-        ("Here's my message", "My PR title (#43)", "Here's my message", "title+body"),
+        (
+            "Here's my message",
+            "My PR title (#43)",
+            "Here's my message",
+            "title+body",
+            None,
+        ),
+        (
+            "",
+            "My PR title (#43)",
+            "",
+            "template",
+            "{{title}} (#{{number}})\n\n{{body}}",
+        ),
     ],
 )
-async def test_merge_commit_message(body, title, message, mode, context_getter):
+async def test_merge_commit_message(
+    body: str,
+    title: str,
+    message: str,
+    mode: typing.Literal["default", "title+body", "template"],
+    template: typing.Optional[str],
+    context_getter: conftest.ContextGetterFixture,
+) -> None:
     ctxt = await context_getter(
         github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
     )
-    ctxt.repository._caches.branch_protections["main"] = None
+    ctxt.repository._caches.branch_protections[
+        github_types.GitHubRefType("main")
+    ] = None
     ctxt._caches.pull_statuses.set(
         [
             github_types.GitHubStatus(
@@ -132,7 +163,7 @@ async def test_merge_commit_message(body, title, message, mode, context_getter):
         ]
     )
     ctxt._caches.pull_check_runs.set([])
-    assert await ctxt.pull_request.get_commit_message(mode=mode) == (
+    assert await ctxt.pull_request.get_commit_message(mode=mode, template=template) == (
         title,
         message,
     )
