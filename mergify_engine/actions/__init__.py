@@ -63,6 +63,8 @@ class ActionFlag(enum.Flag):
     # Allow to return this command as pending if does not match its conditions
     # requirements.
     ALLOW_AS_PENDING_COMMAND = enum.auto()
+    # Once succeed the action must not be ran anymore
+    SUCCESS_IS_FINAL_STATE = enum.auto()
 
 
 def get_classes() -> typing.Dict[str, "Action"]:

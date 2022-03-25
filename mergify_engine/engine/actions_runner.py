@@ -419,6 +419,10 @@ async def run_actions(
 
             need_to_be_run = (
                 actions.ActionFlag.ALWAYS_RUN in action_obj.flags
+                or (
+                    actions.ActionFlag.SUCCESS_IS_FINAL_STATE in action_obj.flags
+                    and previous_conclusion == check_api.Conclusion.SUCCESS
+                )
                 or admin_refresh_requested
                 or (
                     user_refresh_requested
