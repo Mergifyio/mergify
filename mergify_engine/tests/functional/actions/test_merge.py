@@ -230,6 +230,37 @@ class TestMergeAction(base.FunctionalTestBase):
             == checks[0]["output"]["title"]
         )
 
+    async def test_merge_template_with_empty_body(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "merge": {
+                            "commit_message_template": """{{ title }} (#{{ number }})
+
+{{body}}
+""",
+                        }
+                    },
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p, _ = await self.create_pr(message="")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        p = await self.get_pull(p["number"])
+        self.assertEqual(True, p["merged"])
+        c = await self.get_commit(p["merge_commit_sha"])
+        assert (
+            f"""test_merge_template_with_empty_body: pull request n1 from fork (#{p['number']})"""
+            == c["commit"]["message"]
+        )
+
     async def test_merge_template(self):
         rules = {
             "pull_request_rules": [
