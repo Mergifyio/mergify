@@ -234,10 +234,7 @@ async def push_to_worker(
         elif event["comment"]["user"]["id"] == config.BOT_USER_ID:
             ignore_reason = "comment by Mergify[bot]"
 
-        elif (
-            "@mergify " in event["comment"]["body"].lower()
-            or "@mergifyio " in event["comment"]["body"].lower()
-        ):
+        else:
             # NOTE(sileht): nothing important should happen in this hook as we don't retry it
             try:
                 await commands_runner.on_each_event(event)
