@@ -162,10 +162,8 @@ class MergeBaseAction(actions.Action, abc.ABC):
 
         if commit_title_and_message is not None:
             title, message = commit_title_and_message
-            if title:
-                data["commit_title"] = title
-            if message:
-                data["commit_message"] = message
+            data["commit_title"] = title
+            data["commit_message"] = message
 
         data["sha"] = ctxt.pull["head"]["sha"]
         data["merge_method"] = method

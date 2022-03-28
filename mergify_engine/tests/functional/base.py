@@ -680,7 +680,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
                 "base": base,
                 "head": f"{login}:{branch}",
                 "title": title,
-                "body": message or title,
+                "body": title if message is None else message,
                 "draft": draft,
             },
         )
