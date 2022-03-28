@@ -205,7 +205,9 @@ class TestAttributes(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         p = await self.get_pull(p["number"])
-        ctxt = await context.Context.create(self.repository_ctxt, p)
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p, wait_background_github_processing=True
+        )
         assert ctxt.pull["mergeable_state"] != "behind"
         assert not await ctxt.is_behind
         assert len(await ctxt.commits_behind) == 0
@@ -231,7 +233,9 @@ class TestAttributes(base.FunctionalTestBase):
         await self.git("reset", "--hard", "HEAD^^")
         p, _ = await self.create_pr(git_tree_ready=True)
         await self.run_engine()
-        ctxt = await context.Context.create(self.repository_ctxt, p)
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p, wait_background_github_processing=True
+        )
         assert ctxt.pull["mergeable_state"] == "behind"
         assert await ctxt.is_behind
         assert len(await ctxt.commits_behind) == 3
@@ -244,7 +248,9 @@ class TestAttributes(base.FunctionalTestBase):
         await self.wait_for("pull_request", {"action": "synchronize"})
 
         p = await self.get_pull(p["number"])
-        ctxt = await context.Context.create(self.repository_ctxt, p)
+        ctxt = await context.Context.create(
+            self.repository_ctxt, p, wait_background_github_processing=True
+        )
         assert ctxt.pull["mergeable_state"] != "behind"
         assert not await ctxt.is_behind
         assert len(await ctxt.commits_behind) == 0
