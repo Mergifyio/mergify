@@ -333,6 +333,11 @@ class TrainCar:
         else:
             last_checks = []
 
+        if creation_state == "updated" and data["queue_pull_request_number"] is None:
+            data["queue_pull_request_number"] = still_queued_embarked_pulls[
+                0
+            ].user_pull_request_number
+
         car = cls(
             train,
             initial_embarked_pulls=initial_embarked_pulls,
