@@ -267,6 +267,8 @@ async def report(
             f"* REPOSITORY IS {'PRIVATE' if repository.repo['private'] else 'PUBLIC'}"
         )
 
+        print(f"* DEFAULT BRANCH: {repository.repo['default_branch']}")
+
         print("* CONFIGURATION:")
         mergify_config = None
         config_file = await repository.get_mergify_config_file()
