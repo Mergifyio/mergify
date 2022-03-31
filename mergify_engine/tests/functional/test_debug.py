@@ -103,6 +103,7 @@ class TestDebugger(base.FunctionalTestBase):
 * DASHBOARD SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
 * WORKER: Installation not queued to process
 * REPOSITORY IS PUBLIC
+* DEFAULT BRANCH: {self.main_branch_name}
 * CONFIGURATION:
 Config filename: .mergify.yml
 pull_request_rules:
