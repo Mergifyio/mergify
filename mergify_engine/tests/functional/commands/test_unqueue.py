@@ -61,7 +61,7 @@ class TestUnQueueCommand(base.FunctionalTestBase):
                     [],
                     base_sha,
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )

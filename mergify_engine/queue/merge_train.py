@@ -385,19 +385,11 @@ class TrainCar:
     async def get_pull_requests_to_evaluate(
         self,
     ) -> typing.List[context.BasePullRequest]:
-        if self.creation_state == "updated":
-            if len(self.still_queued_embarked_pulls) != 1:
-                raise RuntimeError("multiple embarked_pulls but state==updated")
-            ctxt = await self.train.repository.get_pull_request_context(
-                self.still_queued_embarked_pulls[0].user_pull_request_number
-            )
-            return [ctxt.pull_request]
-        elif self.creation_state == "created":
+        if self.creation_state in ("created", "updated"):
             if self.queue_pull_request_number is None:
                 raise RuntimeError(
-                    "car state is created, but queue_pull_request_number is None"
+                    f"car state is {self.creation_state}, but queue_pull_request_number is None"
                 )
-
             tmp_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
             )
@@ -424,18 +416,13 @@ class TrainCar:
             raise RuntimeError(f"Invalid state: {self.creation_state}")
 
     async def get_context_to_evaluate(self) -> typing.Optional[context.Context]:
-        if (
-            self.creation_state == "created"
-            and self.queue_pull_request_number is not None
-        ):
+        if self.creation_state in ("created", "updated"):
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    f"car state is {self.creation_state}, but queue_pull_request_number is None"
+                )
             return await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
-            )
-        elif self.creation_state == "updated":
-            if len(self.still_queued_embarked_pulls) != 1:
-                raise RuntimeError("multiple embarked_pulls but state==updated")
-            return await self.train.repository.get_pull_request_context(
-                self.still_queued_embarked_pulls[0].user_pull_request_number
             )
         else:
             return None
@@ -453,12 +440,37 @@ class TrainCar:
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
 
-        self.creation_state = "updated"
+        embarked_pull = self.still_queued_embarked_pulls[0]
 
         ctxt = await self.train.repository.get_pull_request_context(
-            self.still_queued_embarked_pulls[0].user_pull_request_number
+            embarked_pull.user_pull_request_number
         )
-        if not await ctxt.is_behind:
+
+        if await ctxt.is_behind:
+            try:
+                # TODO(sileht): fallback to "merge" and None until all configs has
+                # the new fields
+                await branch_updater.update(
+                    self.still_queued_embarked_pulls[0].config.get(
+                        "update_method", "merge"
+                    ),
+                    ctxt,
+                    subscription.Features.MERGE_BOT_ACCOUNT,
+                    self.still_queued_embarked_pulls[0].config.get(
+                        "update_bot_account"
+                    ),
+                )
+            except branch_updater.BranchUpdateFailure as exc:
+                await self._set_creation_failure(
+                    f"{exc.title}\n\n{exc.message}", operation="update"
+                )
+                raise TrainCarPullRequestCreationFailure(self) from exc
+
+            # NOTE(sileht): We must update head_sha of the pull request otherwise
+            # next temporary pull request may be created on a vanished reference.
+            await ctxt.update()
+
+        else:
             # Already done, just refresh it to merge it
             with utils.yaaredis_for_stream() as redis_stream:
                 await utils.send_pull_refresh(
@@ -469,38 +481,12 @@ class TrainCar:
                     action="internal",
                     source="updated pull need to be merge",
                 )
-            return
 
-        try:
-            # TODO(sileht): fallback to "merge" and None until all configs has
-            # the new fields
-            await branch_updater.update(
-                self.still_queued_embarked_pulls[0].config.get(
-                    "update_method", "merge"
-                ),
-                ctxt,
-                subscription.Features.MERGE_BOT_ACCOUNT,
-                self.still_queued_embarked_pulls[0].config.get("update_bot_account"),
-            )
-        except branch_updater.BranchUpdateFailure as exc:
-            await self._set_creation_failure(
-                f"{exc.title}\n\n{exc.message}", operation="update"
-            )
-            raise TrainCarPullRequestCreationFailure(self) from exc
-
-        # NOTE(sileht): We must update head_sha of the pull request otherwise
-        # next temporary pull request may be created on a vanished reference.
-        await ctxt.update()
-
-        evaluated_queue_rule = await queue_rule.get_pull_request_rule(
-            self.train.repository,
-            self.train.ref,
-            [ctxt.pull_request],
-            ctxt.log,
-            ctxt.has_been_refreshed_by_timer(),
+        await self._set_initial_state(
+            "updated",
+            queue_rule,
+            embarked_pull.user_pull_request_number,
         )
-        await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
-        await self.update_summaries(check_api.Conclusion.PENDING, force_refresh=True)
 
     def _get_pulls_branch_ref(self) -> str:
         return "-".join(
@@ -635,9 +621,16 @@ class TrainCar:
             await self._set_creation_failure(e.message)
             raise TrainCarPullRequestCreationFailure(self) from e
 
-        self.queue_pull_request_number = github_types.GitHubPullRequestNumber(
-            tmp_pull["number"]
-        )
+        await self._set_initial_state("created", queue_rule, tmp_pull["number"])
+
+    async def _set_initial_state(
+        self,
+        state: typing.Literal["created", "updated"],
+        queue_rule: rules.QueueRule,
+        pull_request_number: github_types.GitHubPullRequestNumber,
+    ) -> None:
+        self.creation_state = state
+        self.queue_pull_request_number = pull_request_number
 
         queue_pull_requests = await self.get_pull_requests_to_evaluate()
         evaluated_queue_rule = await queue_rule.get_pull_request_rule(
@@ -823,21 +816,14 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     self.has_timed_out = True
                     break
 
-        if self.creation_state == "created":
+        if self.creation_state in ("created", "updated"):
             if self.queue_pull_request_number is None:
                 raise RuntimeError(
-                    "car state is created, but queue_pull_request_number is None"
+                    f"car state is {self.creation_state}, but queue_pull_request_number is None"
                 )
 
             checked_ctxt = await self.train.repository.get_pull_request_context(
                 self.queue_pull_request_number
-            )
-        elif self.creation_state == "updated":
-            if len(self.still_queued_embarked_pulls) != 1:
-                raise RuntimeError("multiple embarked_pulls but state==updated")
-
-            checked_ctxt = await self.train.repository.get_pull_request_context(
-                self.still_queued_embarked_pulls[0].user_pull_request_number
             )
         else:
             return
@@ -987,9 +973,11 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
             checked_pull = self.queue_pull_request_number
         elif self.creation_state == "updated":
-            if len(self.still_queued_embarked_pulls) != 1:
-                raise RuntimeError("multiple embarked_pulls but state==updated")
-            checked_pull = self.still_queued_embarked_pulls[0].user_pull_request_number
+            if self.queue_pull_request_number is None:
+                raise RuntimeError(
+                    "car state is updated, but queue_pull_request_number is None"
+                )
+            checked_pull = self.queue_pull_request_number
         else:
             checked_pull = github_types.GitHubPullRequestNumber(0)
 

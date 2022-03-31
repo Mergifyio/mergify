@@ -283,23 +283,13 @@ async def repository_queues(
         for position, (embarked_pull, car) in enumerate(train._iter_embarked_pulls()):
             if car is None:
                 speculative_check_pull_request = None
-            elif car.creation_state == "updated":
-                speculative_check_pull_request = SpeculativeCheckPullRequest(
-                    in_place=True,
-                    number=embarked_pull.user_pull_request_number,
-                    started_at=car.creation_date,
-                    ended_at=car.checks_ended_timestamp,
-                    state=car.checks_conclusion.value or "pending",
-                    checks=car.last_checks,
-                    evaluated_conditions=car.last_evaluated_conditions,
-                )
-            elif car.creation_state == "created":
+            elif car.creation_state in ["created", "updated"]:
                 if car.queue_pull_request_number is None:
                     raise RuntimeError(
-                        "car state is created, but queue_pull_request_number is None"
+                        f"car state is {car.creation_state}, but queue_pull_request_number is None"
                     )
                 speculative_check_pull_request = SpeculativeCheckPullRequest(
-                    in_place=False,
+                    in_place=car.creation_state == "updated",
                     number=car.queue_pull_request_number,
                     started_at=car.creation_date,
                     ended_at=car.checks_ended_timestamp,
