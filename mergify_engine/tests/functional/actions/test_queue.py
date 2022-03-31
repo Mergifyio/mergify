@@ -240,7 +240,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p1["base"]["sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -266,7 +266,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p2["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -292,7 +292,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p3["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -357,7 +357,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -457,7 +457,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -573,7 +573,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1179,7 +1179,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1349,7 +1349,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1509,7 +1509,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1632,7 +1632,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1807,7 +1807,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1947,7 +1947,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -1975,7 +1975,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2060,7 +2060,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2091,11 +2091,7 @@ DO NOT EDIT
             p["merge_commit_sha"],
             [
                 TrainCarMatcher(
-                    [p2["number"]],
-                    [],
-                    p["merge_commit_sha"],
-                    "updated",
-                    None,
+                    [p2["number"]], [], p["merge_commit_sha"], "updated", p2["number"]
                 ),
             ],
         )
@@ -2246,7 +2242,7 @@ DO NOT EDIT
                     [],
                     p1["base"]["sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p3["number"]],
@@ -2341,7 +2337,7 @@ DO NOT EDIT
                     [],
                     p1["base"]["sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2404,7 +2400,7 @@ DO NOT EDIT
                     [],
                     p1["merge_commit_sha"],
                     "updated",
-                    None,
+                    p3["number"],
                 ),
             ],
         )
@@ -2446,7 +2442,7 @@ DO NOT EDIT
                     [],
                     p1["merge_commit_sha"],
                     "updated",
-                    None,
+                    p3["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2515,7 +2511,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2556,7 +2552,7 @@ DO NOT EDIT
                     [],
                     p_merged_in_meantime["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2659,7 +2655,7 @@ DO NOT EDIT
                     [],
                     p_merged["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2694,7 +2690,7 @@ DO NOT EDIT
                     [],
                     p_merged["merge_commit_sha"],
                     "updated",
-                    None,
+                    p3["number"],
                 ),
             ],
             [p1["number"], p2["number"]],
@@ -2817,7 +2813,7 @@ DO NOT EDIT
                     [],
                     p3["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -2959,7 +2955,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
                 TrainCarMatcher(
                     [p2["number"]],
@@ -3051,7 +3047,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -3139,7 +3135,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -3382,7 +3378,7 @@ DO NOT EDIT
                     [],
                     p["merge_commit_sha"],
                     "updated",
-                    None,
+                    p1["number"],
                 ),
             ],
         )
@@ -3483,7 +3479,7 @@ pull_request_rules:
                     [],
                     p_other["merge_commit_sha"],
                     "updated",
-                    None,
+                    p["number"],
                 ),
             ],
         )
