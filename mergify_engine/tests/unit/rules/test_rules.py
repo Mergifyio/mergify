@@ -24,6 +24,7 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import date
+from mergify_engine import engine
 from mergify_engine import github_types
 from mergify_engine import rules
 from mergify_engine.clients import http
@@ -1855,3 +1856,36 @@ queue_rules:
         "* not a valid value for dictionary value @ queue_rules → item 0 → checks_timeout"
         in str(i.value)
     )
+
+
+@pytest.mark.parametrize(
+    "setting, logged",
+    (
+        ("", False),
+        ("allow_inplace_checks: true", True),
+        ("allow_inplace_checks: false", True),
+        ("allow_inplace_speculative_checks: true", True),
+        ("allow_inplace_speculative_checks: false", True),
+    ),
+)
+async def test_inplace_checks_logging(
+    setting: str, logged: bool, context_getter: conftest.ContextGetterFixture
+) -> None:
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha=github_types.SHAType("azertyuiop"),
+        path="whatever",
+        decoded_content=f"""
+queue_rules:
+- name: default
+  conditions: []
+  {setting}
+""".encode(),
+    )
+
+    config = rules.get_mergify_config(file)
+    ctxt = await context_getter(1)
+    with mock.patch.object(ctxt.log, "info") as logger:
+        await engine._log_allow_inplace_checks_usage(ctxt, config["raw_config"])
+        assert logger.called == logged
