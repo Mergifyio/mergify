@@ -15,6 +15,7 @@ import typing
 
 import daiquiri
 import first
+import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -273,29 +274,34 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         )
 
 
-def _log_allow_inplace_checks_usage(
+async def _log_allow_inplace_checks_usage(
     ctxt: context.Context,
-    pull_request_rules: rules.PullRequestRules,
 ) -> None:
+    config_file = await ctxt.repository.get_mergify_config_file()
+    if config_file is None:
+        return
 
-    for rule in pull_request_rules:
-        for name, action in rule.actions.items():
-            if name in ("merge", "queue"):
-                if "allow_inplace_checks" in action.raw_config:
-                    ctxt.log.info(
-                        "repository uses allow_inplace_checks",
-                        allow_inplace_checks=action.raw_config["allow_inplace_checks"],
-                        speculative_checks=action.config["speculative_checks"],
-                    )
+    try:
+        config = rules.YamlSchema(config_file["decoded_content"])
+    except voluptuous.Invalid:
+        return
 
-                if "allow_inplace_speculative_checks" in action.raw_config:
-                    ctxt.log.info(
-                        "repository uses allow_inplace_speculative_checks",
-                        allow_inplace_speculative_checks=action.raw_config[
-                            "allow_inplace_speculative_checks"
-                        ],
-                        speculative_checks=action.config["speculative_checks"],
-                    )
+    for rule in config.get("queue_rules", []):
+        if "allow_inplace_checks" in rule:
+            ctxt.log.info(
+                "repository uses allow_inplace_checks",
+                allow_inplace_checks=rule["allow_inplace_checks"],
+                speculative_checks=rule.get("speculative_checks"),
+            )
+
+        if "allow_inplace_speculative_checks" in rule:
+            ctxt.log.info(
+                "repository uses allow_inplace_speculative_checks",
+                allow_inplace_speculative_checks=rule[
+                    "allow_inplace_speculative_checks"
+                ],
+                speculative_checks=rule.get("speculative_checks"),
+            )
 
 
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
@@ -401,7 +407,7 @@ async def run(
         MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
     )
 
-    _log_allow_inplace_checks_usage(ctxt, mergify_config["pull_request_rules"])
+    _log_allow_inplace_checks_usage(ctxt)
 
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
