@@ -214,7 +214,7 @@ draft pull requests of 5 pull requests each being tested at the same time. If
 your CI time is 10 min, you can merge those 15 pull requests in only 10 minutes.
 
 Queue Freeze
-~~~~~~~~~~~~
+------------
 
 |premium plan tag|
 
@@ -237,6 +237,74 @@ assured that nothing from this queue  — nor the queue after it, ``lowprio`` �
 Meanwhile, you can still merge pull requests pushed to the ``hotfix`` queue.
 
 Once your incident is resolved, you can unfreeze the queue ``default`` and returns to the previous state.
+
+🚫 Unqueued Pull Request
+------------------------
+
+Mergify removes a pull request from the queue if:
+
+* a user has manually unqueued the pull request;
+* there are CI failures;
+* there is a CI timeout.
+
+To get the pull request back in the queue, you can either:
+
+* retrigger the CI if the problem was due to a CI failure (such as a flaky test) or a timeout;
+* update the code inside the pull request, which will retrigger the CI
+* use the :ref:`requeue command` to inform Mergify that the CI failure was not due to the pull request itself, but to a, e.g., a flaky test.
+
+.. _merge-depends-on:
+
+⛓️ Defining Pull Request Dependencies
+-------------------------------------
+
+|premium plan tag|
+|open source plan tag|
+
+You can specify dependencies between pull requests from the same repository.
+Mergify waits for the linked pull requests to be merged before merging any pull
+request with a ``Depends-On:`` header.
+
+To use this feature, adds the ``Depends-On:`` header to the body of your pull
+request:
+
+.. code-block:: md
+
+    New awesome feature 🎉
+
+    To get the full picture, you may need to look at these pull requests:
+
+    Depends-On: #42
+    Depends-On: https://github.com/organization/repository/pull/123
+
+.. warning::
+
+    This feature does not work for cross-repository dependencies.
+
+.. _update method rebase:
+
+Using Rebase to Update
+----------------------
+
+Using the ``rebase`` method to update a pull request with its base branch has some
+drawbacks:
+
+* It doesn't work for private forked repositories.
+
+* Every commits SHA-1 of the pull request will change. The pull request author
+  will need to force-push its own branch if they add new commits.
+
+* GitHub branch protections of your repository may dismiss approved reviews.
+
+* GitHub branch protection of the contributor repository may deny Mergify
+  force-pushing the rebased pull request.
+
+* GPG signed commits will lose their signatures.
+
+* Mergify will impersonate one of the repository members to force-push the
+  branch as GitHub Applications are not authorized to do that by themselves.
+  If you need to control which user is impersonated, you can use the ``update_bot_account`` option.
+  Be aware that the GitHub UI will show the collaborator as the author of the push, while it was actually executed by Mergify.
 
 Options
 -------
@@ -555,27 +623,10 @@ enqueued pull requests.
           queue:
             name: default
 
-
-🚫 Unqueued Pull Request
-------------------------
-
-Mergify removes a pull request from the queue if:
-
-* a user has manually unqueued the pull request;
-* there are CI failures;
-* there is a CI timeout.
-
-To get the pull request back in the queue, you can either:
-
-* retrigger the CI if the problem was due to a CI failure (such as a flaky test) or a timeout;
-* update the code inside the pull request, which will retrigger the CI
-* use the :ref:`requeue command` to inform Mergify that the CI failure was not due to the pull request itself, but to a, e.g., a flaky test.
-
-
 .. _unqueue_notification:
 
 🤙 Get notified when a pull request is unexpectedly unqueued
-------------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: yaml
 
@@ -593,59 +644,7 @@ To get the pull request back in the queue, you can either:
             check-run.
 
 
-To receive ``mentions`` on Slack, you can then use the `native GitHub integration <https://github.com/integrations/slack#scheduled-reminder>`_.
-
-.. _merge-depends-on:
-
-⛓️ Defining Pull Request Dependencies
--------------------------------------
-
-|premium plan tag|
-|open source plan tag|
-
-You can specify dependencies between pull requests from the same repository.
-Mergify waits for the linked pull requests to be merged before merging any pull
-request with a ``Depends-On:`` header.
-
-To use this feature, adds the ``Depends-On:`` header to the body of your pull
-request:
-
-.. code-block:: md
-
-    New awesome feature 🎉
-
-    To get the full picture, you may need to look at these pull requests:
-
-    Depends-On: #42
-    Depends-On: https://github.com/organization/repository/pull/123
-
-.. warning::
-
-    This feature does not work for cross-repository dependencies.
-
-.. _update method rebase:
-
-Using Rebase to Update
-~~~~~~~~~~~~~~~~~~~~~~
-
-Using the ``rebase`` method to update a pull request with its base branch has some
-drawbacks:
-
-* It doesn't work for private forked repositories.
-
-* Every commits SHA-1 of the pull request will change. The pull request author
-  will need to force-push its own branch if they add new commits.
-
-* GitHub branch protections of your repository may dismiss approved reviews.
-
-* GitHub branch protection of the contributor repository may deny Mergify
-  force-pushing the rebased pull request.
-
-* GPG signed commits will lose their signatures.
-
-* Mergify will impersonate one of the repository members to force-push the
-  branch as GitHub Applications are not authorized to do that by themselves.
-  If you need to control which user is impersonated, you can use the ``update_bot_account`` option.
-  Be aware that the GitHub UI will show the collaborator as the author of the push, while it was actually executed by Mergify.
+To receive ``mentions`` on Slack, you can then use the `native GitHub
+integration <https://github.com/integrations/slack#scheduled-reminder>`_.
 
 .. include:: ../global-substitutions.rst
