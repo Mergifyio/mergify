@@ -3233,7 +3233,6 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
-
             assert "checks have timed out" in check["output"]["summary"]
 
     async def test_queue_ci_timeout_draft_pr(self):
@@ -3307,8 +3306,85 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
-
             assert "checks have timed out" in check["output"]["summary"]
+
+    async def test_queue_ci_timeout_outside_schedule_without_unqueuing(self):
+        config = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                        "schedule: MON-FRI 08:00-17:00",
+                    ],
+                    "checks_timeout": "10 m",
+                    "allow_inplace_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+
+        with freeze_time("2021-05-30T20:00:00", tick=True):
+            await self.setup_repo(yaml.dump(config))
+
+            p1, _ = await self.create_pr()
+
+            # To force others to be rebased
+            p, _ = await self.create_pr()
+            await self.merge_pull(p["number"])
+            await self.wait_for("pull_request", {"action": "closed"})
+            await self.run_engine()
+
+            await self.create_status(p1)
+            await self.run_engine()
+
+            await self.wait_for("pull_request", {"action": "opened"})
+            await self.run_engine()
+
+            # p1 has been rebased
+            p1 = await self.get_pull(p1["number"])
+
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+                "delayed-refresh", "-inf", "+inf", withscores=True
+            )
+            assert len(pulls_to_refresh) == 1
+            pulls = await self.get_pulls()
+            tmp_pull = await self.get_pull(pulls[0]["number"])
+            await self.create_status(tmp_pull)
+
+        with freeze_time("2021-05-30T20:12:00", tick=True):
+
+            await self.run_engine()
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Rule: queue (queue)",
+            )
+            assert (
+                check["output"]["title"]
+                == "The pull request is the 1st in the queue to be merged"
+            )
+            check = first(
+                await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+                key=lambda c: c["name"] == "Queue: Embarked in merge train",
+            )
+            assert "checks have timed out" not in check["output"]["summary"]
 
     async def test_queue_without_branch_protection_for_queueing(self):
         rules = {
@@ -3518,7 +3594,26 @@ class TestTrainApiCalls(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
     async def test_create_pull_basic(self):
-        await self.setup_repo(yaml.dump({}))
+        config = {
+            "queue_rules": [
+                {
+                    "name": "foo",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "foo"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(config))
 
         p1, _ = await self.create_pr()
         p2, _ = await self.create_pr()
@@ -3610,9 +3705,27 @@ class TestTrainApiCalls(base.FunctionalTestBase):
     async def test_delete_unused_merge_queue_branch_multiple_queue(self):
         test_default_branch = self.get_full_branch_name("default")
         test_hotfix_branch = self.get_full_branch_name("hotfix")
-
+        config = {
+            "queue_rules": [
+                {
+                    "name": "foo",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "foo"}},
+                },
+            ],
+        }
         await self.setup_repo(
-            yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
+            yaml.dump(config), test_branches=[test_default_branch, test_hotfix_branch]
         )
 
         queue_config = rules.QueueConfig(
@@ -3704,9 +3817,27 @@ class TestTrainApiCalls(base.FunctionalTestBase):
     async def test_delete_unused_merge_queue_branch(self):
         test_default_branch = self.get_full_branch_name("default")
         test_hotfix_branch = self.get_full_branch_name("hotfix")
-
+        config = {
+            "queue_rules": [
+                {
+                    "name": "foo",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "foo"}},
+                },
+            ],
+        }
         await self.setup_repo(
-            yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
+            yaml.dump(config), test_branches=[test_default_branch, test_hotfix_branch]
         )
 
         p1, _ = await self.create_pr()

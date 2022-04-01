@@ -237,6 +237,7 @@ class TrainCar:
     last_evaluated_conditions: typing.Optional[str] = None
     has_timed_out: bool = False
     checks_ended_timestamp: typing.Optional[datetime.datetime] = None
+    ci_has_passed: bool = False
 
     class Serialized(typing.TypedDict):
         initial_embarked_pulls: typing.List[EmbarkedPull.Serialized]
@@ -254,6 +255,7 @@ class TrainCar:
         last_evaluated_conditions: typing.Optional[str]
         has_timed_out: bool
         checks_ended_timestamp: typing.Optional[datetime.datetime]
+        ci_has_passed: bool
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
@@ -281,6 +283,7 @@ class TrainCar:
             last_evaluated_conditions=self.last_evaluated_conditions,
             has_timed_out=self.has_timed_out,
             checks_ended_timestamp=self.checks_ended_timestamp,
+            ci_has_passed=self.ci_has_passed,
         )
 
     @classmethod
@@ -356,6 +359,7 @@ class TrainCar:
             last_evaluated_conditions=data.get("last_evaluated_conditions"),
             has_timed_out=data.get("has_timed_out", False),
             checks_ended_timestamp=data.get("checks_ended_timestamp"),
+            ci_has_passed=data.get("ci_has_passed", False),
         )
         if "head_branch" not in data:
             car.head_branch = car._get_pulls_branch_ref()
@@ -797,6 +801,22 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     source="draft pull creation error",
                 )
 
+    async def get_rule(
+        self,
+    ) -> rules.QueueRule:
+        queue_name = self.initial_embarked_pulls[0].config["name"]
+        rules = await self.train.get_queue_rules()
+
+        if not rules or queue_name not in [rule.name for rule in rules]:
+            raise RuntimeError("Rules are missing from configuration")
+
+        return rules[queue_name]
+
+    def checks_have_timed_out(
+        self, checks_duration: datetime.datetime, timeout: datetime.timedelta
+    ) -> bool:
+        return (checks_duration - self.creation_date) > timeout
+
     async def update_state(
         self,
         checks_conclusion: check_api.Conclusion,
@@ -806,20 +826,42 @@ You don't need to do anything. Mergify will close this pull request automaticall
         self.last_evaluated_conditions = evaluated_queue_rule.conditions.get_summary()
         self.last_checks = []
         self.has_timed_out = False
+        self.ci_has_passed = False
+
+        rule = await self.get_rule()
+        timeout = rule.config["checks_timeout"]
+
         if (
             self.checks_ended_timestamp is None
             and self.checks_conclusion != check_api.Conclusion.PENDING
         ):
             self.checks_ended_timestamp = date.utcnow()
 
-        if checks_conclusion == check_api.Conclusion.FAILURE:
-            for condition in evaluated_queue_rule.conditions.walk():
-                if (
-                    condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
-                    and not condition.match
-                ):
-                    self.has_timed_out = True
-                    break
+        ci_conditions_list = [
+            condition.match
+            for condition in evaluated_queue_rule.conditions.walk()
+            if condition.get_attribute_name().startswith("check-")
+            or condition.get_attribute_name().startswith("status-")
+        ]
+        if all(ci_conditions_list):
+            self.ci_has_passed = True
+
+        if timeout is not None and not self.ci_has_passed:
+            if (
+                self.checks_conclusion != check_api.Conclusion.FAILURE
+                and self.checks_have_timed_out(date.utcnow(), timeout)
+            ):
+                self.has_timed_out = True
+
+            if self.queue_pull_request_number is not None and not self.has_timed_out:
+                # Circular import
+                from mergify_engine import delayed_refresh
+
+                await delayed_refresh.plan_refresh_at_least_at(
+                    self.train.repository,
+                    self.queue_pull_request_number,
+                    self.creation_date + timeout,
+                )
 
         if self.creation_state in ("created", "updated"):
             if self.queue_pull_request_number is None:
@@ -891,12 +933,29 @@ You don't need to do anything. Mergify will close this pull request automaticall
                     f"The pull requests {refs} cannot be merged and will be split"
                 )
 
-        checks_timeout_summary = (
-            "\n\n⏲️  The checks have timed out ⏲️" if self.has_timed_out else ""
-        )
-
         queue_summary = "\n\nRequired conditions for merge:\n\n"
         queue_summary += self.last_evaluated_conditions or ""
+        timeout_summary = ""
+        rule = await self.get_rule()
+        timeout = rule.config["checks_timeout"]
+
+        if (
+            timeout is not None
+            and not self.ci_has_passed
+            and self.checks_conclusion != check_api.Conclusion.SUCCESS
+        ):
+            expected_finish = (
+                date.pretty_datetime(date.RelativeDatetime(self.creation_date).value)
+                if self.creation_date.date() > date.utcnow().date()
+                else date.pretty_time(date.RelativeDatetime(self.creation_date).value)
+            )
+            timeout_summary = (
+                f"\n⏲️  The checks have to pass before {expected_finish} ⏲\n️"
+                if not self.has_timed_out
+                else "\n❌⏲️️  The checks have timed out ⏲❌\n️"
+            )
+
+        queue_summary += timeout_summary
 
         if self.failure_history:
             batch_failure_summary = f"\n\nThe pull request {self._get_user_refs()} is part of a speculative checks batch that previously failed:\n"
@@ -924,7 +983,6 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
         if self.creation_state == "created":
             summary = f"Embarking {self._get_embarked_refs(markdown=True)} together"
-            summary += checks_timeout_summary
             summary += queue_summary + "\n" + batch_failure_summary
 
             if self.queue_pull_request_number is None:
@@ -1023,11 +1081,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 f"✨ Unexpected queue change: {unexpected_change}. ✨\n\n"
             )
 
+        if self.has_timed_out:
+            conclusion = check_api.Conclusion.FAILURE
+
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
             summary=unexpected_change_summary
-            + checks_timeout_summary
             + queue_summary
             + "\n"
             + checks_copy_summary

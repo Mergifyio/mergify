@@ -264,6 +264,10 @@ def pretty_datetime(dt: datetime.datetime) -> str:
     return dt.strftime("%Y-%m-%d %H:%M %Z")
 
 
+def pretty_time(dt: datetime.datetime) -> str:
+    return dt.strftime("%H:%M %Z")
+
+
 _INTERVAL_RE = re.compile(
     r"""
     (?P<filled>
