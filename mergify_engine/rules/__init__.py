@@ -683,6 +683,7 @@ class MergifyConfig(typing.TypedDict):
     queue_rules: QueueRules
     defaults: Defaults
     commands_restrictions: typing.Dict[str, CommandsRestrictions]
+    raw_config: typing.Any
 
 
 def merge_config(
@@ -728,8 +729,9 @@ def get_mergify_config(
     merged_config = merge_config(config, defaults)
 
     try:
-        config = UserConfigurationSchema(merged_config, partial_validation=False)
-        config["defaults"] = defaults
-        return typing.cast(MergifyConfig, config)
+        final_config = UserConfigurationSchema(merged_config, partial_validation=False)
+        final_config["defaults"] = defaults
+        final_config["raw_config"] = config
+        return typing.cast(MergifyConfig, final_config)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])

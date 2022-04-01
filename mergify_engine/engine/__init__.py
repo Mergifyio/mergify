@@ -15,7 +15,6 @@ import typing
 
 import daiquiri
 import first
-import voluptuous
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -275,18 +274,9 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
 
 
 async def _log_allow_inplace_checks_usage(
-    ctxt: context.Context,
+    ctxt: context.Context, raw_config: typing.Any
 ) -> None:
-    config_file = await ctxt.repository.get_mergify_config_file()
-    if config_file is None:
-        return
-
-    try:
-        config = rules.YamlSchema(config_file["decoded_content"])
-    except voluptuous.Invalid:
-        return
-
-    for rule in config.get("queue_rules", []):
+    for rule in raw_config.get("queue_rules", []):
         if "allow_inplace_checks" in rule:
             ctxt.log.info(
                 "repository uses allow_inplace_checks",
@@ -407,7 +397,7 @@ async def run(
         MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
     )
 
-    _log_allow_inplace_checks_usage(ctxt)
+    await _log_allow_inplace_checks_usage(ctxt, mergify_config["raw_config"])
 
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
