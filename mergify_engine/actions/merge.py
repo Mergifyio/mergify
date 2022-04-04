@@ -121,13 +121,6 @@ class MergeAction(merge_base.MergeBaseAction):
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
-        if ctxt.pull["mergeable_state"] == "behind":
-            return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                "Branch protection setting 'strict' is enabled, and the pull request is not up to date.",
-                "",
-            )
-
         report = await self.merge_report(ctxt)
         if report is not None:
             return report
