@@ -286,20 +286,20 @@ QueuesRulesEvaluator = GenericRulesEvaluator[QueueRule, EvaluatedQueueRule]
 class PullRequestRules:
     rules: typing.List[PullRequestRule]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # NOTE(sileht): Make sure each rule has a unique name because they are
         # used to serialize the rule/action result in summary. And the summary
         # uses as unique key something like: f"{rule.name} ({action.name})"
         sorted_rules = sorted(self.rules, key=operator.attrgetter("name"))
         grouped_rules = itertools.groupby(sorted_rules, operator.attrgetter("name"))
         for _, sub_rules in grouped_rules:
-            sub_rules = list(sub_rules)
-            if len(sub_rules) == 1:
+            sub_rules_list = list(sub_rules)
+            if len(sub_rules_list) == 1:
                 continue
-            for n, rule in enumerate(sub_rules):
+            for n, rule in enumerate(sub_rules_list):
                 rule.name += f" #{n + 1}"
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[PullRequestRule]:
         return iter(self.rules)
 
     def has_user_rules(self) -> bool:
@@ -396,7 +396,7 @@ class QueueRules:
 
 
 class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.msg} at {self.path}"
 
     def get_annotations(self, path: str) -> typing.List[github_types.GitHubAnnotation]:
@@ -620,12 +620,12 @@ class InvalidRules(Exception):
     filename: str
 
     @staticmethod
-    def _format_path_item(path_item):
+    def _format_path_item(path_item: typing.Any) -> str:
         if isinstance(path_item, int):
             return f"item {path_item}"
         return str(path_item)
 
-    def _format_error(self, error):
+    def _format_error(self, error: voluptuous.Invalid) -> str:
         msg = str(error.msg)
 
         if error.error_type:
@@ -641,7 +641,9 @@ class InvalidRules(Exception):
         return msg
 
     @classmethod
-    def _walk_error(cls, root_error):
+    def _walk_error(
+        cls, root_error: voluptuous.Invalid
+    ) -> typing.Generator[voluptuous.Invalid, None, None]:
         if isinstance(root_error, voluptuous.MultipleInvalid):
             for error1 in root_error.errors:
                 for error2 in cls._walk_error(error1):
@@ -650,10 +652,10 @@ class InvalidRules(Exception):
             yield root_error
 
     @property
-    def errors(self):
+    def errors(self) -> typing.List[voluptuous.Invalid]:
         return list(self._walk_error(self.error))
 
-    def __str__(self):
+    def __str__(self) -> str:
         if len(self.errors) >= 2:
             return "* " + "\n* ".join(sorted(map(self._format_error, self.errors)))
         return self._format_error(self.errors[0])
