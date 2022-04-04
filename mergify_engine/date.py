@@ -102,28 +102,28 @@ class RelativeDatetime:
             )
         )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.value.tzinfo is None:
             raise InvalidDate("timezone is missing")
 
 
 @dataclasses.dataclass
 class Year(PartialDatetime):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.value < 2000 or self.value > 9999:
             raise InvalidDate("Year must be between 2000 and 9999")
 
 
 @dataclasses.dataclass
 class Month(PartialDatetime):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.value < 1 or self.value > 12:
             raise InvalidDate("Month must be between 1 and 12")
 
 
 @dataclasses.dataclass
 class Day(PartialDatetime):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.value < 1 or self.value > 31:
             raise InvalidDate("Day must be between 1 and 31")
 
@@ -152,7 +152,7 @@ class Time:
 
         return cls(hour=hour, minute=minute, tzinfo=tzinfo)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.hour < 0 or self.hour >= 24:
             raise InvalidDate("Hour must be between 0 and 23")
         elif self.minute < 0 or self.minute >= 60:
@@ -226,7 +226,7 @@ class DayOfWeek(PartialDatetime):
             raise InvalidDate(f"{string} is not a number or literal day of the week")
         return cls(dow)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.value < 1 or self.value > 7:
             raise InvalidDate("Day of the week must be between 1 and 7")
 
