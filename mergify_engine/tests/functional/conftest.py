@@ -109,7 +109,7 @@ async def dashboard(
             },
         ],
     )
-    await typing.cast(user_tokens_mod.UserTokensGitHubCom, user_tokens).save_to_cache()
+    await typing.cast(user_tokens_mod.UserTokensSaas, user_tokens).save_to_cache()
 
     real_get_subscription = subscription.Subscription.get_subscription
 
@@ -160,14 +160,14 @@ async def dashboard(
         return user_tokens_mod.UserTokens(redis_cache, owner_id, {})
 
     patcher = mock.patch(
-        "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom._retrieve_from_db",
+        "mergify_engine.dashboard.user_tokens.UserTokensSaas._retrieve_from_db",
         side_effect=fake_retrieve_user_tokens_from_db,
     )
     patcher.start()
     request.addfinalizer(patcher.stop)
 
     patcher = mock.patch(
-        "mergify_engine.dashboard.user_tokens.UserTokensGitHubCom.get",
+        "mergify_engine.dashboard.user_tokens.UserTokensSaas.get",
         side_effect=fake_user_tokens,
     )
     patcher.start()
@@ -194,7 +194,7 @@ async def dashboard(
         raise application_mod.ApplicationUserNotFound()
 
     patcher = mock.patch(
-        "mergify_engine.dashboard.application.ApplicationGitHubCom.get",
+        "mergify_engine.dashboard.application.ApplicationSaas.get",
         side_effect=fake_application_get,
     )
     patcher.start()

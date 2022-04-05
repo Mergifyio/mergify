@@ -228,14 +228,10 @@ async def report(
     )
 
     cached_tokens = await user_tokens.UserTokens.get(redis_cache, owner_id)
-    if issubclass(user_tokens.UserTokens, user_tokens.UserTokensGitHubCom):
+    if config.SAAS_MODE:
         db_tokens = typing.cast(
             user_tokens.UserTokens,
-            (
-                await user_tokens.UserTokensGitHubCom._retrieve_from_db(
-                    redis_cache, owner_id
-                )
-            ),
+            (await user_tokens.UserTokensSaas._retrieve_from_db(redis_cache, owner_id)),
         )
     else:
         db_tokens = cached_tokens
