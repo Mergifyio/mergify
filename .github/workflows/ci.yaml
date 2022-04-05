@@ -131,7 +131,7 @@ jobs:
         run: |
           echo '-e .' >> requirements.txt
           curl -sSL \
-            "https://github.com/buildpacks/pack/releases/download/v0.22.0/pack-v0.22.0-linux.tgz" \
+            "https://github.com/buildpacks/pack/releases/download/v0.24.1/pack-v0.24.1-linux.tgz" \
             | tar -xz pack
           ./pack build test_img --builder heroku/buildpacks:20 --buildpack heroku/python
           docker run \
