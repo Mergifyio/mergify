@@ -16,6 +16,7 @@
 
 
 def import_check_worker() -> int:
+    from mergify_engine import config  # noqa isort:skip
     from mergify_engine import worker  # noqa isort:skip
 
     worker.service.setup("import-check-worker")
@@ -25,6 +26,7 @@ def import_check_worker() -> int:
 
 
 def import_check_web() -> int:
+    from mergify_engine import config  # noqa isort:skip
     from mergify_engine.web import asgi
 
     asgi.service.setup("import-check-web")

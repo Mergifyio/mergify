@@ -83,7 +83,7 @@ class ApplicationBase:
 
 
 @dataclasses.dataclass
-class ApplicationGitHubCom(ApplicationBase):
+class ApplicationSaas(ApplicationBase):
     ttl: int = -2
 
     RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
@@ -131,7 +131,7 @@ class ApplicationGitHubCom(ApplicationBase):
     ) -> ApplicationClassT:
         return typing.cast(
             ApplicationClassT,
-            await typing.cast(ApplicationGitHubCom, cls)._get(
+            await typing.cast(ApplicationSaas, cls)._get(
                 redis, api_access_key, api_secret_key, account_scope
             ),
         )
@@ -143,7 +143,7 @@ class ApplicationGitHubCom(ApplicationBase):
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
-    ) -> "ApplicationGitHubCom":
+    ) -> "ApplicationSaas":
         cached_application = await cls._retrieve_from_cache(
             redis, api_access_key, api_secret_key, account_scope
         )
@@ -246,7 +246,7 @@ class ApplicationGitHubCom(ApplicationBase):
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
-    ) -> typing.Optional["ApplicationGitHubCom"]:
+    ) -> typing.Optional["ApplicationSaas"]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(api_access_key, account_scope))
             await pipe.ttl(cls._cache_key(api_access_key, account_scope))
@@ -288,7 +288,7 @@ class ApplicationGitHubCom(ApplicationBase):
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
-    ) -> "ApplicationGitHubCom":
+    ) -> "ApplicationSaas":
         async with dashboard.AsyncDashboardSaasClient() as client:
             headers: typing.Dict[str, str]
             if account_scope is None:
@@ -352,14 +352,14 @@ class ApplicationOnPremise(ApplicationBase):
         )
 
 
-if config.SUBSCRIPTION_TOKEN is not None:
+if config.SAAS_MODE:
 
     @dataclasses.dataclass
-    class Application(ApplicationOnPremise):
+    class Application(ApplicationSaas):
         pass
 
 else:
 
     @dataclasses.dataclass
-    class Application(ApplicationGitHubCom):  # type: ignore [no-redef]
+    class Application(ApplicationOnPremise):  # type: ignore [no-redef]
         pass
