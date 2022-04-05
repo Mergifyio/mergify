@@ -19,6 +19,7 @@ import distutils.util
 import logging
 import os
 import secrets
+import sys
 import typing
 
 import dotenv
@@ -109,6 +110,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "VERSION", default=os.getenv("HEROKU_SLUG_COMMIT", "dev")
         ): str,
+        voluptuous.Required("SAAS_MODE", default=False): CoercedBool,
         # Logging
         voluptuous.Required(
             "LOG_DEBUG_LOGGER_NAMES", default=""
@@ -318,6 +320,7 @@ TESTING_MERGIFY_TEST_2_ID: int
 TESTING_GPGKEY_SECRET: bytes
 TESTING_ID_GPGKEY_SECRET: str
 ALLOW_COMMIT_MESSAGE_OPTION: bool
+SAAS_MODE: bool
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 
@@ -365,8 +368,6 @@ if "TESTING_GPGKEY_SECRET" in CONFIG and not CONFIG["TESTING_GPGKEY_SECRET"].sta
     CONFIG["TESTING_GPGKEY_SECRET"] = base64.b64decode(CONFIG["TESTING_GPGKEY_SECRET"])
     TESTING_GPGKEY_SECRET = CONFIG["TESTING_GPGKEY_SECRET"]
 
-
-def is_saas() -> bool:
-    return (
-        typing.cast(str, globals()["GITHUB_REST_API_URL"]) == "https://api.github.com"
-    )
+if not globals()["SAAS_MODE"] and not globals()["SUBSCRIPTION_TOKEN"]:
+    print("SUBSCRIPTION_TOKEN is missing. Mergify can't start.")
+    sys.exit(1)
