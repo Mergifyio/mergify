@@ -397,8 +397,16 @@ class AsyncGithubClient(http.AsyncClient):
             url, **self._prepare_request_kwargs(api_version, oauth_token, **kwargs)
         )
 
-    async def graphql_post(self, query: str) -> typing.Any:
-        response = await self.post(config.GITHUB_GRAPHQL_API_URL, json={"query": query})
+    async def graphql_post(
+        self,
+        query: str,
+        oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
+    ) -> typing.Any:
+        response = await self.post(
+            config.GITHUB_GRAPHQL_API_URL,
+            json={"query": query},
+            oauth_token=oauth_token,
+        )
         data = response.json()
         if "data" not in data:
             raise GraphqlError(response.text)

@@ -21,6 +21,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine.actions import utils as action_utils
+from mergify_engine.clients import github
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import types
@@ -102,18 +103,16 @@ class EditAction(actions.Action):
                 }}
             }}
         """
-        response = (
-            await ctxt.client.post(
-                "/graphql",
-                json={"query": mutation},
+        try:
+            await ctxt.client.graphql_post(
+                mutation,
                 oauth_token=tokens[0]["oauth_access_token"],
             )
-        ).json()
-        if response["data"] is None:
+        except github.GraphqlError as e:
             ctxt.log.error(
                 "GraphQL API call failed, unable to convert PR.",
                 current_state=current_state,
-                response=response,
+                response=e.message,
             )
             return check_api.Result(
                 check_api.Conclusion.FAILURE,
