@@ -109,6 +109,8 @@ const StepCreateGitHubApp = function StepCreateGitHubApp() {
         pages: 'write',
         pull_requests: 'write',
         statuses: 'read',
+        administration: 'read',
+        workflows: 'write',
       },
       default_events: [
         'check_run',
