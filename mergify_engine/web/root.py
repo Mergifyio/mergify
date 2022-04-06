@@ -34,6 +34,8 @@ from mergify_engine.web.api import root as api_root
 LOG = daiquiri.getLogger(__name__)
 
 app = fastapi.FastAPI(openapi_url=None, redoc_url=None, docs_url=None)
+# NOTE(sileht): We don't set any origins on purpose as the API is public and all customers
+# should be able to access the API with their applications from a browser or anything else.
 app.add_middleware(
     cors.CORSMiddleware,
     allow_origins=["*"],
