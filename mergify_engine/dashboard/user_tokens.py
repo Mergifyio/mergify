@@ -99,7 +99,7 @@ class UserTokensBase:
 
 
 @dataclasses.dataclass
-class UserTokensGitHubCom(UserTokensBase):
+class UserTokensSaas(UserTokensBase):
     ttl: int = -2
 
     RETENTION_SECONDS = 60 * 60 * 24 * 3  # 3 days
@@ -119,7 +119,7 @@ class UserTokensGitHubCom(UserTokensBase):
     async def delete(
         cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
     ) -> None:
-        await redis.delete(typing.cast(UserTokensGitHubCom, cls)._cache_key(owner_id))
+        await redis.delete(typing.cast(UserTokensSaas, cls)._cache_key(owner_id))
 
     @classmethod
     async def get(
@@ -127,13 +127,11 @@ class UserTokensGitHubCom(UserTokensBase):
     ) -> UserTokensT:
         return typing.cast(
             UserTokensT,
-            await typing.cast(UserTokensGitHubCom, cls)._get(redis, owner_id),
+            await typing.cast(UserTokensSaas, cls)._get(redis, owner_id),
         )
 
     @classmethod
-    async def _get(
-        cls, redis: utils.RedisCache, owner_id: int
-    ) -> "UserTokensGitHubCom":
+    async def _get(cls, redis: utils.RedisCache, owner_id: int) -> "UserTokensSaas":
         cached_tokens = await cls._retrieve_from_cache(redis, owner_id)
         if cached_tokens is None or await cached_tokens._has_expired():
             try:
@@ -162,7 +160,7 @@ class UserTokensGitHubCom(UserTokensBase):
     @classmethod
     async def _retrieve_from_cache(
         cls, redis: utils.RedisCache, owner_id: int
-    ) -> typing.Optional["UserTokensGitHubCom"]:
+    ) -> typing.Optional["UserTokensSaas"]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(owner_id))
             await pipe.ttl(cls._cache_key(owner_id))
@@ -184,7 +182,7 @@ class UserTokensGitHubCom(UserTokensBase):
     @classmethod
     async def _retrieve_from_db(
         cls, redis: utils.RedisCache, owner_id: int
-    ) -> "UserTokensGitHubCom":
+    ) -> "UserTokensSaas":
         async with dashboard.AsyncDashboardSaasClient() as client:
             try:
                 resp = await client.get(f"/engine/user_tokens/{owner_id}")
@@ -224,14 +222,14 @@ class UserTokensOnPremise(UserTokensBase):
         )
 
 
-if config.SUBSCRIPTION_TOKEN is not None:
+if config.SAAS_MODE:
 
     @dataclasses.dataclass
-    class UserTokens(UserTokensOnPremise):
+    class UserTokens(UserTokensSaas):
         pass
 
 else:
 
     @dataclasses.dataclass
-    class UserTokens(UserTokensGitHubCom):  # type: ignore [no-redef]
+    class UserTokens(UserTokensOnPremise):  # type: ignore [no-redef]
         pass

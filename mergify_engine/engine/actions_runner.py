@@ -126,7 +126,7 @@ def _has_merge_action_with_commit_message_mode(
     for rule in pull_request_rules:
         for name, action in rule.actions.items():
             if name in ("merge", "queue") and ("commit_message" in action.raw_config):
-                if config.is_saas():
+                if config.SAAS_MODE:
                     return COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(action_name=name)
                 else:
                     return COMMIT_MESSAGE_MODE_DEPRECATION_GHES.format(action_name=name)

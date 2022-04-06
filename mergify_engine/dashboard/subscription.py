@@ -213,7 +213,7 @@ class SubscriptionBase(abc.ABC):
 
 
 @dataclasses.dataclass
-class SubscriptionDashboardGitHubCom(SubscriptionBase):
+class SubscriptionDashboardSaas(SubscriptionBase):
     @classmethod
     async def _retrieve_subscription_from_db(
         cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
@@ -254,14 +254,14 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
                 return cls.from_dict(redis, owner_id, sub)
 
 
-if config.SUBSCRIPTION_TOKEN is not None:
+if config.SAAS_MODE:
 
     @dataclasses.dataclass
-    class Subscription(SubscriptionDashboardOnPremise):
+    class Subscription(SubscriptionDashboardSaas):
         pass
 
 else:
 
     @dataclasses.dataclass
-    class Subscription(SubscriptionDashboardGitHubCom):  # type: ignore [no-redef]
+    class Subscription(SubscriptionDashboardOnPremise):  # type: ignore [no-redef]
         pass

@@ -323,7 +323,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-        if config.is_saas():
+        if config.SAAS_MODE:
             assert (
                 actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(
                     action_name="merge"
