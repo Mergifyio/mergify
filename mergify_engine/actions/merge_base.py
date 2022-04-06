@@ -21,7 +21,6 @@ import typing
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import config
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import queue
@@ -50,13 +49,6 @@ async def get_rule_checks_status(
 
     if rule.conditions.match:
         return check_api.Conclusion.SUCCESS
-
-    for condition in rule.conditions.walk():
-        if (
-            condition.label == constants.CHECKS_TIMEOUT_CONDITION_LABEL
-            and not condition.match
-        ):
-            return check_api.Conclusion.FAILURE
 
     conditions_without_checks = rule.conditions.copy()
     for condition_without_check in conditions_without_checks.walk():

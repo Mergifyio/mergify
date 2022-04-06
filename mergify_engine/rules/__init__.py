@@ -27,7 +27,6 @@ import voluptuous
 import yaml
 
 from mergify_engine import actions
-from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
@@ -129,21 +128,6 @@ class QueueRule:
         extra_conditions = await conditions.get_branch_protection_conditions(
             repository, ref, strict=False
         )
-        if self.config["checks_timeout"] is not None:
-            extra_conditions += (
-                conditions.RuleCondition(
-                    {
-                        ">": (
-                            "queue-merge-started-at-relative",
-                            date.RelativeDatetime(
-                                date.utcnow() - self.config["checks_timeout"]
-                            ),
-                        )
-                    },
-                    label=constants.CHECKS_TIMEOUT_CONDITION_LABEL,
-                    description=f"⏲️  Checks timeout setting ({self.config['checks_timeout']} seconds)",
-                ),
-            )
 
         queue_rule_with_branch_protection = QueueRule(
             self.name,
