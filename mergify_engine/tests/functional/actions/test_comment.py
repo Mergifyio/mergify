@@ -165,7 +165,10 @@ class TestCommentAction(base.FunctionalTestBase):
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
         assert "failure" == checks[0]["conclusion"]
-        assert "The Mergify configuration is invalid" == checks[0]["output"]["title"]
+        assert (
+            "The current Mergify configuration is invalid"
+            == checks[0]["output"]["title"]
+        )
         return checks[0]
 
     async def test_comment_template_syntax_error(self):
