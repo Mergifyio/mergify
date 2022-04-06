@@ -69,9 +69,9 @@ const Steper = function Steper(props) {
   const { step } = props;
   return (
     <Breadcrumb>
-      <Breadcrumb.Item active className={step === 1 ? 'font-weight-bold' : ''}>1. Creation of the GitHub App</Breadcrumb.Item>
-      <Breadcrumb.Item active className={step === 2 ? 'font-weight-bold' : ''}>2. Installation of the GitHub App</Breadcrumb.Item>
-      <Breadcrumb.Item active className={step === 3 ? 'font-weight-bold' : ''}>3. Installation completed</Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 1 ? 'fw-bold' : ''}>1. Creation of the GitHub App</Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 2 ? 'fw-bold' : ''}>2. Installation of the GitHub App</Breadcrumb.Item>
+      <Breadcrumb.Item active className={step === 3 ? 'fw-bold' : ''}>3. Installation completed</Breadcrumb.Item>
     </Breadcrumb>
   );
 };
@@ -190,7 +190,7 @@ const StepWaitingGitHubAppConfig = function StepWaitingGitHubAppConfig() {
         <Steper step={2} />
         <Container className="text-center p-3">
           <Spinner animation="border" role="status">
-            <span className="sr-only">Loading...</span>
+            <span className="visually-hidden">Loading...</span>
           </Spinner>
         </Container>
       </Modal.Body>
@@ -234,7 +234,7 @@ const StepDownloadConfig = function StepDownloadConfig(props) {
         </p>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onDownload} ref={downloadBtn} variant="secondary" className="ms-auto">Download the configuration</Button>
+        <Button onClick={onDownload} ref={downloadBtn} variant="secondary" className="me-auto">Download the configuration</Button>
         <span className="text-muted"><small>You will be redirected to github.com to confirm the installation.</small></span>
         <a className="d-none" download="mergify.env" href={downloadUrl} ref={downloadLink}>Download link</a>
         <Button variant="primary" href={`${info.app.html_url}/installations/new/permissions?target_id=${info.app.owner.id}`}>Install</Button>
@@ -284,7 +284,7 @@ const App = function App() {
       <BrowserRouter>
         <Modal.Dialog size="lg">
           <Modal.Header style={{ backgroundColor: '#C9E7F8' }}>
-            <img src={LogoMergify} alt="mergify logo" width="140px" className="ms-auto d-inline-block" />
+            <img src={LogoMergify} alt="mergify logo" width="140px" className="me-auto d-inline-block" />
             <Modal.Title>GitHub App Installer</Modal.Title>
           </Modal.Header>
           <Steps />
