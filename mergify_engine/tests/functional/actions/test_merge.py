@@ -15,6 +15,7 @@
 # under the License.
 import logging
 
+import pytest
 import yaml
 
 from mergify_engine import config
@@ -109,6 +110,10 @@ class TestMergeAction(base.FunctionalTestBase):
         self.assertEqual(True, p["merged"])
         self.assertEqual("mergify-test4", p["merged_by"]["login"])
 
+    @pytest.mark.skipif(
+        not config.GITHUB_URL.startswith("https://github.com"),
+        reason="required_conversation_resolution requires GHES 3.2",
+    )
     async def test_merge_branch_protection_conversation_resolution(self):
         rules = {
             "pull_request_rules": [
