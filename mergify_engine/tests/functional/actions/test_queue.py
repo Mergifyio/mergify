@@ -385,7 +385,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self.run_engine()
         await assert_queued()
-        assert tmp_pull["commits"] == 6
+        assert tmp_pull["commits"] in (5, 6)
 
         await self.create_status(tmp_pull)
         await self.run_engine()
@@ -485,7 +485,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self.run_engine()
         await assert_queued()
-        assert tmp_pull["commits"] == 6
+        assert tmp_pull["commits"] in (5, 6)
 
         await self.create_status(tmp_pull)
         await self.run_engine()
@@ -601,7 +601,7 @@ class TestQueueAction(base.FunctionalTestBase):
             check["output"]["title"]
             == "The pull request is the 1st in the queue to be merged"
         )
-        assert tmp_pull["commits"] == 5
+        assert tmp_pull["commits"] in (5, 6)
 
         await self.create_status(p1)
         await self.run_engine()
@@ -1644,7 +1644,7 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
         )
 
-        assert tmp_pull["commits"] == 6
+        assert tmp_pull["commits"] in (5, 6)
         await self.create_status(tmp_pull)
 
         head_sha = p1["head"]["sha"]
@@ -2569,7 +2569,7 @@ DO NOT EDIT
         head_sha = p1["head"]["sha"]
         p1 = await self.get_pull(p1["number"])
         assert p1["head"]["sha"] != head_sha
-        assert tmp_mq_p2_bis["commits"] == 6
+        assert tmp_mq_p2_bis["commits"] in (5, 6)
 
         # Merge the train
         await self.create_status(p1)
