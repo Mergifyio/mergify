@@ -14,12 +14,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import pytest
 import yaml
 
+from mergify_engine import config
 from mergify_engine.tests.functional import base
 
 
 class TestEditAction(base.FunctionalTestBase):
+    @pytest.mark.skipif(
+        not config.GITHUB_URL.startswith("https://github.com"),
+        reason="requires GHES 3.2",
+    )
     async def test_pr_to_draft_edit(self):
         rules = {
             "pull_request_rules": [

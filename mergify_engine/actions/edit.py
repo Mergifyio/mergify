@@ -109,6 +109,12 @@ class EditAction(actions.Action):
                 oauth_token=tokens[0]["oauth_access_token"],
             )
         except github.GraphqlError as e:
+            if "Field 'convertPullRequestToDraft' doesn't exist" in e.message:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Converting pull request to draft requires GHES >= 3.2",
+                    "",
+                )
             ctxt.log.error(
                 "GraphQL API call failed, unable to convert PR.",
                 current_state=current_state,
