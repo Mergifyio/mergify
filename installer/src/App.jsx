@@ -93,7 +93,7 @@ const StepCreateGitHubApp = function StepCreateGitHubApp() {
       description: `Mergify installation for ${values.login}`,
       url: 'https://mergify.com/',
       hook_attributes: {
-        url: `${window.location.origin}/events`,
+        url: `${window.location.origin}/event`,
       },
       redirect_url: window.location.origin,
       setup_url: window.location.origin,
