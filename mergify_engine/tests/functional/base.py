@@ -42,6 +42,7 @@ from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import utils
 from mergify_engine import worker
+from mergify_engine import worker_lua
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
@@ -186,6 +187,8 @@ class EventReader:
         )
         r.raise_for_status()
 
+    EVENTS_POLLING_INTERVAL_SECONDS = 0.20
+
     async def wait_for(
         self,
         event_type: github_types.GitHubEventType,
@@ -210,7 +213,7 @@ class EventReader:
                     await self._handled_events.put(event)
                 else:
                     if RECORD:
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(self.EVENTS_POLLING_INTERVAL_SECONDS)
                 continue
 
             if event["type"] == event_type and self._match(
@@ -332,6 +335,10 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     # FORK_PERSONAL_TOKEN = config.ORG_USER_PERSONAL_TOKEN
     # SUBSCRIPTION_ACTIVE = True
 
+    WAIT_TIME_BEFORE_TEARDOWN = 0.20
+    WORKER_IDLE_SLEEP_TIME = 0.20
+    WORKER_HAS_WORK_INTERVAL_CHECK = 0.02
+
     def _setupAsyncioLoop(self):
         # We reuse the event loop created by pytest-asyncio
         loop = self.pytest_event_loop
@@ -451,6 +458,33 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # NOTE(sileht): Prepare a fresh redis
         await self.clear_redis_stream()
 
+        # Track when worker work
+
+        real_consume_method = worker.StreamProcessor.consume
+
+        self.worker_concurrency_works = 0
+
+        async def tracked_consume(
+            inner_self: worker.StreamProcessor,
+            bucket_org_key: worker_lua.BucketOrgKeyType,
+            owner_id: github_types.GitHubAccountIdType,
+            owner_login_for_tracing: github_types.GitHubLoginForTracing,
+        ) -> None:
+            self.worker_concurrency_works += 1
+            try:
+                await real_consume_method(
+                    inner_self, bucket_org_key, owner_id, owner_login_for_tracing
+                )
+            finally:
+                self.worker_concurrency_works -= 1
+
+        worker.StreamProcessor.consume = tracked_consume  # type: ignore[assignment]
+
+        def cleanup_consume() -> None:
+            worker.StreamProcessor.consume = real_consume_method  # type: ignore[assignment]
+
+        self.addCleanup(cleanup_consume)
+
     @staticmethod
     async def clear_redis_stream() -> None:
         with utils.yaaredis_for_stream() as redis_stream:
@@ -473,7 +507,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         # also to avoid the "git clone fork" failure that Github returns when
         # we create repo too quickly
         if RECORD:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(self.WAIT_TIME_BEFORE_TEARDOWN)
 
             await self.client_admin.patch(
                 self.url_origin, json={"default_branch": "main"}
@@ -506,10 +540,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     async def wait_for(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         return await self._event_reader.wait_for(*args, **kwargs)
 
-    @staticmethod
-    async def _async_run_workers(timeout: float) -> None:
+    async def _async_run_workers(self) -> None:
         w = worker.Worker(
-            idle_sleep_time=0.42 if RECORD else 0.01,
+            idle_sleep_time=self.WORKER_IDLE_SLEEP_TIME if RECORD else 0.01,
             enabled_services={"shared-stream", "dedicated-stream", "delayed-refresh"},
             delayed_refresh_idle_time=0.01,
             dedicated_workers_spawner_idle_time=0.01,
@@ -517,22 +550,22 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
         await w.start()
 
-        started_at = None
-        while True:
-            if w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0:
-                started_at = None
-            elif started_at is None:
-                started_at = time.monotonic()
-            elif time.monotonic() - started_at >= timeout:
-                break
-            await asyncio.sleep(timeout)
+        # Ensure delayed_refresh and monitoring task run at least once
+        await asyncio.sleep(self.WORKER_HAS_WORK_INTERVAL_CHECK)
+
+        while (
+            w._redis_stream is None
+            or (await w._redis_stream.zcard("streams")) > 0
+            or self.worker_concurrency_works > 0
+        ):
+            await asyncio.sleep(self.WORKER_HAS_WORK_INTERVAL_CHECK)
 
         w.stop()
         await w.wait_shutdown_complete()
 
-    async def run_engine(self, timeout: float = 0.42 if RECORD else 0.02) -> None:
+    async def run_engine(self) -> None:
         LOG.log(42, "RUNNING ENGINE")
-        await self._async_run_workers(timeout)
+        await self._async_run_workers()
 
     def get_gitter(
         self, logger: "logging.LoggerAdapter[logging.Logger]"

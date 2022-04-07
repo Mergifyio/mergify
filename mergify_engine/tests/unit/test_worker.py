@@ -110,20 +110,54 @@ def fake_get_installation_from_account_id(
     }
 
 
-async def run_worker(test_timeout: float = 10, **kwargs: typing.Any) -> worker.Worker:
+WORKER_HAS_WORK_INTERVAL_CHECK = 0.02
+
+
+async def run_worker(
+    test_timeout: typing.Optional[float] = None, **kwargs: typing.Any
+) -> worker.Worker:
     w = worker.Worker(
+        idle_sleep_time=0.01,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
+        dedicated_workers_syncer_idle_time=0.01,
         **kwargs,
     )
     await w.start()
+
+    real_consume_method = worker.StreamProcessor.consume
+    worker_concurrency_works = [0]
+
+    async def tracked_consume(
+        inner_self: worker.StreamProcessor,
+        bucket_org_key: worker_lua.BucketOrgKeyType,
+        owner_id: github_types.GitHubAccountIdType,
+        owner_login_for_tracing: github_types.GitHubLoginForTracing,
+    ) -> None:
+        worker_concurrency_works[0] += 1
+        try:
+            await real_consume_method(
+                inner_self, bucket_org_key, owner_id, owner_login_for_tracing
+            )
+        finally:
+            worker_concurrency_works[0] -= 1
+
+    worker.StreamProcessor.consume = tracked_consume  # type: ignore[assignment]
+
+    # run delayed-refresh and monitor task at least once
+    await asyncio.sleep(WORKER_HAS_WORK_INTERVAL_CHECK)
+
     started_at = time.monotonic()
     while (
-        w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0
-    ) and time.monotonic() - started_at < test_timeout:
-        await asyncio.sleep(0.5)
+        w._redis_stream is None
+        or (await w._redis_stream.zcard("streams")) > 0
+        or worker_concurrency_works[0] > 0
+    ) and (test_timeout is None or time.monotonic() - started_at < test_timeout):
+        await asyncio.sleep(WORKER_HAS_WORK_INTERVAL_CHECK)
+
     w.stop()
     await w.wait_shutdown_complete()
+    worker.StreamProcessor.consume = real_consume_method  # type: ignore[assignment]
     return w
 
 
