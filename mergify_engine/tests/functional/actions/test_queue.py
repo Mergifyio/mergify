@@ -1828,7 +1828,7 @@ DO NOT EDIT
         await self.create_status(p1)
         await self.run_engine()
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
-        await self.run_engine(3)
+        await self.run_engine()
         pulls = await self.get_pulls()
         assert len(pulls) == 3
         p1 = await self.get_pull(p1["number"])
@@ -1852,7 +1852,7 @@ DO NOT EDIT
 
         # Queue p3
         await self.add_label(p3["number"], "queue")
-        await self.run_engine(3)
+        await self.run_engine()
 
         # Check train state
         pulls = await self.get_pulls()
@@ -1994,7 +1994,7 @@ DO NOT EDIT
         await self.run_engine()
 
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
-        await self.run_engine(3)
+        await self.run_engine()
 
         pulls = await self.get_pulls()
         assert len(pulls) == 0
@@ -2140,7 +2140,7 @@ DO NOT EDIT
         await self.add_label(p1["number"], "queue")
         await self.add_label(p2["number"], "queue")
         await self.add_label(p3["number"], "queue")
-        await self.run_engine(3)
+        await self.run_engine()
 
         pulls = await self.get_pulls()
         assert len(pulls) == 4, [p["number"] for p in pulls]
@@ -2222,7 +2222,7 @@ DO NOT EDIT
         await self.add_label(p1["number"], "queue")
         await self.add_label(p2["number"], "queue")
         await self.add_label(p3["number"], "queue")
-        await self.run_engine(3)
+        await self.run_engine()
 
         pulls = await self.get_pulls()
         assert len(pulls) == 4, [p["number"] for p in pulls]
@@ -2535,7 +2535,7 @@ DO NOT EDIT
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         p_merged_in_meantime = await self.get_pull(p_merged_in_meantime["number"])
 
-        await self.run_engine(3)
+        await self.run_engine()
 
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -3678,7 +3678,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         # NOTE(sileht): When branch is deleted the associated Pull is deleted in an async
         # fashion on GitHub side.
-        time.sleep(1)
+        if base.RECORD:
+            time.sleep(1)
         pulls = await self.get_pulls()
         assert len(pulls) == 2
 

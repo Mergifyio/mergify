@@ -45,7 +45,7 @@ class TestRebaseAction(base.FunctionalTestBase):
         await self.git("push", "--quiet", "origin", self.main_branch_name)
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
-        await self.run_engine(1)
+        await self.run_engine()
         p = await self.get_pull(p["number"])
 
         final_sha = p["head"]["sha"]
