@@ -15,10 +15,11 @@
 # under the License.
 
 import base64
+import typing
 from unittest import mock
 
 import pytest
-from pytest_httpserver import httpserver
+import respx
 
 from mergify_engine import config
 from mergify_engine import constants
@@ -284,10 +285,11 @@ BASE_URL = f"/repos/{GH_OWNER['login']}/{GH_REPO['name']}"
 
 
 async def test_configuration_changed(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -296,58 +298,70 @@ async def test_configuration_changed(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    qs_ref = respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & ~qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": OTHER_FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("ab739e5ec79e358bae7a150941a148b4131233ce"),
-            }
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": OTHER_FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "ab739e5ec79e358bae7a150941a148b4131233ce"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json({}, status=404)
-    github_server.expect_oneshot_request(
+        params__contains={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond(404, json={})
+    github_server.get(
         f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json({}, status=404)
+        params__contains={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond(404, json={})
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json({"check_runs": []}, status=200)
+    ).respond(200, json={"check_runs": []})
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json(CHECK_RUN, status=200)
+    github_server.post(f"{BASE_URL}/check-runs").respond(
+        200, json=typing.cast(typing.Dict[typing.Any, typing.Any], CHECK_RUN)
+    )
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -378,14 +392,13 @@ async def test_configuration_changed(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
-
 
 async def test_configuration_duplicated(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -394,70 +407,83 @@ async def test_configuration_duplicated(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
 
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    qs_ref = respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & ~qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_data(status=404)
+        params__contains={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": OTHER_FAKE_MERGIFY_CONTENT,
-                "path": ".github/mergify.yml",
-                "sha": github_types.SHAType("ab739e5ec79e358bae7a150941a148b4131233ce"),
-            }
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.github/mergify.yml")
+        & qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": OTHER_FAKE_MERGIFY_CONTENT,
+                    "path": ".github/mergify.yml",
+                    "sha": github_types.SHAType(
+                        "ab739e5ec79e358bae7a150941a148b4131233ce"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json({"check_runs": []}, status=200)
-
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json(CHECK_RUN, status=200)
+    ).respond(200, json={"check_runs": []})
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -488,14 +514,13 @@ async def test_configuration_duplicated(
         with pytest.raises(engine.MultipleConfigurationFileFound):
             await engine._check_configuration_changes(ctxt, main_config_file)
 
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
-
 
 async def test_configuration_not_changed(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -504,59 +529,67 @@ async def test_configuration_not_changed(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    qs_ref = respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & ~qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & qs_ref
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_data(status=404)
+        params__contains={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_data(status=404)
+        params__contains={"ref": GH_PULL["merge_commit_sha"]},
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json({"check_runs": []}, status=200)
-
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json(CHECK_RUN, status=200)
+    ).respond(200, json={"check_runs": []})
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -587,14 +620,13 @@ async def test_configuration_not_changed(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert not changed
 
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
-
 
 async def test_configuration_initial(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -603,55 +635,63 @@ async def test_configuration_initial(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-    ).respond_with_data(status=404)
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & ~respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify/config.yml",
-    ).respond_with_data(status=404)
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify/config.yml")
+        & ~respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.github/mergify.yml",
-    ).respond_with_data(status=404)
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.github/mergify.yml")
+        & ~respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify.yml")
+        & respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.github/mergify.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json({}, status=404)
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify/config.yml",
-        query_string={"ref": GH_PULL["merge_commit_sha"]},
-    ).respond_with_json({}, status=404)
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.github/mergify.yml")
+        & respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(404)
+    github_server.route(
+        respx.patterns.M(method="GET", path=f"{BASE_URL}/contents/.mergify/config.yml")
+        & respx.patterns.M(params__contains={"ref": GH_PULL["merge_commit_sha"]})
+    ).respond(404)
 
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json({"check_runs": []}, status=200)
+    ).respond(200, json={"check_runs": []})
 
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/check-runs", method="POST"
-    ).respond_with_json(CHECK_RUN, status=200)
+    github_server.post(f"{BASE_URL}/check-runs").respond(
+        200, json=typing.cast(typing.Dict[typing.Any, typing.Any], CHECK_RUN)
+    )
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
     async with github.AsyncGithubInstallationClient(
@@ -681,14 +721,13 @@ async def test_configuration_initial(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
 
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
-
 
 async def test_configuration_check_not_needed_with_configuration_not_changed(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -697,32 +736,35 @@ async def test_configuration_check_not_needed_with_configuration_not_changed(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml"
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.get(f"{BASE_URL}/contents/.mergify.yml").respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
     # Summary is present, no need to redo the check
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json(
-        {"check_runs": [SUMMARY_CHECK]},
-        status=200,
+    ).respond(
+        200,
+        json={"check_runs": [SUMMARY_CHECK]},
     )
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
@@ -751,14 +793,13 @@ async def test_configuration_check_not_needed_with_configuration_not_changed(
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert not changed
 
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
-
 
 async def test_configuration_check_not_needed_with_configuration_changed(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -767,32 +808,34 @@ async def test_configuration_check_not_needed_with_configuration_changed(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
-    )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml"
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.get(
+        f"{BASE_URL}/pulls/1",
+    ).respond(200, json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL))
+    github_server.get(f"{BASE_URL}/contents/.mergify.yml").respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
     # Summary is present, no need to redo the check
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json(
-        {"check_runs": [SUMMARY_CHECK, CONFIGURATION_CHANGED_CHECK]},
-        status=200,
+    ).respond(
+        200,
+        json={"check_runs": [SUMMARY_CHECK, CONFIGURATION_CHANGED_CHECK]},
     )
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
@@ -820,15 +863,14 @@ async def test_configuration_check_not_needed_with_configuration_changed(
         main_config_file = await repository.get_mergify_config_file()
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
-
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
 
 
 async def test_configuration_check_not_needed_with_configuration_deleted(
-    github_server: httpserver.HTTPServer, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_cache: utils.RedisCache
 ) -> None:
-    github_server.expect_request("/user/12345/installation").respond_with_json(
-        {
+    github_server.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "permissions": {
                 "checks": "write",
@@ -837,32 +879,35 @@ async def test_configuration_check_not_needed_with_configuration_deleted(
             },
             "target_type": GH_OWNER["type"],
             "account": GH_OWNER,
-        }
+        },
     )
-    github_server.expect_oneshot_request(f"{BASE_URL}/pulls/1",).respond_with_json(
-        GH_PULL,
-        status=200,
+    github_server.get(f"{BASE_URL}/pulls/1",).respond(
+        200,
+        json=typing.cast(typing.Dict[typing.Any, typing.Any], GH_PULL),
     )
-    github_server.expect_oneshot_request(
-        f"{BASE_URL}/contents/.mergify.yml"
-    ).respond_with_json(
-        github_types.GitHubContentFile(
-            {
-                "type": "file",
-                "content": FAKE_MERGIFY_CONTENT,
-                "path": ".mergify.yml",
-                "sha": github_types.SHAType("739e5ec79e358bae7a150941a148b4131233ce2c"),
-            }
+    github_server.get(f"{BASE_URL}/contents/.mergify.yml").respond(
+        200,
+        json=typing.cast(
+            typing.Dict[typing.Any, typing.Any],
+            github_types.GitHubContentFile(
+                {
+                    "type": "file",
+                    "content": FAKE_MERGIFY_CONTENT,
+                    "path": ".mergify.yml",
+                    "sha": github_types.SHAType(
+                        "739e5ec79e358bae7a150941a148b4131233ce2c"
+                    ),
+                }
+            ),
         ),
-        status=200,
     )
 
     # Summary is present, no need to redo the check
-    github_server.expect_oneshot_request(
+    github_server.get(
         f"{BASE_URL}/commits/{GH_PULL['head']['sha']}/check-runs"
-    ).respond_with_json(
-        {"check_runs": [SUMMARY_CHECK, CONFIGURATION_DELETED_CHECK]},
-        status=200,
+    ).respond(
+        200,
+        json={"check_runs": [SUMMARY_CHECK, CONFIGURATION_DELETED_CHECK]},
     )
 
     installation_json = await github.get_installation_from_account_id(GH_OWNER["id"])
@@ -890,5 +935,3 @@ async def test_configuration_check_not_needed_with_configuration_deleted(
         main_config_file = await repository.get_mergify_config_file()
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
-
-    github_server.check_assertions()  # type: ignore [no-untyped-call]
