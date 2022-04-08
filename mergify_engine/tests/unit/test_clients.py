@@ -15,13 +15,15 @@
 # under the License.
 
 import datetime
+import typing
 from unittest import mock
 
+import httpx
 import pytest
-from pytest_httpserver import httpserver
+import respx
 from werkzeug.http import http_date
-from werkzeug.wrappers import Response
 
+from mergify_engine import config
 from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_types
@@ -29,109 +31,21 @@ from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
+@pytest.fixture(autouse=True)
+def short_timing() -> typing.Generator[None, None, None]:
+    wait_exp = http.AsyncClient.request.retry.wait.wait_funcs[1]  # type: ignore[attr-defined]
+    with mock.patch.object(wait_exp, "multiplier", 0.00001):
+        yield
+
+
 @mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
 async def test_client_installation_token_with_owner_id(
-    httpserver: httpserver.HTTPServer,
+    respx_mock: respx.MockRouter,
 ) -> None:
-
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-
-        httpserver.expect_request("/user/12345/installation").respond_with_json(
-            {
-                "id": 12345,
-                "target_type": "User",
-                "permissions": {
-                    "checks": "write",
-                    "contents": "write",
-                    "pull_requests": "write",
-                },
-                "account": {"login": "testing", "id": 12345},
-            }
-        )
-
-        httpserver.expect_request(
-            "/app/installations/12345/access_tokens"
-        ).respond_with_json(
-            {"token": "<app_token>", "expires_at": "2100-12-31T23:59:59Z"}
-        )
-
-        httpserver.expect_request(
-            "/", headers={"Authorization": "token <installation-token>"}
-        ).respond_with_json({"work": True}, status=200)
-
-        installation_json = await github.get_installation_from_account_id(
-            github_types.GitHubAccountIdType(12345)
-        )
-        async with github.AsyncGithubInstallationClient(
-            github.GithubAppInstallationAuth(installation_json)
-        ) as client:
-            ret = await client.get(httpserver.url_for("/"))
-            assert ret.json()["work"]
-            assert isinstance(client.auth, github.GithubAppInstallationAuth)
-            assert client.auth._installation is not None
-            assert client.auth._installation["account"]["login"] == "testing"
-            assert client.auth._installation["account"]["id"] == 12345
-
-    assert len(httpserver.log) == 3
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
-
-
-@mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_user_token(httpserver: httpserver.HTTPServer) -> None:
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        httpserver.expect_request("/user/12345/installation").respond_with_json(
-            {
-                "id": 12345,
-                "target_type": "User",
-                "permissions": {
-                    "checks": "write",
-                    "contents": "write",
-                    "pull_requests": "write",
-                },
-                "account": {"login": "testing", "id": 12345},
-            }
-        )
-
-        httpserver.expect_request("/user").respond_with_json(
-            {
-                "login": "testing",
-                "id": 12345,
-            }
-        )
-        httpserver.expect_request(
-            "/", headers={"Authorization": "token <user-token>"}
-        ).respond_with_json({"work": True}, status=200)
-
-        installation_json = await github.get_installation_from_account_id(
-            github_types.GitHubAccountIdType(12345)
-        )
-        async with github.AsyncGithubInstallationClient(
-            github.GithubAppInstallationAuth(installation_json)
-        ) as client:
-            ret = await client.get(
-                httpserver.url_for("/"),
-                oauth_token=github_types.GitHubOAuthToken("<user-token>"),
-            )
-            assert ret.json()["work"]
-
-    assert len(httpserver.log) == 2
-
-
-@mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> None:
-    owner_id = github_types.GitHubAccountIdType(12345)
-    owner_login = github_types.GitHubLogin("owner")
-    repo = "repo"
-
-    httpserver.expect_request("/user/12345/installation").respond_with_json(
-        {
+    respx_mock.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "target_type": "User",
             "permissions": {
@@ -140,87 +54,149 @@ async def test_client_401_raise_ratelimit(httpserver: httpserver.HTTPServer) -> 
                 "pull_requests": "write",
             },
             "account": {"login": "testing", "id": 12345},
-        }
-    )
-    httpserver.expect_request(
-        "/app/installations/12345/access_tokens"
-    ).respond_with_json(
-        {"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"},
-        headers={"X-RateLimit-Remaining": "5000", "X-RateLimit-Reset": "1234567890"},
+        },
     )
 
-    httpserver.expect_oneshot_request("/repos/owner/repo/pull/1").respond_with_json(
-        {"message": "quota !"},
-        status=403,
+    respx_mock.post("/app/installations/12345/access_tokens").respond(
+        200,
+        json={"token": "<installation-token>", "expires_at": "2100-12-31T23:59:59Z"},
+    )
+
+    respx_mock.get(
+        "/", headers__contains={"Authorization": "token <installation-token>"}
+    ).respond(200, json={"work": True})
+
+    installation_json = await github.get_installation_from_account_id(
+        github_types.GitHubAccountIdType(12345)
+    )
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        ret = await client.get("/")
+        assert ret.json()["work"]
+        assert isinstance(client.auth, github.GithubAppInstallationAuth)
+        assert client.auth._installation is not None
+        assert client.auth._installation["account"]["login"] == "testing"
+        assert client.auth._installation["account"]["id"] == 12345
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
+async def test_client_user_token(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/user/12345/installation").respond(
+        200,
+        json={
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        },
+    )
+
+    respx_mock.get(
+        "/", headers__contains={"Authorization": "token <user-token>"}
+    ).respond(200, json={"work": True})
+
+    installation_json = await github.get_installation_from_account_id(
+        github_types.GitHubAccountIdType(12345)
+    )
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        ret = await client.get(
+            "/",
+            oauth_token=github_types.GitHubOAuthToken("<user-token>"),
+        )
+        assert ret.json()["work"]
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
+async def test_client_401_raise_ratelimit(respx_mock: respx.MockRouter) -> None:
+    owner_id = github_types.GitHubAccountIdType(12345)
+    owner_login = github_types.GitHubLogin("owner")
+    repo = "repo"
+
+    respx_mock.get("/user/12345/installation").respond(
+        200,
+        json={
+            "id": 12345,
+            "target_type": "User",
+            "permissions": {
+                "checks": "write",
+                "contents": "write",
+                "pull_requests": "write",
+            },
+            "account": {"login": "testing", "id": 12345},
+        },
+    )
+
+    respx_mock.post("/app/installations/12345/access_tokens").respond(
+        200,
+        json={"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"},
+        headers={
+            "X-RateLimit-Remaining": "5000",
+            "X-RateLimit-Reset": "1234567890",
+        },
+    )
+
+    respx_mock.get("/repos/owner/repo/pull/1").respond(
+        403,
+        json={"message": "quota !"},
         headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1234567890"},
     )
 
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        installation_json = await github.get_installation_from_account_id(owner_id)
-        async with github.aget_client(installation_json) as client:
-            with pytest.raises(exceptions.RateLimited):
-                await client.item(f"/repos/{owner_login}/{repo}/pull/1")
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    installation_json = await github.get_installation_from_account_id(owner_id)
+    async with github.aget_client(installation_json) as client:
+        with pytest.raises(exceptions.RateLimited):
+            await client.item(f"/repos/{owner_login}/{repo}/pull/1")
 
 
-async def test_client_HTTP_400(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_oneshot_request("/").respond_with_json(
-        {"message": "This is an 4XX error"}, status=400
+async def test_client_HTTP_400(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("https://foobar/").respond(
+        400, json={"message": "This is a 4XX error"}
     )
 
     async with http.AsyncClient() as client:
         with pytest.raises(http.HTTPClientSideError) as exc_info:
-            await client.get(httpserver.url_for("/"))
+            await client.get("https://foobar/")
 
-    assert exc_info.value.message == "This is an 4XX error"
+    assert exc_info.value.message == "This is a 4XX error"
     assert exc_info.value.status_code == 400
     assert exc_info.value.response.status_code == 400
-    assert str(exc_info.value.request.url) == httpserver.url_for("/")
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    assert str(exc_info.value.request.url) == "https://foobar/"
 
 
-async def test_client_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_request("/").respond_with_data("This is an 5XX error", status=500)
+async def test_client_HTTP_500(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("https://foobar/").respond(500, text="This is a 5XX error")
 
     async with http.AsyncClient() as client:
         with pytest.raises(http.HTTPServerSideError) as exc_info:
-            await client.get(httpserver.url_for("/"))
+            await client.get("https://foobar/")
 
-    # 5 retries
-    assert len(httpserver.log) == 5
-
-    assert exc_info.value.message == "This is an 5XX error"
+    assert exc_info.value.message == "This is a 5XX error"
     assert exc_info.value.status_code == 500
     assert exc_info.value.response.status_code == 500
-    assert str(exc_info.value.request.url) == httpserver.url_for("/")
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    assert str(exc_info.value.request.url) == "https://foobar/"
 
 
-async def test_client_temporary_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_oneshot_request("/").respond_with_data(
-        "This is an 5XX error", status=500
+@pytest.mark.respx(base_url="https://foobar/")
+async def test_client_temporary_HTTP_500(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/").mock(
+        side_effect=[
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(200, text="It works now !"),
+        ]
     )
-    httpserver.expect_oneshot_request("/").respond_with_data(
-        "This is an 5XX error", status=500
-    )
-    httpserver.expect_oneshot_request("/").respond_with_data(
-        "This is an 5XX error", status=500
-    )
-    httpserver.expect_request("/").respond_with_data("It works now !", status=200)
 
     async with http.AsyncClient() as client:
-        await client.get(httpserver.url_for("/"))
-
-    # 4 retries
-    assert len(httpserver.log) == 4
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+        await client.get("https://foobar/")
 
 
 async def test_client_connection_error() -> None:
@@ -229,47 +205,57 @@ async def test_client_connection_error() -> None:
             await client.get("http://localhost:12345")
 
 
+@pytest.mark.respx(base_url="https://foobar/")
 async def _do_test_client_retry_429(
-    httpserver: httpserver.HTTPServer, retry_after: str, expected_seconds: int
-) -> None:
-    records = []
+    respx_mock: respx.MockRouter, retry_after: str
+) -> datetime.datetime:
+    records: typing.List[datetime.datetime] = []
 
     def record_date(_):
-        records.append(date.utcnow())
-        return Response("It works now !", 200)
+        if records:
+            records.append(date.utcnow())
+            return httpx.Response(200, text="It works now !")
+        else:
+            records.append(date.utcnow())
+            return httpx.Response(
+                429,
+                text="This is a 429 error",
+                headers={"Retry-After": retry_after},
+            )
 
-    httpserver.expect_oneshot_request("/").respond_with_data(
-        "This is an 429 error", status=429, headers={"Retry-After": retry_after}
-    )
-    httpserver.expect_request("/").respond_with_handler(record_date)
+    respx_mock.get("/").mock(side_effect=record_date)
 
     async with http.AsyncClient() as client:
-        now = date.utcnow()
-        await client.get(httpserver.url_for("/"))
+        await client.get("https://foobar/")
 
-    assert len(httpserver.log) == 2
-    elapsed_seconds = (records[0] - now).total_seconds()
-    assert expected_seconds - 1 < elapsed_seconds <= expected_seconds + 1
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    return records[1]
 
 
 async def test_client_retry_429_retry_after_as_seconds(
-    httpserver: httpserver.HTTPServer,
+    respx_mock: respx.MockRouter,
 ) -> None:
-    await _do_test_client_retry_429(httpserver, "3", 3)
+    now = date.utcnow()
+    when = await _do_test_client_retry_429(respx_mock, "1")
+    elapsed_seconds = (when - now).total_seconds()
+    assert 0.98 < elapsed_seconds <= 1.02
 
 
 async def test_client_retry_429_retry_after_as_absolute_date(
-    httpserver: httpserver.HTTPServer,
+    respx_mock: respx.MockRouter,
 ) -> None:
-    retry_after = http_date(date.utcnow() + datetime.timedelta(seconds=3))
-    await _do_test_client_retry_429(httpserver, retry_after, 3)
+    expected_retry = date.utcnow() + datetime.timedelta(seconds=2)
+    retry_after = http_date(expected_retry)
+    when = await _do_test_client_retry_429(respx_mock, retry_after)
+    # ms are cut by http_date, so we allow a 1 second delta :(
+    assert when >= expected_retry - datetime.timedelta(seconds=1)
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_request("/user/12345/installation").respond_with_json(
-        {
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
+async def test_client_access_token_HTTP_500(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "target_type": "User",
             "permissions": {
@@ -278,117 +264,102 @@ async def test_client_access_token_HTTP_500(httpserver: httpserver.HTTPServer) -
                 "pull_requests": "write",
             },
             "account": {"login": "testing", "id": 12345},
-        }
+        },
     )
-    httpserver.expect_request(
-        "/app/installations/12345/access_tokens"
-    ).respond_with_data("This is an 5XX error", status=500)
+    retries = [0]
 
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        installation_json = await github.get_installation_from_account_id(
+    def error_500_tracker(_):
+        retries[0] += 1
+        return httpx.Response(500, text="This is a 5XX error")
+
+    respx_mock.post("/app/installations/12345/access_tokens").mock(
+        side_effect=error_500_tracker
+    )
+
+    installation_json = await github.get_installation_from_account_id(
+        github_types.GitHubAccountIdType(12345)
+    )
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        with pytest.raises(http.HTTPServerSideError) as exc_info:
+            await client.get("/")
+
+    assert exc_info.value.message == "This is a 5XX error"
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.response.status_code == 500
+    assert (
+        str(exc_info.value.request.url)
+        == f"{config.GITHUB_REST_API_URL}/app/installations/12345/access_tokens"
+    )
+
+
+@mock.patch.object(github.CachedToken, "STORAGE", {})
+async def test_client_installation_HTTP_500(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/user/12345/installation").mock(
+        side_effect=[
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+            httpx.Response(500, text="This is a 5XX error"),
+        ]
+    )
+
+    with pytest.raises(http.HTTPServerSideError) as exc_info:
+        await github.get_installation_from_account_id(
             github_types.GitHubAccountIdType(12345)
         )
-        async with github.AsyncGithubInstallationClient(
-            github.GithubAppInstallationAuth(installation_json)
-        ) as client:
-            with pytest.raises(http.HTTPServerSideError) as exc_info:
-                await client.get(httpserver.url_for("/"))
 
-    # installation request + 5 retries
-    assert len(httpserver.log) == 6
-
-    assert exc_info.value.message == "This is an 5XX error"
+    assert exc_info.value.message == "This is a 5XX error"
     assert exc_info.value.status_code == 500
     assert exc_info.value.response.status_code == 500
-    assert str(exc_info.value.request.url) == httpserver.url_for(
-        "/app/installations/12345/access_tokens"
+    assert (
+        str(exc_info.value.request.url)
+        == f"{config.GITHUB_REST_API_URL}/user/12345/installation"
     )
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_installation_HTTP_500(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_request("/user/12345/installation").respond_with_data(
-        "This is an 5XX error", status=500
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
+async def test_client_installation_HTTP_404(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/user/12345/installation").respond(
+        404, json={"message": "Repository not found"}
     )
 
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        with pytest.raises(http.HTTPServerSideError) as exc_info:
-            await github.get_installation_from_account_id(
-                github_types.GitHubAccountIdType(12345)
-            )
-
-    # 5 retries
-    assert len(httpserver.log) == 5
-
-    assert exc_info.value.message == "This is an 5XX error"
-    assert exc_info.value.status_code == 500
-    assert exc_info.value.response.status_code == 500
-    assert str(exc_info.value.request.url) == httpserver.url_for(
-        "/user/12345/installation"
-    )
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    with pytest.raises(exceptions.MergifyNotInstalled):
+        await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_installation_HTTP_404(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_request("/user/12345/installation").respond_with_json(
-        {"message": "Repository not found"}, status=404
+async def test_client_installation_HTTP_301(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("/user/12345/installation").respond(
+        301,
+        headers={"Location": "/repositories/12345/installation"},
     )
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        with pytest.raises(exceptions.MergifyNotInstalled):
-            await github.get_installation_from_account_id(
-                github_types.GitHubAccountIdType(12345)
-            )
 
-    assert len(httpserver.log) == 1
+    respx_mock.get("/repositories/12345/installation").respond(
+        404, json={"message": "Repository not found"}
+    )
 
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    with pytest.raises(exceptions.MergifyNotInstalled):
+        await github.get_installation_from_account_id(
+            github_types.GitHubAccountIdType(12345)
+        )
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_installation_HTTP_301(httpserver: httpserver.HTTPServer) -> None:
-    httpserver.expect_request("/user/12345/installation").respond_with_data(
-        status=301,
-        headers={"Location": httpserver.url_for("/repositories/12345/installation")},
-    )
-    httpserver.expect_request("/repositories/12345/installation").respond_with_json(
-        {"message": "Repository not found"}, status=404
-    )
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        with pytest.raises(exceptions.MergifyNotInstalled):
-            await github.get_installation_from_account_id(
-                github_types.GitHubAccountIdType(12345)
-            )
-
-    assert len(httpserver.log) == 2
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
-
-
-@mock.patch.object(github.CachedToken, "STORAGE", {})
-async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> None:
+async def test_client_abuse_403_no_header(respx_mock: respx.MockRouter) -> None:
 
     abuse_message = (
         "You have triggered an abuse detection mechanism. "
         "Please wait a few minutes before you try again."
     )
-    httpserver.expect_request("/user/12345/installation").respond_with_json(
-        {
+    respx_mock.get("/user/12345/installation").respond(
+        200,
+        json={
             "id": 12345,
             "target_type": "User",
             "permissions": {
@@ -397,34 +368,26 @@ async def test_client_abuse_403_no_header(httpserver: httpserver.HTTPServer) -> 
                 "pull_requests": "write",
             },
             "account": {"login": "testing", "id": 12345},
-        }
+        },
     )
-    httpserver.expect_request(
-        "/app/installations/12345/access_tokens"
-    ).respond_with_json({"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"})
-
-    httpserver.expect_oneshot_request("/").respond_with_json(
-        {"message": abuse_message},
-        status=403,
+    respx_mock.post("/app/installations/12345/access_tokens").respond(
+        200, json={"token": "<token>", "expires_at": "2100-12-31T23:59:59Z"}
+    )
+    respx_mock.get("/").respond(
+        403,
+        json={"message": abuse_message},
     )
 
-    with mock.patch(
-        "mergify_engine.config.GITHUB_REST_API_URL",
-        httpserver.url_for("/")[:-1],
-    ):
-        installation_json = await github.get_installation_from_account_id(
-            github_types.GitHubAccountIdType(12345)
-        )
-        async with github.AsyncGithubInstallationClient(
-            github.GithubAppInstallationAuth(installation_json)
-        ) as client:
-            with pytest.raises(http.HTTPClientSideError) as exc_info:
-                await client.get(httpserver.url_for("/"))
+    installation_json = await github.get_installation_from_account_id(
+        github_types.GitHubAccountIdType(12345)
+    )
+    async with github.AsyncGithubInstallationClient(
+        github.GithubAppInstallationAuth(installation_json)
+    ) as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("/")
 
     assert exc_info.value.message == abuse_message
     assert exc_info.value.status_code == 403
     assert exc_info.value.response.status_code == 403
-    assert str(exc_info.value.request.url) == httpserver.url_for("/")
-    assert len(httpserver.log) == 3
-
-    httpserver.check_assertions()  # type: ignore [no-untyped-call]
+    assert str(exc_info.value.request.url) == f"{config.GITHUB_REST_API_URL}/"
