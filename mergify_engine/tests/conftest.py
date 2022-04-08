@@ -4,7 +4,7 @@ import typing
 
 import freezegun
 import pytest
-from pytest_httpserver import httpserver
+import respx
 
 from mergify_engine import config
 from mergify_engine import logs
@@ -73,25 +73,11 @@ async def redis_stream() -> typing.AsyncGenerator[utils.RedisStream, None]:
 
 @pytest.fixture()
 async def github_server(
-    httpserver: httpserver.HTTPServer, monkeypatch: pytest.MonkeyPatch
-) -> typing.AsyncGenerator[httpserver.HTTPServer, None]:
-    monkeypatch.setattr(config, "GITHUB_REST_API_URL", httpserver.url_for("/")[:-1])
+    monkeypatch: pytest.MonkeyPatch,
+) -> typing.AsyncGenerator[respx.MockRouter, None]:
     monkeypatch.setattr(github.CachedToken, "STORAGE", {})
-
-    httpserver.expect_request("/users/owner/installation").respond_with_json(
-        {
-            "id": 12345,
-            "target_type": "User",
-            "permissions": {
-                "checks": "write",
-                "contents": "write",
-                "pull_requests": "write",
-            },
-            "account": {"login": "owner", "id": 12345},
-        }
-    )
-    httpserver.expect_request(
-        "/app/installations/12345/access_tokens"
-    ).respond_with_json({"token": "<app_token>", "expires_at": "2100-12-31T23:59:59Z"})
-
-    yield httpserver
+    async with respx.mock(base_url=config.GITHUB_REST_API_URL) as respx_mock:
+        respx_mock.post("/app/installations/12345/access_tokens").respond(
+            200, json={"token": "<app_token>", "expires_at": "2100-12-31T23:59:59Z"}
+        )
+        yield respx_mock
