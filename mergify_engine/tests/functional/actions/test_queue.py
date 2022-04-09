@@ -16,7 +16,6 @@
 import datetime
 import itertools
 import operator
-import time
 import typing
 from unittest import mock
 
@@ -3676,12 +3675,97 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         assert summary["conclusion"] == "cancelled"
         assert "testing deleted reason" in summary["output"]["summary"]
 
-        # NOTE(sileht): When branch is deleted the associated Pull is deleted in an async
-        # fashion on GitHub side.
-        if base.RECORD:
-            time.sleep(1)
         pulls = await self.get_pulls()
         assert len(pulls) == 2
+
+    async def test_create_pull_after_failure(self):
+        config = {
+            "queue_rules": [
+                {
+                    "name": "foo",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "queue",
+                    "conditions": [
+                        "check-success=continuous-integration/fake-ci",
+                    ],
+                    "actions": {"queue": {"name": "foo"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(config))
+
+        p1, _ = await self.create_pr()
+        p2, _ = await self.create_pr()
+
+        ctxt = context.Context(self.repository_ctxt, p1)
+        q = await merge_train.Train.from_context(ctxt)
+        base_sha = await q.get_base_sha()
+
+        queue_config = rules.QueueConfig(
+            priority=0,
+            speculative_checks=5,
+            batch_size=1,
+            batch_max_wait_time=datetime.timedelta(seconds=0),
+            allow_inplace_checks=True,
+            disallow_checks_interruption_from_queues=[],
+            checks_timeout=None,
+            draft_bot_account=None,
+        )
+        config = queue.PullQueueConfig(
+            name="foo",
+            strict_method="merge",
+            update_method="merge",
+            priority=0,
+            effective_priority=0,
+            bot_account=None,
+            update_bot_account=None,
+            queue_config=queue_config,
+        )
+
+        car = merge_train.TrainCar(
+            q,
+            [merge_train.EmbarkedPull(q, p2["number"], config, date.utcnow())],
+            [merge_train.EmbarkedPull(q, p2["number"], config, date.utcnow())],
+            [p1["number"]],
+            base_sha,
+        )
+        q._cars.append(car)
+
+        queue_rule = rules.QueueRule(
+            name="foo",
+            conditions=conditions.QueueRuleConditions([]),
+            config=queue_config,
+        )
+        await car.create_pull(queue_rule)
+        assert car.queue_pull_request_number is not None
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        tmp_pull = [p for p in pulls if p["number"] == car.queue_pull_request_number][0]
+        assert tmp_pull["draft"]
+
+        # Ensure pull request is closed
+        branch_name = (
+            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{car.train.ref}/{car.head_branch}"
+        )
+        await car._prepare_empty_draft_pr_branch(branch_name, None)
+        await self.wait_for("pull_request", {"action": "closed"})
+        pulls = await self.get_pulls()
+        assert len(pulls) == 2
+
+        # Recreating it should works
+        await car.create_pull(queue_rule)
+        assert car.queue_pull_request_number is not None
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+        tmp_pull = [p for p in pulls if p["number"] == car.queue_pull_request_number][0]
+        assert tmp_pull["draft"]
 
     async def test_delete_unused_merge_queue_branch_no_cars(self):
         test_default_branch = self.get_full_branch_name("default")
@@ -3929,7 +4013,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         assert 8 == len(await self.get_branches())
         assert 3 == len(q._cars)
-
         await q._clean_unsused_merge_queue_branches()
 
         assert 6 == len(await self.get_branches())
