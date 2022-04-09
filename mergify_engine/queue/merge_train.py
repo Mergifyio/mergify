@@ -1358,21 +1358,25 @@ class Train(queue.QueueBase):
             ),
         ):
             branch_ref = branch["ref"].split("heads/")[-1]
-            if branch_ref not in list_car_branch_refs:
-                try:
-                    await self.repository.installation.client.delete(
-                        f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/refs/heads/{branch_ref}"
+            if branch_ref in list_car_branch_refs:
+                continue
+
+            self.log.info("removing orphan merge-queue branch", branch=branch_ref)
+            try:
+                await self.repository.installation.client.delete(
+                    f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/refs/heads/{branch_ref}"
+                )
+            except http.HTTPClientSideError as exc:
+                if exc.status_code == 404 or (
+                    exc.status_code == 422 and "Reference does not exist" in exc.message
+                ):
+                    self.log.warning(
+                        "orphan merge-queue branch can't be deleted",
+                        branch=branch_ref,
+                        exc_info=True,
                     )
-                except http.HTTPNotFound:
-                    pass
-                except http.HTTPClientSideError as exc:
-                    if (
-                        exc.status_code == 422
-                        and "Reference does not exist" in exc.message
-                    ):
-                        pass
-                    else:
-                        raise
+                else:
+                    raise
 
     async def _remove_duplicate_pulls(self) -> None:
         known_prs = set()
