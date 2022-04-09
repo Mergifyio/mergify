@@ -509,6 +509,22 @@ class TrainCar:
     async def _prepare_empty_draft_pr_branch(
         self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
     ) -> None:
+        # NOTE(sileht): filter pull request on head is dangerous.
+        # head must be organization:ref-name, if the left or the right side of the : is empty
+        # all pull requests are returned. So it's better to double checks
+        if not (self.train.repository.installation.owner_login and branch_name):
+            raise RuntimeError("Invalid merge-queue head branch")
+
+        head = f"{self.train.repository.installation.owner_login}:{branch_name}"
+        async for pull in typing.cast(
+            typing.AsyncIterator[github_types.GitHubPullRequest],
+            self.train.repository.installation.client.items(
+                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
+                params={"head": head},
+            ),
+        ):
+            await self.train._close_pull_request(pull["number"])
+
         try:
             await self.train.repository.installation.client.post(
                 f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
@@ -730,17 +746,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
             f"{parse.quote(self.train.ref, safe='')}/"
             f"{self.head_branch}"
         )
-        try:
-            await self.train.repository.installation.client.delete(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs/heads/{escaped_branch_name}"
-            )
-        except http.HTTPNotFound:
-            pass
-        except http.HTTPClientSideError as exc:
-            if exc.status_code == 422 and "Reference does not exist" in exc.message:
-                pass
-            else:
-                raise
+        if self.queue_pull_request_number is not None:
+            await self.train._close_pull_request(self.queue_pull_request_number)
+        await self.train._delete_branch(escaped_branch_name)
 
     async def _set_creation_failure(
         self,
@@ -1343,12 +1351,9 @@ class Train(queue.QueueBase):
         )
 
         list_car_branch_refs = [
-            (
-                f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
-                + f"{self.ref}/"
-                + f"{car.head_branch}"
-            )
+            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.ref}/{car.head_branch}"
             for car in self._cars
+            if car.head_branch
         ]
 
         async for branch in typing.cast(
@@ -1359,20 +1364,7 @@ class Train(queue.QueueBase):
         ):
             branch_ref = branch["ref"].split("heads/")[-1]
             if branch_ref not in list_car_branch_refs:
-                try:
-                    await self.repository.installation.client.delete(
-                        f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/refs/heads/{branch_ref}"
-                    )
-                except http.HTTPNotFound:
-                    pass
-                except http.HTTPClientSideError as exc:
-                    if (
-                        exc.status_code == 422
-                        and "Reference does not exist" in exc.message
-                    ):
-                        pass
-                    else:
-                        raise
+                await self._delete_branch(branch_ref)
 
     async def _remove_duplicate_pulls(self) -> None:
         known_prs = set()
@@ -2069,3 +2061,35 @@ class Train(queue.QueueBase):
             return description.strip()
         else:
             return await ep.car.generate_merge_queue_summary()
+
+    async def _delete_branch(self, escaped_branch_name: str) -> None:
+        try:
+            await self.repository.installation.client.delete(
+                f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/refs/heads/{escaped_branch_name}"
+            )
+        except http.HTTPClientSideError as exc:
+            if exc.status_code == 404 or (
+                exc.status_code == 422 and "Reference does not exist" in exc.message
+            ):
+                self.log.warning(
+                    "fail to delete merge-queue branch",
+                    branch=escaped_branch_name,
+                    exc_info=True,
+                )
+            else:
+                raise
+
+    async def _close_pull_request(
+        self, pull_request_number: github_types.GitHubPullRequestNumber
+    ) -> None:
+        try:
+            await self.repository.installation.client.patch(
+                f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/pulls/{pull_request_number}",
+                json={"state": "closed"},
+            )
+        except http.HTTPNotFound:
+            self.log.warning(
+                "fail to close merge-queue pull request",
+                pull_request_number=pull_request_number,
+                exc_info=True,
+            )
