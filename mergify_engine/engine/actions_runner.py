@@ -211,8 +211,11 @@ async def get_summary_check_result(
 ) -> typing.Optional[check_api.Result]:
     summary_title, summary = await gen_summary(ctxt, pull_request_rules, match)
 
+    serialized_conclusions = serialize_conclusions(conclusions)
+    summary_for_logging = summary + serialized_conclusions
+
     summary += constants.MERGIFY_PULL_REQUEST_DOC
-    summary += serialize_conclusions(conclusions)
+    summary += serialized_conclusions
 
     summary_changed = (
         not summary_check
@@ -230,7 +233,7 @@ async def get_summary_check_result(
             summary={
                 "title": summary_title,
                 "name": constants.SUMMARY_NAME,
-                "summary": summary,
+                "summary": summary_for_logging,
             },
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
@@ -245,7 +248,7 @@ async def get_summary_check_result(
             summary={
                 "title": summary_title,
                 "name": constants.SUMMARY_NAME,
-                "summary": summary,
+                "summary": summary_for_logging,
             },
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
