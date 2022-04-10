@@ -643,6 +643,18 @@ class TrainCar:
                 )
             ).json()
         except http.HTTPClientSideError as e:
+            self.train.log.error(
+                "fail to create a merge-queue pull request",
+                head=branch_name,
+                title=title,
+                github_user=github_user["login"] if github_user else None,
+                parent_pull_request_numbers=self.parent_pull_request_numbers,
+                still_queued_embarked_pull_numbers=[
+                    ep.user_pull_request_number
+                    for ep in self.still_queued_embarked_pulls
+                ],
+                exc_info=True,
+            )
             await self._set_creation_failure(e.message)
             raise TrainCarPullRequestCreationFailure(self) from e
 
