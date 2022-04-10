@@ -1364,6 +1364,7 @@ class Train(queue.QueueBase):
         ):
             branch_ref = branch["ref"].split("heads/")[-1]
             if branch_ref not in list_car_branch_refs:
+                self.log.info("removing orphan merge-queue branch", branch=branch_ref)
                 await self._delete_branch(branch_ref)
 
     async def _remove_duplicate_pulls(self) -> None:
