@@ -4012,10 +4012,12 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await car4.create_pull(queue_rule)
 
         assert 8 == len(await self.get_branches())
+        assert 9 == len(await self.get_pulls())
         assert 3 == len(q._cars)
         await q._clean_unsused_merge_queue_branches()
 
         assert 6 == len(await self.get_branches())
+        assert 7 == len(await self.get_pulls())
         assert 3 == len(q._cars)
 
     async def test_create_pull_conflicts(self):
