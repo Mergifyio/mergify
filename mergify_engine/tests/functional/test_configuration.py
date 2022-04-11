@@ -43,7 +43,7 @@ class TestConfiguration(base.FunctionalTestBase):
                 "actions": {"merge": {}},
             }
         ]
-        p, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        p = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
 
         await self.run_engine()
 
@@ -77,7 +77,7 @@ class TestConfiguration(base.FunctionalTestBase):
             ],
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -96,7 +96,7 @@ class TestConfiguration(base.FunctionalTestBase):
 
     async def test_invalid_yaml_configuration_in_repository(self):
         await self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -167,7 +167,7 @@ expected alphabetic or numeric character, but found"""
         # Create a PR on outdated repo to get a wierd base.sha
         await self.git("reset", "--hard", "HEAD^", "--")
         # Create a lot of file to ignore optimization
-        p, _ = await self.create_pr(
+        p = await self.create_pr(
             git_tree_ready=True, files={f"f{i}": "data" for i in range(0, 160)}
         )
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -201,7 +201,7 @@ expected alphabetic or numeric character, but found"""
             ],
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr(files={".mergify.yml": "not valid"})
+        p = await self.create_pr(files={".mergify.yml": "not valid"})
 
         await self.run_engine()
 
@@ -231,7 +231,7 @@ expected alphabetic or numeric character, but found"""
         rules["pull_request_rules"].append(
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
-        p1, commits1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        p1 = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.run_engine()
         ctxt = await context.Context.create(self.repository_ctxt, p1, [])
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
@@ -255,12 +255,10 @@ expected alphabetic or numeric character, but found"""
         rules["pull_request_rules"].append(
             {"name": "foobar", "conditions": ["label!=wip"], "actions": {"merge": {}}}
         )
-        p, _ = await self.create_pr(files={f"f{i}": "data" for i in range(0, 160)})
+        p = await self.create_pr(files={f"f{i}": "data" for i in range(0, 160)})
         await self.run_engine()
 
-        p_change_config, _ = await self.create_pr(
-            files={".mergify.yml": yaml.dump(rules)}
-        )
+        p_change_config = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.merge_pull(p_change_config["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
@@ -283,7 +281,7 @@ expected alphabetic or numeric character, but found"""
             ],
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -299,7 +297,7 @@ expected alphabetic or numeric character, but found"""
 
     async def test_no_configuration(self):
         await self.setup_repo()
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -314,7 +312,7 @@ expected alphabetic or numeric character, but found"""
     async def test_configuration_deleted(self):
         await self.setup_repo("")
         await self.git("rm", "-rf", ".mergify.yml")
-        p, _ = await self.create_pr(git_tree_ready=True)
+        p = await self.create_pr(git_tree_ready=True)
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -337,7 +335,7 @@ expected alphabetic or numeric character, but found"""
                 ".github/mergify.yml": "pull_request_rules: []",
             }
         )
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -353,7 +351,7 @@ expected alphabetic or numeric character, but found"""
 
     async def test_empty_configuration(self):
         await self.setup_repo("")
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -378,7 +376,7 @@ expected alphabetic or numeric character, but found"""
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 

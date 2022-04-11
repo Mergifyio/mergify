@@ -23,7 +23,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         await self.setup_repo(test_branches=[stable_branch, feature_branch])
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
         await self.create_comment(
@@ -93,7 +93,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         await self.setup_repo(
             yaml.dump(rules), test_branches=[stable_branch, feature_branch]
         )
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.create_comment(
             p["number"], f"@mergifyio backport {stable_branch} {feature_branch}"
         )
@@ -123,7 +123,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         await self.setup_repo(test_branches=[stable_branch, feature_branch])
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.create_comment(
             p["number"], f"@mergifyio backport {stable_branch} {feature_branch}"

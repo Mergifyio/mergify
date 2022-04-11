@@ -39,8 +39,8 @@ class TestUpdateAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         commits = await self.get_commits(p2["number"])
         assert len(commits) == 1
         await self.add_label(p1["number"], "merge")
@@ -51,6 +51,7 @@ class TestUpdateAction(base.FunctionalTestBase):
         assert p1["merged"]
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
         commits = await self.get_commits(p2["number"])
         assert len(commits) == 2
         assert commits[-1]["commit"]["author"]["name"] == config.BOT_USER_LOGIN
@@ -74,8 +75,8 @@ class TestUpdateAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         commits = await self.get_commits(p2["number"])
         assert len(commits) == 1
         await self.add_label(p1["number"], "merge")
@@ -85,6 +86,7 @@ class TestUpdateAction(base.FunctionalTestBase):
         assert p1["merged"]
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
         commits = await self.get_commits(p2["number"])
         assert len(commits) == 2
         assert commits[-1]["commit"]["author"]["name"] == config.BOT_USER_LOGIN

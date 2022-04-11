@@ -41,7 +41,7 @@ class TestEditAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         assert p["draft"] is False
         await self.run_engine()
 
@@ -66,7 +66,7 @@ class TestEditAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(draft=True)
+        p = await self.create_pr(draft=True)
         assert p["draft"] is True
         await self.run_engine()
 
@@ -91,7 +91,7 @@ class TestEditAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(draft=True)
+        p = await self.create_pr(draft=True)
         assert p["draft"] is True
         await self.run_engine()
 
@@ -116,7 +116,7 @@ class TestEditAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(draft=False)
+        p = await self.create_pr(draft=False)
         assert p["draft"] is False
         await self.run_engine()
 

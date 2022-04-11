@@ -503,9 +503,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await super(FunctionalTestBase, self).asyncTearDown()
 
-        # NOTE(sileht): Wait a bit to ensure all remaining events arrive. And
-        # also to avoid the "git clone fork" failure that Github returns when
-        # we create repo too quickly
+        # NOTE(sileht): Wait a bit to ensure all remaining events arrive.
         if RECORD:
             await asyncio.sleep(self.WAIT_TIME_BEFORE_TEARDOWN)
 
@@ -624,7 +622,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git(
             "push", "--quiet", "origin", self.main_branch_name, *test_branches
         )
-        await self.git("push", "--quiet", "fork", self.main_branch_name, *test_branches)
 
         await self.client_admin.patch(
             self.url_origin, json={"default_branch": self.main_branch_name}
@@ -644,9 +641,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         draft: bool = False,
         git_tree_ready: bool = False,
         verified: bool = False,
-    ) -> typing.Tuple[
-        github_types.GitHubPullRequest, typing.List[github_types.GitHubBranchCommit]
-    ]:
+    ) -> github_types.GitHubPullRequest:
         self.pr_counter += 1
 
         if self.git.tmp is None:
@@ -666,7 +661,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if git_tree_ready:
             await self.git("branch", "-M", branch)
         else:
-            await self.git("checkout", "--quiet", f"{base_repo}/{base}", "-b", branch)
+            await self.git("checkout", "--quiet", f"origin/{base}", "-b", branch)
 
         if files is not None:
             await self._git_create_files(files)
@@ -719,11 +714,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
         await self.wait_for("pull_request", {"action": "opened"})
 
-        # NOTE(sileht): We return the same but owned by the main project
-        p = typing.cast(github_types.GitHubPullRequest, resp.json())
-        p = await self.get_pull(p["number"])
-        commits = await self.get_commits(p["number"])
-        return p, commits
+        return typing.cast(github_types.GitHubPullRequest, resp.json())
 
     async def _git_create_files(self, files: typing.Dict[str, str]) -> None:
         if self.git.tmp is None:

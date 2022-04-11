@@ -47,7 +47,7 @@ class TestPostCheckAction(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         p = await self.get_pull(p["number"])
 
@@ -100,7 +100,7 @@ Rule list:
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         p = await self.get_pull(p["number"])
 
@@ -152,7 +152,7 @@ class TestPostCheckActionNoSub(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         p = await self.get_pull(p["number"])
 

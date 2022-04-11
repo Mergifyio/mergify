@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 class TestCommandUpdate(base.FunctionalTestBase):
     async def test_command_update_noop(self) -> None:
         await self.setup_repo()
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.create_comment(p["number"], "@mergifyio update")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
@@ -29,7 +29,7 @@ class TestCommandUpdate(base.FunctionalTestBase):
 
     async def test_command_update_pending(self) -> None:
         await self.setup_repo()
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.create_comment(p["number"], "@mergifyio update")

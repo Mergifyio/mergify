@@ -37,7 +37,7 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test4")
+        p = await self.create_pr(message="mergify-test4")
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -60,7 +60,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
@@ -108,7 +108,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -128,7 +128,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
         p = await self.get_pull(p["number"])
@@ -155,7 +155,7 @@ class TestCommentAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
         p = await self.get_pull(p["number"])
@@ -210,7 +210,7 @@ Unknown pull request attribute: hello
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         p = await self.get_pull(p["number"])

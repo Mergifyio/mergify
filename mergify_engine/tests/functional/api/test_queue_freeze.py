@@ -173,7 +173,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.add_label(p1["number"], "queue")
         await self.run_engine()
 
@@ -221,8 +221,8 @@ class TestQueueFreeze(base.FunctionalTestBase):
             == 'The queue "default" is currently frozen, for the following reason: test freeze reason'
         )
 
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
 
         await self.add_label(p2["number"], "queue-urgent")
         await self.add_label(p3["number"], "queue-low")
@@ -606,7 +606,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         assert queue_freeze_data_default
         assert queue_freeze_data_default.reason == "test freeze reason"
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.add_label(p1["number"], "queue")
         await self.run_engine()
 

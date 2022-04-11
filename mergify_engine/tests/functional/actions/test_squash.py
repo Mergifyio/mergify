@@ -34,15 +34,10 @@ class TestActionSquash(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        repo_name = "fork"
-        branch_name = self.get_full_branch_name(f"{repo_name}/pr_squash_test")
+        branch_name = self.get_full_branch_name("pr_squash_test")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{self.main_branch_name}",
-            "-b",
-            branch_name,
+            "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name
         )
 
         for i in range(0, 3):
@@ -50,7 +45,7 @@ class TestActionSquash(base.FunctionalTestBase):
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i+1}")
 
-        await self.git("push", "--quiet", repo_name, branch_name)
+        await self.git("push", "--quiet", "fork", branch_name)
 
         # create a PR with several commits to squash
         pr = (

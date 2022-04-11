@@ -47,7 +47,7 @@ class TestUnQueueCommand(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.run_engine()
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)

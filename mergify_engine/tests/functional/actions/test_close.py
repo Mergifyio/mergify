@@ -33,7 +33,7 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -55,7 +55,7 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -77,7 +77,7 @@ class TestCloseAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 

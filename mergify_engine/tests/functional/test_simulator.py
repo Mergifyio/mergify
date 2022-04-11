@@ -38,7 +38,7 @@ class TestSimulator(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
@@ -141,7 +141,7 @@ class TestSimulator(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         mergify_yaml = f"""pull_request_rules:
   - name: assign
     conditions:
@@ -178,7 +178,7 @@ class TestSimulator(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         r = await self.app.post(
             "/simulator/",
