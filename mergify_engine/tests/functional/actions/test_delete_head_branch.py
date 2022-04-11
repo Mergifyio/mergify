@@ -49,10 +49,10 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         second_branch = self.get_full_branch_name("#2-second-pr")
         third_branch = self.get_full_branch_name("#3-second-pr")
         fourth_branch = self.get_full_branch_name("#4-second-pr")
-        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
-        p2, _ = await self.create_pr(base_repo="origin", branch=second_branch)
-        p3, _ = await self.create_pr(base_repo="origin", branch=third_branch)
-        p4, _ = await self.create_pr(branch=fourth_branch)
+        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
+        p2 = await self.create_pr(base_repo="origin", branch=second_branch)
+        await self.create_pr(base_repo="origin", branch=third_branch)
+        await self.create_pr(branch=fourth_branch)
         await self.add_label(p1["number"], "merge")
         await self.add_label(p2["number"], "close")
 
@@ -95,8 +95,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
-        p2, _ = await self.create_pr(
+        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
+        await self.create_pr(
             base_repo="origin", branch=second_branch, base=first_branch
         )
 
@@ -133,7 +133,7 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         another_branch = self.get_full_branch_name("another")
         await self.setup_repo(yaml.dump(rules), test_branches=[another_branch])
 
-        p1, _ = await self.create_pr(base_repo="origin")
+        p1 = await self.create_pr(base_repo="origin")
         p2 = (
             await self.client_admin.post(
                 f"{self.url_origin}/pulls",
@@ -188,8 +188,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1, _ = await self.create_pr(base_repo="origin", branch=first_branch)
-        p2, _ = await self.create_pr(
+        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
+        await self.create_pr(
             base_repo="origin", branch=second_branch, base=first_branch
         )
 

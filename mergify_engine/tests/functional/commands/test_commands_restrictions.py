@@ -31,8 +31,8 @@ class TestCommandsRestrictions(base.FunctionalTestBase):
             ),
             test_branches=[stable_branch, feature_branch],
         )
-        p_ok, _ = await self.create_pr()
-        p_nok, _ = await self.create_pr(base=feature_branch)
+        p_ok = await self.create_pr()
+        p_nok = await self.create_pr(base=feature_branch)
 
         await self.create_comment(p_ok["number"], f"@mergifyio copy {stable_branch}")
         await self.create_comment(p_nok["number"], f"@mergifyio copy {stable_branch}")

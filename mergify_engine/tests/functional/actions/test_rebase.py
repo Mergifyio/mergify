@@ -33,8 +33,8 @@ class TestRebaseAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, commits = await self.create_pr()
-        pr_initial_sha = commits[-1]["sha"]
+        p = await self.create_pr()
+        pr_initial_sha = p["head"]["sha"]
 
         await self.git("checkout", self.main_branch_name)
 
@@ -46,6 +46,7 @@ class TestRebaseAction(base.FunctionalTestBase):
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.run_engine()
+        await self.wait_for("pull_request", {"action": "synchronize"})
         p = await self.get_pull(p["number"])
 
         final_sha = p["head"]["sha"]
@@ -70,8 +71,8 @@ class TestRebaseAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         commits = await self.get_commits(p2["number"])
         assert len(commits) == 1
         await self.add_label(p1["number"], "merge")

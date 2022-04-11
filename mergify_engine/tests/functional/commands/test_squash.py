@@ -21,15 +21,10 @@ from mergify_engine.tests.functional import base
 class TestCommandSquash(base.FunctionalTestBase):
     async def test_squash_several_commits_ok(self):
         await self.setup_repo()
-        repo_name = "fork"
-        branch_name = self.get_full_branch_name(f"{repo_name}/pr_squash_test")
+        branch_name = self.get_full_branch_name("pr_squash_test")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{self.main_branch_name}",
-            "-b",
-            branch_name,
+            "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name
         )
 
         for i in range(0, 3):
@@ -37,7 +32,7 @@ class TestCommandSquash(base.FunctionalTestBase):
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i+1}")
 
-        await self.git("push", "--quiet", repo_name, branch_name)
+        await self.git("push", "--quiet", "fork", branch_name)
 
         # create a PR with several commits to squash
         pr = (
@@ -73,29 +68,24 @@ class TestCommandSquash(base.FunctionalTestBase):
         self,
     ):
         await self.setup_repo()
-        repo_name = "fork"
-        branch_name1 = self.get_full_branch_name(f"{repo_name}/pr_squash_test_b1")
+        branch_name1 = self.get_full_branch_name("pr_squash_test_b1")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{self.main_branch_name}",
-            "-b",
-            branch_name1,
+            "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name1
         )
 
         open(self.git.tmp + "/file0", "wb").close()
         await self.git("add", "file0")
         await self.git("commit", "--no-edit", "-m", "feat(): add file0")
 
-        await self.git("push", "--quiet", repo_name, branch_name1)
+        await self.git("push", "--quiet", "fork", branch_name1)
 
-        branch_name2 = self.get_full_branch_name(f"{repo_name}/pr_squash_test_b2")
+        branch_name2 = self.get_full_branch_name("pr_squash_test_b2")
 
         await self.git(
             "checkout",
             "--quiet",
-            f"{repo_name}/{branch_name1}",
+            f"fork/{branch_name1}",
             "-b",
             branch_name2,
         )
@@ -105,7 +95,7 @@ class TestCommandSquash(base.FunctionalTestBase):
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i}")
 
-        await self.git("push", "--quiet", repo_name, branch_name2)
+        await self.git("push", "--quiet", "fork", branch_name2)
 
         # create a merge between this 2 branches
         await self.client_fork.post(
@@ -161,32 +151,22 @@ Awesome body
 
     async def test_squash_several_commits_with_two_merge_commits(self):
         await self.setup_repo()
-        repo_name = "fork"
-
-        branch_name1 = self.get_full_branch_name(f"{repo_name}/pr_squash_test_b1")
+        branch_name1 = self.get_full_branch_name("pr_squash_test_b1")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{self.main_branch_name}",
-            "-b",
-            branch_name1,
+            "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name1
         )
 
         open(self.git.tmp + "/file0", "wb").close()
         await self.git("add", "file0")
         await self.git("commit", "--no-edit", "-m", "feat(): add file0")
 
-        await self.git("push", "--quiet", repo_name, branch_name1)
+        await self.git("push", "--quiet", "fork", branch_name1)
 
-        branch_name2 = self.get_full_branch_name(f"{repo_name}/pr_squash_test_b2")
+        branch_name2 = self.get_full_branch_name("pr_squash_test_b2")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{branch_name1}",
-            "-b",
-            branch_name2,
+            "checkout", "--quiet", f"fork/{branch_name1}", "-b", branch_name2
         )
 
         for i in range(1, 4):
@@ -194,7 +174,7 @@ Awesome body
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i}")
 
-        await self.git("push", "--quiet", repo_name, branch_name2)
+        await self.git("push", "--quiet", "fork", branch_name2)
 
         # create a merge between this 2 branches
         await self.client_fork.post(
@@ -207,21 +187,17 @@ Awesome body
             },
         )
 
-        branch_name3 = self.get_full_branch_name(f"{repo_name}/pr_squash_test_b3")
+        branch_name3 = self.get_full_branch_name("pr_squash_test_b3")
 
         await self.git(
-            "checkout",
-            "--quiet",
-            f"{repo_name}/{self.main_branch_name}",
-            "-b",
-            branch_name3,
+            "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name3
         )
 
         open(self.git.tmp + "/an_other_file", "wb").close()
         await self.git("add", "an_other_file")
         await self.git("commit", "--no-edit", "-m", "feat(): add an other file")
 
-        await self.git("push", "--quiet", repo_name, branch_name3)
+        await self.git("push", "--quiet", "fork", branch_name3)
 
         # create a PR between this branche n3 & n1
         await self.client_fork.post(

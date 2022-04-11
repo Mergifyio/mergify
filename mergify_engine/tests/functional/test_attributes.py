@@ -48,8 +48,8 @@ class TestAttributes(base.FunctionalTestBase):
         }
         with freeze_time("2021-09-22T08:00:02", tick=True):
             await self.setup_repo(yaml.dump(rules))
-            pr, _ = await self.create_pr()
-            pr_force_rebase, _ = await self.create_pr()
+            pr = await self.create_pr()
+            pr_force_rebase = await self.create_pr()
             await self.merge_pull(pr_force_rebase["number"])
             await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
             await self.run_engine()
@@ -70,7 +70,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         with freeze_time("2021-05-30T10:00:00", tick=True):
             await self.setup_repo(yaml.dump(rules))
-            pr, _ = await self.create_pr()
+            pr = await self.create_pr()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
             await self.run_engine()
@@ -111,7 +111,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         await self.run_engine()
         assert (await self.get_pull(pr["number"]))["state"] == "open"
@@ -134,7 +134,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         with freeze_time("2021-05-30T10:00:00", tick=True):
             await self.setup_repo(yaml.dump(rules))
-            pr, _ = await self.create_pr()
+            pr = await self.create_pr()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
             await self.run_engine()
@@ -160,7 +160,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         comments = await self.get_issue_comments(pr["number"])
         assert len(comments) == 0
         await self.run_engine()
@@ -182,8 +182,8 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p, _ = await self.create_pr()
-        pr_force_rebase, _ = await self.create_pr(two_commits=True)
+        p = await self.create_pr()
+        pr_force_rebase = await self.create_pr(two_commits=True)
         await self.merge_pull(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
@@ -226,12 +226,12 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr_force_rebase, _ = await self.create_pr(two_commits=True)
+        pr_force_rebase = await self.create_pr(two_commits=True)
         await self.merge_pull(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.git("reset", "--hard", "HEAD^^")
-        p, _ = await self.create_pr(git_tree_ready=True)
+        p = await self.create_pr(git_tree_ready=True)
         await self.run_engine()
         ctxt = await context.Context.create(
             self.repository_ctxt, p, wait_background_github_processing=True
@@ -266,7 +266,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(pr["number"])
@@ -295,11 +295,11 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         assert not await ctxt.pull_request.draft
 
-        pr, _ = await self.create_pr(draft=True)
+        pr = await self.create_pr(draft=True)
 
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
@@ -399,7 +399,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(pr["number"])
@@ -430,7 +430,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(pr["number"])
@@ -461,7 +461,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(pr["number"])
@@ -492,7 +492,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(pr["number"])
@@ -523,7 +523,7 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        pr, _ = await self.create_pr()
+        pr = await self.create_pr()
         await self.add_label(pr["number"], "foo")
         await self.edit_pull(pr["number"], state="closed")
 
@@ -544,7 +544,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(two_commits=False)
+        pr = await self.create_pr(two_commits=False)
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -562,7 +562,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(two_commits=True)
+        pr = await self.create_pr(two_commits=True)
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -583,7 +583,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(two_commits=True)
+        pr = await self.create_pr(two_commits=True)
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -601,7 +601,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(two_commits=True)
+        pr = await self.create_pr(two_commits=True)
         await self.run_engine()
         comments = await self.get_issue_comments(pr["number"])
         assert len(comments) == 0
@@ -617,7 +617,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(verified=True)
+        pr = await self.create_pr(verified=True)
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         assert len(await ctxt.commits) == 1
         await self.run_engine()
@@ -636,7 +636,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(verified=True, two_commits=True)
+        pr = await self.create_pr(verified=True, two_commits=True)
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         assert len(await ctxt.commits) == 2
         await self.run_engine()
@@ -657,7 +657,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(files={"yves_testing_file": "foo"})
+        pr = await self.create_pr(files={"yves_testing_file": "foo"})
         await self.create_review_thread(
             pr["number"], "you shouldn't write `foo` here", path="yves_testing_file"
         )
@@ -686,7 +686,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(
+        pr = await self.create_pr(
             files={"yves_testing_file": "foo", "super_original_testfile": "42\ntest\n"}
         )
         await self.create_review_thread(
@@ -736,7 +736,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(
+        pr = await self.create_pr(
             files={
                 "testing_file_number_one": "p e r f e c t i o n",
                 "another_one": "can't stop testing",
@@ -800,7 +800,7 @@ class TestAttributes(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, _ = await self.create_pr(
+        pr = await self.create_pr(
             files={
                 "another_amazing_testing_file": "what did you expect ?",
                 "love to test": "noice",
@@ -845,12 +845,12 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        pr1, _ = await self.create_pr()
-        pr2, _ = await self.create_pr()
+        pr1 = await self.create_pr()
+        pr2 = await self.create_pr()
         await self.merge_pull(pr2["number"])
 
         body = f"Awesome body\nDepends-On: #{pr1['number']}\ndepends-on: #{pr2['number']}\ndepends-On: #9999999"
-        pr, _ = await self.create_pr(message=body)
+        pr = await self.create_pr(message=body)
         await self.add_label(pr["number"], "automerge")
         await self.run_engine()
 
@@ -881,7 +881,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -915,8 +915,8 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -969,7 +969,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.add_label(p["number"], "ready-to-merge")
         await self.run_engine()

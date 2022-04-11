@@ -54,7 +54,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules), test_branches=[stable_branch])
 
-        p, commits = await self.create_pr(two_commits=True)
+        p = await self.create_pr(two_commits=True)
 
         # Create another PR to be sure we don't mess things up
         # see https://github.com/Mergifyio/mergify-engine/issues/849
@@ -144,7 +144,7 @@ class TestBackportAction(BackportActionTestBase):
 
         await self.setup_repo(yaml.dump(rules), test_branches=[])
 
-        p, commits = await self.create_pr(two_commits=True)
+        p = await self.create_pr(two_commits=True)
 
         await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()
@@ -205,7 +205,7 @@ class TestBackportAction(BackportActionTestBase):
         await self.git("commit", "--no-edit", "-m", "add conflict")
         await self.git("push", "--quiet", "origin", stable_branch)
 
-        p, commits = await self.create_pr(files={"conflicts": "ohoh"})
+        p = await self.create_pr(files={"conflicts": "ohoh"})
 
         await self.add_label(p["number"], "backport-#3.1")
         await self.run_engine()

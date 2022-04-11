@@ -46,7 +46,7 @@ class TestSubscription(base.FunctionalTestBase):
         self.addCleanup(patcher.stop)
 
         await self.setup_repo()
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])

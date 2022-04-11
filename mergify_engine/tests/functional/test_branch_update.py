@@ -36,8 +36,8 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = await self.create_pr(files={"TESTING2": "foobar"})
-        p2, _ = await self.create_pr(files={"TESTING3": "foobar"})
+        p1 = await self.create_pr(files={"TESTING2": "foobar"})
+        p2 = await self.create_pr(files={"TESTING3": "foobar"})
         await self.merge_pull(p1["number"])
 
         await self.wait_for("pull_request", {"action": "closed"})
@@ -61,8 +61,8 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar\n"})
-        p1, _ = await self.create_pr(files={"TESTING": "foobar\n\n\np1"})
-        p2, _ = await self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
+        p1 = await self.create_pr(files={"TESTING": "foobar\n\n\np1"})
+        p2 = await self.create_pr(files={"TESTING": "p2\n\nfoobar\n"})
         await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 

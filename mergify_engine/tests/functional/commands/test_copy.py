@@ -24,7 +24,7 @@ class TestCommandCopy(base.FunctionalTestBase):
         await self.setup_repo(
             yaml.dump({}), test_branches=[stable_branch, feature_branch]
         )
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.create_comment(
             p["number"], f"@mergifyio copy {stable_branch} {feature_branch}"

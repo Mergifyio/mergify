@@ -47,7 +47,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(draft=True)
+        p = await self.create_pr(draft=True)
         await self.add_label(p["number"], "automerge")
         await self.run_engine()
 
@@ -81,7 +81,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -102,7 +102,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test4")
+        p = await self.create_pr(message="mergify-test4")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -138,7 +138,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p1, _ = await self.create_pr(
+        p1 = await self.create_pr(
             files={"my_testing_file": "foo", "super_original_testfile": "42\ntest\n"}
         )
 
@@ -219,7 +219,7 @@ class TestMergeAction(base.FunctionalTestBase):
 
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.run_engine()
         await self.wait_for("check_run", {"check_run": {"conclusion": "failure"}})
 
@@ -254,7 +254,7 @@ class TestMergeAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="")
+        p = await self.create_pr(message="")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -285,7 +285,7 @@ superRP!
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(message="mergify-test4")
+        p = await self.create_pr(message="mergify-test4")
         await self.run_engine()
         await self.wait_for("pull_request", {"action": "closed"})
 
@@ -338,8 +338,8 @@ superRP!"""
             "enforce_admins": False,
         }
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         await self.merge_pull(p1["number"])
 

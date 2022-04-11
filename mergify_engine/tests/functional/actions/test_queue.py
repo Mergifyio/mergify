@@ -136,7 +136,7 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
         pulls = await self.get_pulls()
         assert len(pulls) == 1
@@ -175,7 +175,7 @@ class TestQueueAction(base.FunctionalTestBase):
             ],
         }
 
-        p2, _ = await self.create_pr(files={".mergify.yml": yaml.dump(updated_rules)})
+        p2 = await self.create_pr(files={".mergify.yml": yaml.dump(updated_rules)})
         await self.merge_pull(p2["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
@@ -224,7 +224,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.add_label(p1["number"], "queue")
         await self.run_engine()
 
@@ -245,7 +245,7 @@ class TestQueueAction(base.FunctionalTestBase):
         )
 
         # To force p1 to be rebased
-        p2, _ = await self.create_pr()
+        p2 = await self.create_pr()
         await self.merge_pull(p2["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
@@ -271,7 +271,7 @@ class TestQueueAction(base.FunctionalTestBase):
         )
 
         # To force p1 to be rebased a second times
-        p3, _ = await self.create_pr()
+        p3 = await self.create_pr()
         await self.merge_pull(p3["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
@@ -321,11 +321,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -422,11 +422,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -537,11 +537,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -637,10 +637,10 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -717,14 +717,14 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
-        p3, _ = await self.create_pr()
-        p4, _ = await self.create_pr()
-        p5, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
+        p3 = await self.create_pr()
+        p4 = await self.create_pr()
+        p5 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -863,13 +863,13 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
-        p4, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
+        p4 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1083,14 +1083,14 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
-        p3, _ = await self.create_pr()
-        p4, _ = await self.create_pr()
-        p5, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
+        p3 = await self.create_pr()
+        p4 = await self.create_pr()
+        p5 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1272,11 +1272,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1393,8 +1393,8 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
-        p_other, _ = await self.create_pr()
+        p = await self.create_pr()
+        p_other = await self.create_pr()
         await self.merge_pull(p_other["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
@@ -1435,7 +1435,7 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.add_label(p["number"], "queue")
         await self.run_engine()
@@ -1473,11 +1473,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1594,11 +1594,11 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1703,8 +1703,8 @@ class TestQueueAction(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         await self.add_label(p1["number"], "queue")
         await self.add_label(p2["number"], "queue")
         await self.run_engine()
@@ -1769,12 +1769,12 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -1914,11 +1914,11 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -2028,11 +2028,11 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -2132,9 +2132,9 @@ DO NOT EDIT
             ],
         }
         await self.setup_repo(yaml.dump(rules))
-        p1, _ = await self.create_pr(files={"conflicts": "well"})
-        p2, _ = await self.create_pr(files={"conflicts": "boom"})
-        p3, _ = await self.create_pr()
+        p1 = await self.create_pr(files={"conflicts": "well"})
+        p2 = await self.create_pr(files={"conflicts": "boom"})
+        p3 = await self.create_pr()
 
         await self.add_label(p1["number"], "queue")
         await self.add_label(p2["number"], "queue")
@@ -2214,9 +2214,9 @@ DO NOT EDIT
             ],
         }
         await self.setup_repo(yaml.dump(rules))
-        p1, _ = await self.create_pr(files={"conflicts": "well"})
-        p2, _ = await self.create_pr(files={"conflicts": "boom"})
-        p3, _ = await self.create_pr()
+        p1 = await self.create_pr(files={"conflicts": "well"})
+        p2 = await self.create_pr(files={"conflicts": "boom"})
+        p3 = await self.create_pr()
 
         await self.add_label(p1["number"], "queue")
         await self.add_label(p2["number"], "queue")
@@ -2307,9 +2307,9 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
 
         # Queue PRs
         await self.add_label(p1["number"], "queue")
@@ -2477,11 +2477,11 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -2528,7 +2528,7 @@ DO NOT EDIT
         assert p1["head"]["sha"] != head_sha
 
         # Merge a not queued PR manually
-        p_merged_in_meantime, _ = await self.create_pr()
+        p_merged_in_meantime = await self.create_pr()
         await self.merge_pull(p_merged_in_meantime["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
@@ -2619,12 +2619,12 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
 
         # To force others to be rebased
-        p_merged, _ = await self.create_pr()
+        p_merged = await self.create_pr()
         await self.merge_pull(p_merged["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -2854,7 +2854,7 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.create_status(p1)
         await self.add_label(p1["number"], "queue")
         await self.run_engine()
@@ -2907,11 +2907,11 @@ DO NOT EDIT
             },
         )
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
 
         # To force others to be rebased
-        p, _ = await self.create_pr(
+        p = await self.create_pr(
             files={
                 ".github/workflows/ci.yml": TEMPLATE_GITHUB_ACTION % "echo Changed CI"
             }
@@ -3018,10 +3018,10 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -3106,10 +3106,10 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -3187,10 +3187,10 @@ DO NOT EDIT
         with freeze_time("2021-05-30T10:00:00", tick=True):
             await self.setup_repo(yaml.dump(config))
 
-            p1, _ = await self.create_pr()
+            p1 = await self.create_pr()
 
             # To force others to be rebased
-            p, _ = await self.create_pr()
+            p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
             await self.run_engine()
@@ -3260,10 +3260,10 @@ DO NOT EDIT
         with freeze_time("2021-05-30T10:00:00", tick=True):
             await self.setup_repo(yaml.dump(config))
 
-            p1, _ = await self.create_pr()
+            p1 = await self.create_pr()
 
             # To force others to be rebased
-            p, _ = await self.create_pr()
+            p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
             await self.run_engine()
@@ -3335,10 +3335,10 @@ DO NOT EDIT
         with freeze_time("2021-05-30T20:00:00", tick=True):
             await self.setup_repo(yaml.dump(config))
 
-            p1, _ = await self.create_pr()
+            p1 = await self.create_pr()
 
             # To force others to be rebased
-            p, _ = await self.create_pr()
+            p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
             await self.run_engine()
@@ -3427,10 +3427,10 @@ DO NOT EDIT
 
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
 
         # To force others to be rebased
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -3527,10 +3527,10 @@ pull_request_rules:
 
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         # To force others to be rebased
-        p_other, _ = await self.create_pr()
+        p_other = await self.create_pr()
         await self.merge_pull(p_other["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
@@ -3614,8 +3614,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(config))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
@@ -3700,8 +3700,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         }
         await self.setup_repo(yaml.dump(config))
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
@@ -3775,7 +3775,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             yaml.dump({}), test_branches=[test_default_branch, test_hotfix_branch]
         )
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
 
@@ -3841,7 +3841,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             config=queue_config,
         )
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         ctxt1 = context.Context(self.repository_ctxt, p1)
         q1 = await merge_train.Train.from_context(ctxt1)
         base_sha1 = await q1.get_base_sha()
@@ -3855,8 +3855,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         )
         q1._cars.append(car1)
 
-        p2, _ = await self.create_pr(base=test_hotfix_branch)
-        p3, _ = await self.create_pr(base=test_hotfix_branch)
+        p2 = await self.create_pr(base=test_hotfix_branch)
+        p3 = await self.create_pr(base=test_hotfix_branch)
         ctxt2 = context.Context(self.repository_ctxt, p2)
         q2 = await merge_train.Train.from_context(ctxt2)
         base_sha2 = await q2.get_base_sha()
@@ -3925,11 +3925,11 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             yaml.dump(config), test_branches=[test_default_branch, test_hotfix_branch]
         )
 
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr()
-        p4, _ = await self.create_pr()
-        p5, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
+        p4 = await self.create_pr()
+        p5 = await self.create_pr()
 
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
@@ -4023,10 +4023,10 @@ class TestTrainApiCalls(base.FunctionalTestBase):
     async def test_create_pull_conflicts(self):
         await self.setup_repo(yaml.dump({}), files={"conflicts": "foobar"})
 
-        p, _ = await self.create_pr(files={"conflicts": "well"})
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
-        p3, _ = await self.create_pr(files={"conflicts": "boom"})
+        p = await self.create_pr(files={"conflicts": "well"})
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr(files={"conflicts": "boom"})
 
         await self.merge_pull(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
@@ -4109,7 +4109,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         checks = await context.Context(self.repository_ctxt, p).pull_engine_check_runs

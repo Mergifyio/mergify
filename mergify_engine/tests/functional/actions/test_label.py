@@ -37,7 +37,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         # NOTE(sileht): We create first a label with a wrong case, GitHub
         # label... you can't have a label twice with different case.
@@ -81,7 +81,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.add_label(p["number"], "stable")
         await self.run_engine()
 
@@ -105,7 +105,7 @@ class TestLabelAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.add_label(p["number"], "stable")
         await self.run_engine()
 

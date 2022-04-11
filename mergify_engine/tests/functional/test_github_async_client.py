@@ -35,8 +35,8 @@ class TestGithubClient(base.FunctionalTestBase):
         }
         other_branch = self.get_full_branch_name("other")
         await self.setup_repo(yaml.dump(rules), test_branches=[other_branch])
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
         await self.create_pr(base=other_branch)
 
         installation_json = await github.get_installation_from_login(
@@ -90,7 +90,7 @@ class TestGithubClient(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        await self.create_pr()
         url = f"/repos/mergifyio-testing/{self.RECORD_CONFIG['repository_name']}/pulls"
         pulls = [p async for p in self.client_integration.items(url)]
         self.assertEqual(1, len(pulls))

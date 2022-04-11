@@ -32,7 +32,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
         p = await self.get_pull(p["number"])
@@ -70,7 +70,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        await self.create_pr()
 
         await self.run_engine()
 
@@ -94,7 +94,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        await self.create_pr()
 
         await self.run_engine()
 
@@ -118,7 +118,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 
@@ -142,7 +142,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.add_assignee(p["number"], "mergify-test1")
         await self.run_engine()
 

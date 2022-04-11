@@ -53,8 +53,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr(files={"foo": "bar"})
-        p2, _ = await self.create_pr(two_commits=True)
+        p1 = await self.create_pr(files={"foo": "bar"})
+        p2 = await self.create_pr(two_commits=True)
         await self.merge_pull(p1["number"])
 
         await self.add_label(p2["number"], "squash")
@@ -112,7 +112,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -191,7 +191,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         if msg is None:
             msg = "This is the title\n\nAnd this is the message"
-        p, _ = await self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
+        p = await self.create_pr(message=f"It fixes it\n\n## {header}{msg}")
         await self.create_status(p)
 
         await self.run_engine()
@@ -242,7 +242,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         msg = "This is the title\n\nAnd this is the message {{invalid}}"
-        p, _ = await self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
+        p = await self.create_pr(message=f"It fixes it\n\n## Commit Message\n{msg}")
         await self.create_status(p)
 
         await self.run_engine()
@@ -307,7 +307,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         await self.setup_repo(yaml.dump(rules))
 
         msg = "It fixes it"
-        p, _ = await self.create_pr(message=msg)
+        p = await self.create_pr(message=msg)
         await self.create_status(p)
 
         await self.run_engine()
@@ -357,9 +357,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         i = await self.create_issue(
             title="Such a bug", body="I can't explain, but don't work"
         )
-        p, commits = await self.create_pr(
-            message=f"It fixes it\n\nCloses #{i['number']}"
-        )
+        p = await self.create_pr(message=f"It fixes it\n\nCloses #{i['number']}")
         await self.create_status(p)
 
         await self.run_engine()
@@ -395,7 +393,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p2, commits = await self.create_pr()
+        p2 = await self.create_pr()
         await self.create_status(p2)
         await self.create_review(p2["number"])
 
@@ -442,7 +440,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -522,7 +520,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -581,8 +579,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p1, _ = await self.create_pr()
-        p2, _ = await self.create_pr()
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
 
         resp = await self.app.post(
             f"/refresh/{p1['base']['repo']['full_name']}/pull/{p1['number']}",
@@ -619,7 +617,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
 
         await self.run_engine()
 
@@ -704,8 +702,8 @@ DO NOT EDIT
             ]
         }
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = await self.create_pr(files={"TESTING": "p1"})
-        p2, _ = await self.create_pr(files={"TESTING": "p2"})
+        p1 = await self.create_pr(files={"TESTING": "p1"})
+        await self.create_pr(files={"TESTING": "p2"})
         await self.merge_pull(p1["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
@@ -731,8 +729,8 @@ DO NOT EDIT
             ]
         }
         await self.setup_repo(yaml.dump(rules), files={"TESTING": "foobar"})
-        p1, _ = await self.create_pr(files={"TESTING": "p1"})
-        p2, _ = await self.create_pr(files={"TESTING": "p2"}, draft=True)
+        p1 = await self.create_pr(files={"TESTING": "p1"})
+        await self.create_pr(files={"TESTING": "p2"}, draft=True)
         await self.merge_pull(p1["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
@@ -770,13 +768,13 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p1, _ = await self.create_pr()
+        p1 = await self.create_pr()
         await self.create_review_request(p1["number"], reviewers=["mergify-test4"])
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
         # FIXME(sileht): This doesn't work anymore MRGFY-227
-        # p2, _ = await self.create_pr()
+        # p2 = await self.create_pr()
         # p2.create_review_request(team_reviewers=[team.slug])
         # await self.wait_for("pull_request", {"action": "review_requested"})
         # await self.run_engine()
@@ -793,7 +791,7 @@ DO NOT EDIT
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
         await self.setup_repo(yaml.dump(rules))
-        pr, commits = await self.create_pr()
+        pr = await self.create_pr()
         await self.run_engine()
         pull = await context.Context.create(self.repository_ctxt, pr, [])
         check = await check_api.set_check_run(
@@ -816,7 +814,7 @@ DO NOT EDIT
         await self.run_engine()
 
         # Check initial summary is submitted
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
@@ -838,13 +836,13 @@ DO NOT EDIT
         }
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr(files={"foo": "bar"})
+        p = await self.create_pr(files={"foo": "bar"})
         await self.run_engine()
 
         rules["pull_request_rules"][0]["conditions"][
             0
         ] = f"base={self.main_branch_name}"
-        p_config, _ = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
+        p_config = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
         await self.merge_pull(p_config["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
@@ -856,7 +854,7 @@ DO NOT EDIT
 
     async def test_check_run_api(self):
         await self.setup_repo()
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
 
         await check_api.set_check_run(

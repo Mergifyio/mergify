@@ -37,7 +37,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        await self.create_pr()
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})
@@ -62,7 +62,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        await self.create_pr()
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})
@@ -95,7 +95,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})
@@ -146,7 +146,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})
@@ -199,7 +199,7 @@ class TestRequestReviewsSubAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p, _ = await self.create_pr()
+        await self.create_pr()
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})

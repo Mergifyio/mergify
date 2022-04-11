@@ -53,7 +53,7 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
         branch = self.get_full_branch_name(f"fork/pr{self.pr_counter}")
         await self.create_review(p["number"], "APPROVE")
 
@@ -127,7 +127,7 @@ Unknown pull request attribute: Loser
             ] = message
 
         await self.setup_repo(yaml.dump(rules))
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
         branch = self.get_full_branch_name(f"fork/pr{self.pr_counter}")
         await self.create_review(p["number"], "APPROVE")
 
@@ -196,7 +196,7 @@ Unknown pull request attribute: Loser
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
         await self.create_review(p["number"], "APPROVE")
 
         self.assertEqual(
@@ -241,7 +241,7 @@ Unknown pull request attribute: Loser
         }
 
         await self.setup_repo(yaml.dump(rules))
-        p, commits = await self.create_pr()
+        p = await self.create_pr()
         await self.create_review(p["number"], "APPROVE")
         await self.create_review(
             p["number"], "APPROVE", oauth_token=config.ORG_USER_PERSONAL_TOKEN
