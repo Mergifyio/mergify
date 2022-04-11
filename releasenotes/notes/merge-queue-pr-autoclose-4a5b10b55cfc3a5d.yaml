@@ -1,0 +1,5 @@
+---
+fixes:
+  - |
+    GitHub.com and future GHES will not automatically close pull request when
+    the head branch is deleted. Mergify does it itself now.
