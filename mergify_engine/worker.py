@@ -1011,12 +1011,13 @@ class Worker:
                 resource=owner_login_for_tracing,
             ) as span:
                 span.set_tag("gh_owner", owner_login_for_tracing)
-                with sentry_sdk.push_scope() as scope:
-                    scope.set_tag("gh_owner", owner_login_for_tracing)
-                    scope.set_user({"username": owner_login_for_tracing})
-                    await stream_processor.consume(
-                        bucket_org_key, owner_id, owner_login_for_tracing
-                    )
+                with sentry_sdk.Hub(sentry_sdk.Hub.current) as hub:
+                    with hub.configure_scope() as scope:
+                        scope.set_tag("gh_owner", owner_login_for_tracing)
+                        scope.set_user({"username": owner_login_for_tracing})
+                        await stream_processor.consume(
+                            bucket_org_key, owner_id, owner_login_for_tracing
+                        )
         finally:
             LOG.debug(
                 "worker %s release org bucket: %s",
