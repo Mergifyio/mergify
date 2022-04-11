@@ -1390,6 +1390,7 @@ class Train(queue.QueueBase):
         ):
             if (
                 pull["base"]["ref"] == self.ref
+                and pull["head"]["repo"]
                 and pull["head"]["repo"]["id"] == self.repository.repo["id"]
                 and pull["head"]["ref"].startswith(
                     f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
