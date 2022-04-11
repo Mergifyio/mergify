@@ -508,25 +508,74 @@ class TrainCar:
         retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
         stop=tenacity.stop_after_attempt(2),
     )
+    async def _create_draft_pull_request(
+        self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
+    ) -> github_types.GitHubPullRequest:
+
+        try:
+            title = f"merge-queue: embarking {self._get_embarked_refs()} together"
+            body = await self.generate_merge_queue_summary(for_queue_pull_request=True)
+            return typing.cast(
+                github_types.GitHubPullRequest,
+                (
+                    await self.train.repository.installation.client.post(
+                        f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
+                        json={
+                            "title": title,
+                            "body": body,
+                            "base": self.train.ref,
+                            "head": branch_name,
+                            "draft": True,
+                        },
+                        oauth_token=github_user["oauth_access_token"]
+                        if github_user
+                        else None,
+                    )
+                ).json(),
+            )
+        except http.HTTPClientSideError as e:
+            if e.response.json()["errors"][0]["message"].startswith(
+                "A pull request already exists for"
+            ):
+                # NOTE(sileht): filter pull request on head is dangerous.
+                # head must be organization:ref-name, if the left or the right side of the : is empty
+                # all pull requests are returned. So it's better to double checks
+                if not (self.train.repository.installation.owner_login and branch_name):
+                    raise RuntimeError("Invalid merge-queue head branch")
+
+                head = f"{self.train.repository.installation.owner_login}:{branch_name}"
+                async for pull in typing.cast(
+                    typing.AsyncIterator[github_types.GitHubPullRequest],
+                    self.train.repository.installation.client.items(
+                        f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
+                        params={"head": head},
+                    ),
+                ):
+                    await self.train._close_pull_request(pull["number"])
+                raise tenacity.TryAgain
+
+            self.train.log.error(
+                "fail to create a merge-queue pull request",
+                head=branch_name,
+                title=title,
+                github_user=github_user["login"] if github_user else None,
+                parent_pull_request_numbers=self.parent_pull_request_numbers,
+                still_queued_embarked_pull_numbers=[
+                    ep.user_pull_request_number
+                    for ep in self.still_queued_embarked_pulls
+                ],
+                exc_info=True,
+            )
+            await self._set_creation_failure(e.message)
+            raise TrainCarPullRequestCreationFailure(self) from e
+
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
+        stop=tenacity.stop_after_attempt(2),
+    )
     async def _prepare_empty_draft_pr_branch(
         self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
     ) -> None:
-        # NOTE(sileht): filter pull request on head is dangerous.
-        # head must be organization:ref-name, if the left or the right side of the : is empty
-        # all pull requests are returned. So it's better to double checks
-        if not (self.train.repository.installation.owner_login and branch_name):
-            raise RuntimeError("Invalid merge-queue head branch")
-
-        head = f"{self.train.repository.installation.owner_login}:{branch_name}"
-        async for pull in typing.cast(
-            typing.AsyncIterator[github_types.GitHubPullRequest],
-            self.train.repository.installation.client.items(
-                f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
-                params={"head": head},
-            ),
-        ):
-            await self.train._close_pull_request(pull["number"])
-
         try:
             await self.train.repository.installation.client.post(
                 f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/git/refs",
@@ -626,40 +675,7 @@ class TrainCar:
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
-        try:
-            title = f"merge-queue: embarking {self._get_embarked_refs()} together"
-            body = await self.generate_merge_queue_summary(for_queue_pull_request=True)
-            tmp_pull = (
-                await self.train.repository.installation.client.post(
-                    f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
-                    json={
-                        "title": title,
-                        "body": body,
-                        "base": self.train.ref,
-                        "head": branch_name,
-                        "draft": True,
-                    },
-                    oauth_token=github_user["oauth_access_token"]
-                    if github_user
-                    else None,
-                )
-            ).json()
-        except http.HTTPClientSideError as e:
-            self.train.log.error(
-                "fail to create a merge-queue pull request",
-                head=branch_name,
-                title=title,
-                github_user=github_user["login"] if github_user else None,
-                parent_pull_request_numbers=self.parent_pull_request_numbers,
-                still_queued_embarked_pull_numbers=[
-                    ep.user_pull_request_number
-                    for ep in self.still_queued_embarked_pulls
-                ],
-                exc_info=True,
-            )
-            await self._set_creation_failure(e.message)
-            raise TrainCarPullRequestCreationFailure(self) from e
-
+        tmp_pull = await self._create_draft_pull_request(branch_name, github_user)
         await self._set_initial_state("created", queue_rule, tmp_pull["number"])
 
     async def _set_initial_state(
