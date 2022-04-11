@@ -47,9 +47,9 @@ class TestAttributes(base.FunctionalTestBase):
             ],
         }
         with freeze_time("2021-09-22T08:00:02", tick=True):
-            await self.setup_repo(yaml.dump(rules))
-            pr, _ = await self.create_pr()
-            pr_force_rebase, _ = await self.create_pr()
+            await self.setup_repo_via_api(yaml.dump(rules))
+            pr, _ = await self.create_pr_via_api()
+            pr_force_rebase, _ = await self.create_pr_via_api()
             await self.merge_pull(pr_force_rebase["number"])
             await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
             await self.run_engine()
@@ -109,9 +109,9 @@ class TestAttributes(base.FunctionalTestBase):
                 },
             ]
         }
-        await self.setup_repo(yaml.dump(rules))
+        await self.setup_repo_via_api(yaml.dump(rules))
 
-        pr, _ = await self.create_pr()
+        pr, _ = await self.create_pr_via_api()
         ctxt = await context.Context.create(self.repository_ctxt, pr)
         await self.run_engine()
         assert (await self.get_pull(pr["number"]))["state"] == "open"

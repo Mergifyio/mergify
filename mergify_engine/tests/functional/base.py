@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import asyncio
+import base64
 import copy
 import datetime
 import json
@@ -540,6 +541,65 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.git_counter += 1
         return GitterRecorder(logger, self.cassette_library_dir, str(self.git_counter))
 
+    async def setup_repo_via_api(
+        self,
+        mergify_config: typing.Optional[str] = None,
+        test_branches: typing.Optional[typing.Iterable[str]] = None,
+    ) -> None:
+
+        if test_branches is None:
+            test_branches = []
+
+        resp = await self.client_admin.get(f"{self.url_origin}/git/ref/heads/main")
+        global_main_ref = resp.json()
+
+        await self.client_admin.post(
+            f"{self.url_origin}/git/refs",
+            json={
+                "ref": f"refs/heads/{self.main_branch_name}",
+                "sha": global_main_ref["object"]["sha"],
+            },
+        )
+
+        if mergify_config is None:
+            await self.client_admin.put(
+                f"{self.url_origin}/contents/.gitkeep",
+                json={
+                    "content": base64.b64encode(b"").decode(),
+                    "message": "repo must not be empty",
+                    "branch": self.main_branch_name,
+                },
+            )
+
+        else:
+            await self.client_admin.put(
+                f"{self.url_origin}/contents/.mergify.yml",
+                json={
+                    "content": base64.b64encode(mergify_config.encode()).decode(),
+                    "message": "initial commit",
+                    "branch": self.main_branch_name,
+                },
+            )
+
+        resp = await self.client_admin.get(
+            f"{self.url_origin}/branches/{self.main_branch_name}",
+        )
+        test_main_ref = resp.json()
+
+        for test_branch in test_branches:
+
+            await self.client_admin.post(
+                f"{self.url_origin}/git/refs",
+                json={
+                    "ref": f"refs/heads/{test_branch}",
+                    "sha": test_main_ref["commit"]["sha"],
+                },
+            )
+
+        await self.client_admin.patch(
+            self.url_origin, json={"default_branch": self.main_branch_name}
+        )
+
     async def setup_repo(
         self,
         mergify_config: typing.Optional[str] = None,
@@ -599,6 +659,73 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     def get_full_branch_name(self, name: str) -> str:
         return f"{self.RECORD_CONFIG['branch_prefix']}/{self._testMethodName}/{name}"
+
+    async def create_pr_via_api(
+        self,
+        base_branch: typing.Optional[str] = None,
+        head_branch: typing.Optional[str] = None,
+        message: typing.Optional[str] = None,
+        draft: bool = False,
+    ) -> typing.Tuple[
+        github_types.GitHubPullRequest, typing.List[github_types.GitHubBranchCommit]
+    ]:
+        self.pr_counter += 1
+        base_branch = self.main_branch_name
+        head_repo = "fork"
+        head_branch = f"{head_repo}/pr{self.pr_counter}"
+        head_branch = self.get_full_branch_name(head_branch)
+        title = (
+            f"{self._testMethodName}: pull request n{self.pr_counter} from {head_repo}"
+        )
+
+        if head_repo == "fork":
+            url = self.url_fork
+            client = self.client_fork
+            login = github_types.GitHubLogin("mergify-test2")
+        else:
+            url = self.url_origin
+            client = self.client_admin
+            login = github_types.GitHubLogin("mergifyio-testing")
+
+        resp = await client.get(
+            f"{self.url_origin}/branches/{base_branch}",
+        )
+        base_branch_ref = resp.json()
+
+        await client.post(
+            f"{url}/git/refs",
+            json={
+                "ref": f"refs/heads/{head_branch}",
+                "sha": base_branch_ref["commit"]["sha"],
+            },
+        )
+
+        await client.put(
+            f"{url}/contents/test1",
+            json={
+                "content": base64.b64encode(b"").decode(),
+                "message": title,
+                "branch": head_branch,
+            },
+        )
+
+        resp = await client.post(
+            f"{self.url_origin}/pulls",
+            json={
+                "base": base_branch,
+                "head": f"{login}:{head_branch}",
+                "title": title,
+                "body": title if message is None else message,
+                "draft": draft,
+            },
+        )
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        # NOTE(sileht): We return the same but owned by the main project
+        p = typing.cast(github_types.GitHubPullRequest, resp.json())
+        p = await self.get_pull(p["number"])
+        commits = await self.get_commits(p["number"])
+        return p, commits
 
     async def create_pr(
         self,
