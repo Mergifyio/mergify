@@ -1356,7 +1356,8 @@ class Train(queue.QueueBase):
         await self._split_failed_batches(queue_rules)
         await self._populate_cars(queue_rules)
         # FIXME(sileht): we should not ran that on each worker run, once a hour or once a day should be enough
-        await self._clean_unsused_merge_queue_branches()
+        # TODO(sileht): reenable me
+        # await self._clean_unsused_merge_queue_branches()
         await self.save()
 
     async def _clean_unsused_merge_queue_branches(self) -> None:
