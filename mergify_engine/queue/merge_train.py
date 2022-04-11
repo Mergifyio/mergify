@@ -21,6 +21,7 @@ import typing
 from urllib import parse
 
 import daiquiri
+from ddtrace import tracer
 import first
 import pydantic
 import tenacity
@@ -508,6 +509,7 @@ class TrainCar:
         retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
         stop=tenacity.stop_after_attempt(2),
     )
+    @tracer.wrap("_prepare_empty_draft_pr_branch", span_type="worker")
     async def _prepare_empty_draft_pr_branch(
         self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
     ) -> None:
@@ -1359,6 +1361,7 @@ class Train(queue.QueueBase):
         await self._clean_unsused_merge_queue_branches()
         await self.save()
 
+    @tracer.wrap("_clean_unsused_merge_queue_branches", span_type="worker")
     async def _clean_unsused_merge_queue_branches(self) -> None:
         match = (
             f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
