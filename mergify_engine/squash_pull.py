@@ -44,6 +44,11 @@ async def _do_squash(
 
     git = gitter.Gitter(ctxt.log)
 
+    if ctxt.pull["head"]["repo"] is None:
+        raise SquashFailure(
+            f"The head repository of {ctxt.pull['base']['label']} has been deleted."
+        )
+
     try:
         await git.init()
 

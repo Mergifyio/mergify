@@ -185,11 +185,19 @@ class GitHubBranch(typing.TypedDict):
     protection: GitHubBranchProtectionLight
 
 
-class GitHubBranchRef(typing.TypedDict):
+class GitHubBaseBranchRef(typing.TypedDict):
     label: str
     ref: GitHubRefType
     sha: SHAType
     repo: GitHubRepository
+    user: GitHubAccount
+
+
+class GitHubHeadBranchRef(typing.TypedDict):
+    label: str
+    ref: GitHubRefType
+    sha: SHAType
+    repo: typing.Optional[GitHubRepository]
     user: GitHubAccount
 
 
@@ -285,8 +293,8 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     id: GitHubPullRequestId
     number: GitHubPullRequestNumber
     maintainer_can_modify: bool
-    base: GitHubBranchRef
-    head: GitHubBranchRef
+    base: GitHubBaseBranchRef
+    head: GitHubHeadBranchRef
     state: GitHubPullRequestState
     user: GitHubAccount
     labels: typing.List[GitHubLabel]
