@@ -199,17 +199,20 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         )
         await self.add_label(p1["number"], "merge")
         await self.run_engine()
-        await self.wait_for(
-            "pull_request", {"action": "closed", "number": p2["number"]}
-        )
-        await self.run_engine()
 
-        pulls = await self.get_pulls(
-            params={"state": "all", "base": self.main_branch_name}
-        )
-        assert 1 == len(pulls)
-        pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
-        assert 1 == len(pulls)
+        # FIXME(sileht): temporary disable these assertion as GitHub doesn't
+        # auto close pull request anymore
+        #
+        # await self.wait_for(
+        #    "pull_request", {"action": "closed", "number": p2["number"]}
+        # )
+        # await self.run_engine()
+        # pulls = await self.get_pulls(
+        #     params={"state": "all", "base": self.main_branch_name}
+        # )
+        # assert 1 == len(pulls)
+        # pulls = await self.get_pulls(params={"state": "all", "base": first_branch})
+        # assert 1 == len(pulls)
 
         branches = await self.get_branches()
         assert 3 == len(branches)
