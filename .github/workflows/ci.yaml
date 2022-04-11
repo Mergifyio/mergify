@@ -96,7 +96,7 @@ jobs:
       # So, we upload it as artifact, then another workflow
       # docs-upload-gcp.yaml will upload it on gcp.
       - name: Upload ☁️
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: docs-pr-${{ github.event.pull_request.number }}
           path: docs/build
