@@ -341,7 +341,13 @@ class TrainCar:
                 0
             ].user_pull_request_number
 
-        car = cls(
+        if "head_branch" not in data:
+            if creation_state == "created":
+                data["head_branch"] = cls._get_pulls_branch_ref(initial_embarked_pulls)
+            else:
+                data["head_branch"] = None
+
+        return cls(
             train,
             initial_embarked_pulls=initial_embarked_pulls,
             still_queued_embarked_pulls=still_queued_embarked_pulls,
@@ -354,16 +360,13 @@ class TrainCar:
             ),
             queue_pull_request_number=data["queue_pull_request_number"],
             failure_history=failure_history,
-            head_branch=data.get("head_branch"),
+            head_branch=data["head_branch"],
             last_checks=last_checks,
             last_evaluated_conditions=data.get("last_evaluated_conditions"),
             has_timed_out=data.get("has_timed_out", False),
             checks_ended_timestamp=data.get("checks_ended_timestamp"),
             ci_has_passed=data.get("ci_has_passed", False),
         )
-        if "head_branch" not in data:
-            car.head_branch = car._get_pulls_branch_ref()
-        return car
 
     def _get_user_refs(self) -> str:
         refs = [f"#{ep.user_pull_request_number}" for ep in self.initial_embarked_pulls]
@@ -497,10 +500,9 @@ class TrainCar:
             embarked_pull.user_pull_request_number,
         )
 
-    def _get_pulls_branch_ref(self) -> str:
-        return "-".join(
-            [str(ep.user_pull_request_number) for ep in self.initial_embarked_pulls]
-        )
+    @staticmethod
+    def _get_pulls_branch_ref(embarked_pulls: typing.List[EmbarkedPull]) -> str:
+        return "-".join([str(ep.user_pull_request_number) for ep in embarked_pulls])
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
@@ -552,7 +554,7 @@ class TrainCar:
         queue_rule: rules.QueueRule,
     ) -> None:
 
-        self.head_branch = self._get_pulls_branch_ref()
+        self.head_branch = self._get_pulls_branch_ref(self.initial_embarked_pulls)
 
         branch_name = (
             f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.head_branch}"
