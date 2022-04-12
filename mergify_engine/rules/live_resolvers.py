@@ -18,10 +18,13 @@ import functools
 import itertools
 import typing
 
-from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.clients import http
 from mergify_engine.rules import filter
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 @dataclasses.dataclass
@@ -30,7 +33,7 @@ class LiveResolutionFailure(Exception):
 
 
 async def _resolve_login(
-    repository: context.Repository, name: str
+    repository: "context.Repository", name: str
 ) -> typing.List[github_types.GitHubLogin]:
     if not name:
         return []
@@ -70,7 +73,7 @@ async def _resolve_login(
 
 
 async def teams(
-    repository: context.Repository,
+    repository: "context.Repository",
     values: typing.Optional[typing.Union[typing.List[str], typing.Tuple[str], str]],
 ) -> typing.List[github_types.GitHubLogin]:
 
@@ -98,7 +101,7 @@ _TEAM_ATTRIBUTES = (
 
 
 def configure_filter(
-    repository: context.Repository, f: filter.Filter[filter.FilterResultT]
+    repository: "context.Repository", f: filter.Filter[filter.FilterResultT]
 ) -> None:
     for attrib in _TEAM_ATTRIBUTES:
         f.value_expanders[attrib] = functools.partial(  # type: ignore[assignment]

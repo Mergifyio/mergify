@@ -524,7 +524,7 @@ pull_request_rules:
     client.item.return_value = item()
     fake_repository.installation.client = client
 
-    fake_repository._caches.mergify_config.delete()
+    fake_repository._caches.mergify_config_file.delete()
     config_file = await fake_repository.get_mergify_config_file()
     assert config_file is not None
 

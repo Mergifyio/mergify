@@ -53,6 +53,9 @@ from mergify_engine.dashboard import subscription as subscription_mod
 from mergify_engine.dashboard import user_tokens
 
 
+if typing.TYPE_CHECKING:
+    from mergify_engine import rules
+
 SUMMARY_SHA_EXPIRATION = 60 * 60 * 24 * 31 * 1  # 1 Month
 
 MARKDOWN_TITLE_RE = re.compile(r"^#+ ", re.I)
@@ -63,6 +66,15 @@ MARKDOWN_COMMENT_RE = re.compile("(<!--.*?-->)", flags=re.DOTALL | re.IGNORECASE
 
 class MergifyConfigFile(github_types.GitHubContentFile):
     decoded_content: bytes
+
+
+DEFAULT_CONFIG_FILE = MergifyConfigFile(
+    decoded_content=b"",
+    type="file",
+    content="<default>",
+    sha=github_types.SHAType("<default>"),
+    path="<default>",
+)
 
 
 class T_PayloadEventSource(typing.TypedDict):
@@ -257,8 +269,11 @@ class Installation:
 
 @dataclasses.dataclass
 class RepositoryCaches:
-    mergify_config: cache.SingleCache[
+    mergify_config_file: cache.SingleCache[
         typing.Optional[MergifyConfigFile]
+    ] = dataclasses.field(default_factory=cache.SingleCache)
+    mergify_config: cache.SingleCache[
+        typing.Union["rules.MergifyConfig", Exception]
     ] = dataclasses.field(default_factory=cache.SingleCache)
     branches: cache.Cache[
         github_types.GitHubRefType, github_types.GitHubBranch
@@ -371,10 +386,39 @@ class Repository(object):
                 ),
             )
 
+    async def get_mergify_config(self) -> "rules.MergifyConfig":
+        # circular import
+        from mergify_engine import rules
+
+        mergify_config_or_exception = self._caches.mergify_config.get()
+        if mergify_config_or_exception is not cache.Unset:
+            if isinstance(mergify_config_or_exception, Exception):
+                raise mergify_config_or_exception
+            else:
+                return mergify_config_or_exception
+
+        config_file = await self.get_mergify_config_file()
+        if config_file is None:
+            config_file = DEFAULT_CONFIG_FILE
+
+        # BRANCH CONFIGURATION CHECKING
+        try:
+            mergify_config = rules.get_mergify_config(config_file)
+        except Exception as e:
+            self._caches.mergify_config.set(e)
+            raise
+
+        # Add global and mandatory rules
+        mergify_config["pull_request_rules"].rules.extend(
+            rules.MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
+        )
+        self._caches.mergify_config.set(mergify_config)
+        return mergify_config
+
     async def get_mergify_config_file(self) -> typing.Optional[MergifyConfigFile]:
-        mergify_config = self._caches.mergify_config.get()
-        if mergify_config is not cache.Unset:
-            return mergify_config
+        mergify_config_file = self._caches.mergify_config_file.get()
+        if mergify_config_file is not cache.Unset:
+            return mergify_config_file
 
         config_location_cache = self.get_config_location_cache_key(
             self.installation.owner_login, self.repo["name"]
@@ -387,11 +431,11 @@ class Repository(object):
                 await self.installation.redis.set(
                     config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
                 )
-            self._caches.mergify_config.set(config_file)
+            self._caches.mergify_config_file.set(config_file)
             return config_file
 
         await self.installation.redis.delete(config_location_cache)
-        self._caches.mergify_config.set(None)
+        self._caches.mergify_config_file.set(None)
         return None
 
     async def get_commits(

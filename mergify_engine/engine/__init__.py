@@ -35,31 +35,6 @@ from mergify_engine.engine import queue_runner
 
 LOG = daiquiri.getLogger(__name__)
 
-MERGIFY_BUILTIN_CONFIG_YAML = f"""
-pull_request_rules:
-  - name: delete backport/copy branch (Mergify rule)
-    hidden: true
-    conditions:
-      - author={config.BOT_USER_LOGIN}
-      - head~=^mergify/(bp|copy)/
-      - closed
-    actions:
-        delete_head_branch:
-"""
-
-MERGIFY_BUILTIN_CONFIG = rules.UserConfigurationSchema(
-    rules.YamlSchema(MERGIFY_BUILTIN_CONFIG_YAML)
-)
-
-
-DEFAULT_CONFIG_FILE = context.MergifyConfigFile(
-    decoded_content=b"",
-    type="file",
-    content="<default>",
-    sha=github_types.SHAType("<default>"),
-    path="<default>",
-)
-
 
 @dataclasses.dataclass
 class MultipleConfigurationFileFound(Exception):
@@ -365,14 +340,9 @@ async def run(
             summary=f"You must keep only one of these configuration files in the repository: {files}",
         )
 
-    ctxt.log.debug("engine get configuration")
-    if config_file is None:
-        ctxt.log.debug("No config file using defaults")
-        config_file = DEFAULT_CONFIG_FILE
-
     # BRANCH CONFIGURATION CHECKING
     try:
-        mergify_config = rules.get_mergify_config(config_file)
+        mergify_config = await ctxt.repository.get_mergify_config()
     except rules.InvalidRules as e:  # pragma: no cover
         ctxt.log.info(
             "The Mergify configuration is invalid",
@@ -391,11 +361,6 @@ async def run(
                         annotations=e.get_annotations(e.filename),
                     )
         return None
-
-    # Add global and mandatory rules
-    mergify_config["pull_request_rules"].rules.extend(
-        MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
-    )
 
     await _log_allow_inplace_checks_usage(ctxt, mergify_config["raw_config"])
 

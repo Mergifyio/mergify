@@ -23,7 +23,6 @@ import daiquiri
 
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import queue
@@ -268,19 +267,15 @@ async def report(
         print("* CONFIGURATION:")
         mergify_config = None
         config_file = await repository.get_mergify_config_file()
-        if config_file is None:
+        if not config_file:
             print(".mergify.yml is missing")
         else:
             print(f"Config filename: {config_file['path']}")
             print(config_file["decoded_content"].decode())
             try:
-                mergify_config = rules.get_mergify_config(config_file)
+                mergify_config = await repository.get_mergify_config()
             except rules.InvalidRules as e:  # pragma: no cover
                 print(f"configuration is invalid {str(e)}")
-            else:
-                mergify_config["pull_request_rules"].rules.extend(
-                    engine.MERGIFY_BUILTIN_CONFIG["pull_request_rules"].rules
-                )
 
         if pull_number is None:
             async for branch in typing.cast(
