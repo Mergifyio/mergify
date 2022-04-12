@@ -21,6 +21,7 @@ import typing
 from urllib import parse
 
 import daiquiri
+from ddtrace import tracer
 import first
 import pydantic
 import tenacity
@@ -450,6 +451,7 @@ class TrainCar:
         )
         return await ctxt.is_behind
 
+    @tracer.wrap("TrainCar.update_user_pull", span_type="worker")
     async def update_user_pull(self, queue_rule: "rules.QueueRule") -> None:
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
@@ -506,6 +508,7 @@ class TrainCar:
     def _get_pulls_branch_ref(embarked_pulls: typing.List[EmbarkedPull]) -> str:
         return "-".join([str(ep.user_pull_request_number) for ep in embarked_pulls])
 
+    @tracer.wrap("TrainCar._create_draft_pull_request", span_type="worker")
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
         stop=tenacity.stop_after_attempt(2),
@@ -600,6 +603,7 @@ class TrainCar:
                 await self._set_creation_failure(exc.message)
                 raise TrainCarPullRequestCreationFailure(self) from exc
 
+    @tracer.wrap("TrainCar.create_pull", span_type="worker")
     async def create_pull(
         self,
         queue_rule: "rules.QueueRule",
@@ -1223,6 +1227,7 @@ class Train(queue.QueueBase):
         return f"{self.repository.repo['id']}~{self.ref}"
 
     @classmethod
+    @tracer.wrap("Train.refresh_trains", span_type="worker")
     async def refresh_trains(
         cls,
         installation: context.Installation,
