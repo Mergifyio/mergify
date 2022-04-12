@@ -100,7 +100,7 @@ else:
 LOG = daiquiri.getLogger(__name__)
 
 
-MAX_RETRIES: int = 3
+MAX_RETRIES: int = 7
 WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
