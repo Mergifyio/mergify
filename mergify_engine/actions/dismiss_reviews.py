@@ -106,6 +106,15 @@ class DismissReviewsAction(actions.Action):
             rr["login"] for rr in ctxt.pull["requested_reviewers"]
         ]
 
+        if (
+            self.config["approved"] is not True
+            and self.config["changes_requested"] is not True
+            and not requested_reviewers_login
+        ):
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Nothing to dismiss", ""
+            )
+
         to_dismiss = set()
         for review in (await ctxt.consolidated_reviews())[1]:
             conf = self.config.get(review["state"].lower(), False)
