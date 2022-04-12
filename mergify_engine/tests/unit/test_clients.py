@@ -295,6 +295,7 @@ async def test_client_access_token_HTTP_500(respx_mock: respx.MockRouter) -> Non
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
 async def test_client_installation_HTTP_500(respx_mock: respx.MockRouter) -> None:
     respx_mock.get("/user/12345/installation").mock(
         side_effect=[
@@ -334,6 +335,7 @@ async def test_client_installation_HTTP_404(respx_mock: respx.MockRouter) -> Non
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
 async def test_client_installation_HTTP_301(respx_mock: respx.MockRouter) -> None:
     respx_mock.get("/user/12345/installation").respond(
         301,
@@ -351,6 +353,7 @@ async def test_client_installation_HTTP_301(respx_mock: respx.MockRouter) -> Non
 
 
 @mock.patch.object(github.CachedToken, "STORAGE", {})
+@pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
 async def test_client_abuse_403_no_header(respx_mock: respx.MockRouter) -> None:
 
     abuse_message = (
