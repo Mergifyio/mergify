@@ -118,6 +118,11 @@ class DismissReviewsAction(actions.Action):
                 if review["user"]["login"] in conf:
                     to_dismiss.add(review["id"])
 
+        if not to_dismiss:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS, "Nothing to dismiss", ""
+            )
+
         errors = set()
         for review_id in to_dismiss:
             try:
