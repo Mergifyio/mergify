@@ -611,44 +611,51 @@ class StreamProcessor:
                 break
 
             if bucket_sources_key.endswith("~0"):
-                logger.debug(
-                    "unpack events without pull request number", count=len(messages)
-                )
-                if repo_id not in opened_pulls_by_repo:
-                    try:
-                        opened_pulls_by_repo[repo_id] = [
-                            p
-                            async for p in installation.client.items(
-                                f"/repositories/{repo_id}/pulls"
-                            )
-                        ]
-                    except Exception as e:
-                        if exceptions.should_be_ignored(e):
-                            opened_pulls_by_repo[repo_id] = []
-                        else:
-                            raise
+                with tracer.trace(
+                    "check-runs/push pull requests finder",
+                    span_type="worker",
+                    resource=f"{installation.owner_login}/{tracing_repo_name}",
+                ) as span:
+                    logger.debug(
+                        "unpack events without pull request number", count=len(messages)
+                    )
+                    if repo_id not in opened_pulls_by_repo:
+                        try:
+                            opened_pulls_by_repo[repo_id] = [
+                                p
+                                async for p in installation.client.items(
+                                    f"/repositories/{repo_id}/pulls"
+                                )
+                            ]
+                        except Exception as e:
+                            if exceptions.should_be_ignored(e):
+                                opened_pulls_by_repo[repo_id] = []
+                            else:
+                                raise
 
-                for message_id, message in messages:
-                    source = typing.cast(
-                        context.T_PayloadEventSource,
-                        msgpack.unpackb(message[b"source"]),
-                    )
-                    converted_messages = await self._convert_event_to_messages(
-                        installation,
-                        repo_id,
-                        tracing_repo_name,
-                        source,
-                        opened_pulls_by_repo[repo_id],
-                        message[b"score"],
-                    )
-                    logger.debug("event unpacked into %d messages", converted_messages)
-                    # NOTE(sileht) can we take the risk to batch the deletion here ?
-                    await worker_lua.remove_pull(
-                        self.redis_stream,
-                        bucket_org_key,
-                        bucket_sources_key,
-                        (typing.cast(T_MessageID, message_id),),
-                    )
+                    for message_id, message in messages:
+                        source = typing.cast(
+                            context.T_PayloadEventSource,
+                            msgpack.unpackb(message[b"source"]),
+                        )
+                        converted_messages = await self._convert_event_to_messages(
+                            installation,
+                            repo_id,
+                            tracing_repo_name,
+                            source,
+                            opened_pulls_by_repo[repo_id],
+                            message[b"score"],
+                        )
+                        logger.debug(
+                            "event unpacked into %d messages", converted_messages
+                        )
+                        # NOTE(sileht) can we take the risk to batch the deletion here ?
+                        await worker_lua.remove_pull(
+                            self.redis_stream,
+                            bucket_org_key,
+                            bucket_sources_key,
+                            (typing.cast(T_MessageID, message_id),),
+                        )
             else:
                 sources = [
                     typing.cast(
