@@ -766,6 +766,7 @@ class StreamProcessor:
                     (
                         date.utcnow() - date.fromisoformat(source["timestamp"])
                     ).total_seconds(),
+                    tags=[f"worker_id:{self.worker_id}"],
                 )
 
         logger = daiquiri.getLogger(
