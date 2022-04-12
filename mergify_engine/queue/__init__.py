@@ -22,9 +22,11 @@ import voluptuous
 
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import rules
 from mergify_engine import utils
 
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -61,8 +63,8 @@ class PullQueueConfig(typing.TypedDict):
     effective_priority: int
     bot_account: typing.Optional[github_types.GitHubLogin]
     update_bot_account: typing.Optional[github_types.GitHubLogin]
-    name: rules.QueueName
-    queue_config: rules.QueueConfig
+    name: "rules.QueueName"
+    queue_config: "rules.QueueConfig"
 
 
 QueueT = typing.TypeVar("QueueT", bound="QueueBase")

@@ -27,6 +27,7 @@ import voluptuous
 import yaml
 
 from mergify_engine import actions
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
@@ -721,3 +722,20 @@ def get_mergify_config(
         return typing.cast(MergifyConfig, final_config)
     except voluptuous.Invalid as e:
         raise InvalidRules(e, config_file["path"])
+
+
+MERGIFY_BUILTIN_CONFIG_YAML = f"""
+pull_request_rules:
+  - name: delete backport/copy branch (Mergify rule)
+    hidden: true
+    conditions:
+      - author={config.BOT_USER_LOGIN}
+      - head~=^mergify/(bp|copy)/
+      - closed
+    actions:
+        delete_head_branch:
+"""
+
+MERGIFY_BUILTIN_CONFIG = UserConfigurationSchema(
+    YamlSchema(MERGIFY_BUILTIN_CONFIG_YAML)
+)
