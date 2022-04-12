@@ -28,6 +28,7 @@ import typing
 from urllib import parse
 
 import daiquiri
+from ddtrace import tracer
 import first
 from graphql_utils import multi
 import jinja2.exceptions
@@ -386,6 +387,7 @@ class Repository(object):
                 ),
             )
 
+    @tracer.wrap("get_mergify_config", span_type="worker")
     async def get_mergify_config(self) -> "rules.MergifyConfig":
         # circular import
         from mergify_engine import rules
@@ -1544,6 +1546,7 @@ class Context(object):
 
     # NOTE(sileht): quickly retry, if we don't get the status on time
     # the exception is recatch in worker.py, so worker will retry it later
+    @tracer.wrap("ensure_complete", span_type="worker")
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=0.2),
         stop=tenacity.stop_after_attempt(5),
