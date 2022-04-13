@@ -40,6 +40,8 @@ LOG = daiquiri.getLogger(__name__)
 
 @dataclasses.dataclass
 class TooManyPages(Exception):
+    per_page: int
+    page_limit: int
     last_page: int
     response: httpx.Response
 
@@ -431,6 +433,7 @@ class AsyncGithubClient(http.AsyncClient):
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         list_items: typing.Optional[str] = None,
         params: typing.Optional[typing.Dict[str, str]] = None,
+        page_limit: int = 100,
     ) -> typing.Any:
 
         # NOTE(sileht): can't be on the same line...
@@ -440,6 +443,8 @@ class AsyncGithubClient(http.AsyncClient):
 
         if params is not None:
             final_params.update(params)
+
+        per_page = int(final_params["per_page"])
 
         while True:
             response = await self.get(
@@ -453,8 +458,8 @@ class AsyncGithubClient(http.AsyncClient):
                 last_page = int(
                     parse.parse_qs(parse.urlparse(last_url).query)["page"][0]
                 )
-                if last_page > 100:
-                    raise TooManyPages(last_page, response)
+                if last_page > page_limit:
+                    raise TooManyPages(per_page, page_limit, last_page, response)
 
             items = response.json()
             if list_items:

@@ -21,9 +21,11 @@ import typing
 
 from mergify_engine import config
 from mergify_engine import date
+from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import utils
+from mergify_engine.clients import github
 from mergify_engine.clients import http
 
 
@@ -162,9 +164,15 @@ async def get_checks_for_ref(
                     api_version="antiope",
                     list_items="check_runs",
                     params=params,
+                    page_limit=5,
                 ),
             )
         ]
+    except github.TooManyPages as e:
+        raise exceptions.UnprocessablePullRequest(
+            f"The pull request reports more than {(e.last_page - 1) * e.per_page} check runs, "
+            f"reaching the limit of {e.page_limit * e.per_page} check runs."
+        )
     except http.HTTPClientSideError as e:
         if e.status_code == 422 and e.message.startswith("No commit found for SHA"):
             return []
