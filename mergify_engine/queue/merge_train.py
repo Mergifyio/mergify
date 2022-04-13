@@ -1348,6 +1348,9 @@ class Train(queue.QueueBase):
         )
 
     async def get_queue_rules(self) -> typing.Optional["rules.QueueRules"]:
+        # circular import
+        from mergify_engine import rules
+
         try:
             mergify_config = await self.repository.get_mergify_config()
         except rules.InvalidRules as e:  # pragma: no cover
