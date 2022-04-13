@@ -242,7 +242,11 @@ class CopyAction(actions.Action):
                     branch["name"]
                     async for branch in typing.cast(
                         typing.AsyncGenerator[github_types.GitHubBranch, None],
-                        ctxt.client.items(f"{ctxt.base_url}/branches"),
+                        ctxt.client.items(
+                            f"{ctxt.base_url}/branches",
+                            resource_name="branches",
+                            page_limit=10,
+                        ),
                     )
                     if any(
                         map(
@@ -307,6 +311,8 @@ class CopyAction(actions.Action):
                 typing.AsyncGenerator[github_types.GitHubPullRequest, None],
                 ctxt.client.items(
                     f"{ctxt.base_url}/pulls",
+                    resource_name="pulls",
+                    page_limit=10,
                     params={
                         "base": branch_name,
                         "sort": "created",

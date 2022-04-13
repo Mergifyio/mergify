@@ -17,7 +17,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestCommandCopy(base.FunctionalTestBase):
-    async def test_command_copy(self):
+    async def test_command_copy(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
 
@@ -48,6 +48,8 @@ class TestCommandCopy(base.FunctionalTestBase):
             async for r in self.client_admin.items(
                 f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
+                resource_name="reactions",
+                page_limit=5,
             )
         ]
         assert len(reactions) == 1

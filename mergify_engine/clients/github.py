@@ -39,11 +39,11 @@ LOG = daiquiri.getLogger(__name__)
 
 
 @dataclasses.dataclass
-class TooManyPages(Exception):
+class TooManyPages(exceptions.UnprocessablePullRequest):
+    reason: str
     per_page: int
     page_limit: int
     last_page: int
-    response: httpx.Response
 
 
 @dataclasses.dataclass
@@ -429,11 +429,13 @@ class AsyncGithubClient(http.AsyncClient):
     async def items(
         self,
         url: str,
+        *,
+        resource_name: str,
+        page_limit: int,
         api_version: typing.Optional[github_types.GitHubApiVersion] = None,
         oauth_token: typing.Optional[github_types.GitHubOAuthToken] = None,
         list_items: typing.Optional[str] = None,
         params: typing.Optional[typing.Dict[str, str]] = None,
-        page_limit: int = 100,
     ) -> typing.Any:
 
         # NOTE(sileht): can't be on the same line...
@@ -459,7 +461,13 @@ class AsyncGithubClient(http.AsyncClient):
                     parse.parse_qs(parse.urlparse(last_url).query)["page"][0]
                 )
                 if last_page > page_limit:
-                    raise TooManyPages(per_page, page_limit, last_page, response)
+                    raise TooManyPages(
+                        f"The pull request reports more than {(last_page - 1) * per_page} {resource_name}, "
+                        f"reaching the limit of {page_limit * per_page} {resource_name}.",
+                        per_page,
+                        page_limit,
+                        last_page,
+                    )
 
             items = response.json()
             if list_items:

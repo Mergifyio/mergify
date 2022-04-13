@@ -2409,6 +2409,8 @@ DO NOT EDIT
             github_types.GitHubCheckRun,
             await self.client_admin.items(
                 f"{self.url_origin}/commits/{p2['head']['sha']}/check-runs",
+                resource_name="check runs",
+                page_limit=5,
                 api_version="antiope",
                 list_items="check_runs",
                 params={"name": constants.MERGE_QUEUE_SUMMARY_NAME},

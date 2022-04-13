@@ -338,16 +338,6 @@ class StreamProcessor:
                 await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 raise OrgBucketUnused(bucket_org_key)
 
-            if isinstance(e, github.TooManyPages):
-                # TODO(sileht): Ideally this should be catcher earlier to post an
-                # appropriate check-runs to inform user the PR is too big to be handled
-                # by Mergify, but this need a bit of refactory to do it, so in the
-                # meantimes...
-                if bucket_sources_key:
-                    await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
-                await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_org_key)
-                raise IgnoredException()
-
             if exceptions.should_be_ignored(e):
                 if bucket_sources_key:
                     await self.redis_stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
@@ -636,7 +626,9 @@ class StreamProcessor:
                             opened_pulls_by_repo[repo_id] = [
                                 p
                                 async for p in installation.client.items(
-                                    f"/repositories/{repo_id}/pulls"
+                                    f"/repositories/{repo_id}/pulls",
+                                    resource_name="pull requests",
+                                    page_limit=100,
                                 )
                             ]
                         except Exception as e:

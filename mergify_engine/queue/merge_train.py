@@ -554,6 +554,8 @@ class TrainCar:
                     self.train.repository.installation.client.items(
                         f"/repos/{self.train.repository.installation.owner_login}/{self.train.repository.repo['name']}/pulls",
                         params={"head": head},
+                        resource_name="pulls",
+                        page_limit=20,
                     ),
                 ):
                     await self.train._close_pull_request(pull["number"])
@@ -1396,6 +1398,8 @@ class Train(queue.QueueBase):
             typing.AsyncGenerator[github_types.GitHubGitRef, None],
             self.repository.installation.client.items(
                 f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/matching-refs/heads/{match}",
+                resource_name="branches",
+                page_limit=100,
             ),
         ):
             branch_ref = branch["ref"].split("heads/")[-1]
@@ -1408,6 +1412,8 @@ class Train(queue.QueueBase):
         async for pull in self.repository.installation.client.items(
             f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/pulls",
             params={"base": self.ref},
+            resource_name="pulls",
+            page_limit=100,
         ):
             if (
                 pull["base"]["ref"] == self.ref
