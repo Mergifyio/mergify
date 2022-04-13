@@ -24,6 +24,11 @@ if typing.TYPE_CHECKING:
     from mergify_engine import context
 
 
+@dataclasses.dataclass
+class UnprocessablePullRequest(Exception):
+    reason: str
+
+
 class MergifyNotInstalled(Exception):
     pass
 
