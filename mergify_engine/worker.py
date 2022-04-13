@@ -63,6 +63,7 @@ import sentry_sdk
 import tenacity
 import yaaredis
 
+from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import date
@@ -251,17 +252,15 @@ async def run_engine(
 
         try:
             result = await engine.run(ctxt, sources)
-        except exceptions.UnprocessablePullRequest:
+        except exceptions.UnprocessablePullRequest as e:
             logger.warning(
                 "This pull request cannot be evaluated by Mergify", exc_info=True
             )
-            # FIXME(sileht): We should first resolve MRGFY-1078 to be able to report that to the user.
-            # result = check_api.Result(
-            #    check_api.Conclusion.FAILURE,
-            #     title="This pull request cannot be evaluated by Mergify",
-            #    summary=e.reason,
-            # )
-            return
+            result = check_api.Result(
+                check_api.Conclusion.FAILURE,
+                title="This pull request cannot be evaluated by Mergify",
+                summary=e.reason,
+            )
 
         if result is not None:
             result.started_at = started_at

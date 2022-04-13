@@ -978,7 +978,8 @@ class Context(object):
         return self
 
     async def set_summary_check(
-        self, result: check_api.Result
+        self,
+        result: check_api.Result,
     ) -> github_types.CachedGitHubCheckRun:
         """Set the Mergify Summary check result."""
 
@@ -995,6 +996,7 @@ class Context(object):
                 constants.SUMMARY_NAME,
                 result,
                 external_id=str(self.pull["number"]),
+                skip_cache=self._caches.pull_check_runs.get() is cache.Unset,
             )
         except Exception:
             if previous_sha:
@@ -1443,9 +1445,12 @@ class Context(object):
             }
         )
 
-    async def update_pull_check_runs(
+    async def update_cached_check_runs(
         self, check: github_types.CachedGitHubCheckRun
     ) -> None:
+        if self._caches.pull_check_runs.get() is cache.Unset:
+            return
+
         pull_check_runs = [
             c for c in await self.pull_check_runs if c["name"] != check["name"]
         ]
