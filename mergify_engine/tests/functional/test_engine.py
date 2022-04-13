@@ -18,13 +18,16 @@ import time
 import typing
 from unittest import mock
 
+import pytest
 import yaml
 
+from mergify_engine import cache
 from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine.clients import github
 from mergify_engine.engine import actions_runner
 from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
@@ -744,6 +747,34 @@ DO NOT EDIT
             "issue_comment",
             {"action": "created", "comment": {"body": "It conflict!"}},
         )
+
+    async def test_set_summary_with_broken_checks(self):
+        await self.setup_repo()
+        p = await self.create_pr()
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+
+        with mock.patch(
+            "mergify_engine.context.Context.pull_check_runs",
+            new_callable=mock.PropertyMock,
+            side_effect=github.TooManyPages("foobar", 1, 1, 1),
+        ):
+            with pytest.raises(github.TooManyPages):
+                await ctxt.pull_check_runs
+
+            await ctxt.set_summary_check(
+                check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "damn",
+                    "but we was able to set the summary ;)",
+                )
+            )
+
+        assert ctxt._caches.pull_check_runs.get() is cache.Unset
+
+        check = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert check is not None
+        assert check["output"]["title"] == "damn"
+        assert check["output"]["summary"] == "but we was able to set the summary ;)"
 
     async def test_requested_reviews(self):
         rules = {

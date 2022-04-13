@@ -149,11 +149,16 @@ async def get_checks_for_ref(
     ctxt: "context.Context",
     sha: github_types.SHAType,
     check_name: typing.Optional[str] = None,
+    app_id: typing.Optional[int] = None,
 ) -> typing.List[github_types.CachedGitHubCheckRun]:
     if check_name is None:
         params = {}
     else:
         params = {"check_name": check_name}
+
+    if app_id is not None:
+        params["app_id"] = str(app_id)
+
     try:
         checks = [
             to_check_run_light(check)
@@ -220,6 +225,7 @@ async def set_check_run(
     name: str,
     result: Result,
     external_id: typing.Optional[str] = None,
+    skip_cache: bool = False,
 ) -> github_types.CachedGitHubCheckRun:
     if result.conclusion is Conclusion.PENDING:
         status = Status.IN_PROGRESS
@@ -261,11 +267,23 @@ async def set_check_run(
             github_types.ISODateTimeType, ended_at
         )
 
-    checks = sorted(
-        (c for c in await ctxt.pull_engine_check_runs if c["name"] == name),
-        key=lambda c: c["id"],
-        reverse=True,
-    )
+    if skip_cache:
+        checks = sorted(
+            await get_checks_for_ref(
+                ctxt,
+                ctxt.pull["head"]["sha"],
+                check_name=name,
+                app_id=config.INTEGRATION_ID,
+            ),
+            key=lambda c: c["id"],
+            reverse=True,
+        )
+    else:
+        checks = sorted(
+            (c for c in await ctxt.pull_engine_check_runs if c["name"] == name),
+            key=lambda c: c["id"],
+            reverse=True,
+        )
 
     # Only keep the newer checks, cancelled others
     for check_to_cancelled in checks[1:]:
@@ -317,5 +335,6 @@ async def set_check_run(
         else:
             new_check = checks[0]
 
-    await ctxt.update_pull_check_runs(new_check)
+    if not skip_cache:
+        await ctxt.update_cached_check_runs(new_check)
     return new_check
