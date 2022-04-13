@@ -379,12 +379,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         mock.patch.object(branch_updater.gitter, "Gitter", self.get_gitter).start()
         mock.patch.object(duplicate_pull.gitter, "Gitter", self.get_gitter).start()
 
-        if not RECORD:
-            # NOTE(sileht): Don't wait exponentialy during replay
-            mock.patch.object(
-                context.Context.ensure_complete.retry, "wait", None  # type: ignore[attr-defined]
-            ).start()
-
         # Web authentification always pass
         mock.patch("hmac.compare_digest", return_value=True).start()
 

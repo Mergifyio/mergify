@@ -37,7 +37,6 @@ import jinja2.runtime
 import jinja2.sandbox
 import jinja2.utils
 import markdownify
-import tenacity
 
 from mergify_engine import cache
 from mergify_engine import check_api
@@ -1544,15 +1543,7 @@ class Context(object):
 
     UNUSABLE_STATES = ["unknown", None]
 
-    # NOTE(sileht): quickly retry, if we don't get the status on time
-    # the exception is recatch in worker.py, so worker will retry it later
     @tracer.wrap("ensure_complete", span_type="worker")
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=0.2),
-        stop=tenacity.stop_after_attempt(5),
-        retry=tenacity.retry_if_exception_type(exceptions.MergeableStateUnknown),
-        reraise=True,
-    )
     async def ensure_complete(self, wait_background_github_processing: bool) -> None:
         if not (
             self._is_data_complete()
