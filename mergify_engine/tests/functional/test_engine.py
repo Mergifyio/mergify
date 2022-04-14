@@ -43,7 +43,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
     of scenario as much as possible for now.
     """
 
-    async def test_merge_squash(self):
+    async def test_merge_squash(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -71,7 +71,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         p2 = await self.get_pull(p2["number"])
         assert 2 == p2["commits"]
 
-    async def test_teams(self):
+    async def test_teams(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -175,8 +175,12 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             assert message in summary["output"]["summary"]
 
     async def _test_merge_custom_msg(
-        self, header, method="squash", msg=None, commit_msg=None
-    ):
+        self,
+        header: str,
+        method: str = "squash",
+        msg: typing.Optional[str] = None,
+        commit_msg: typing.Optional[str] = None,
+    ) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -208,27 +212,27 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             commit_msg = msg
         assert commit_msg == commit["message"]
 
-    async def test_merge_custom_msg(self):
-        return await self._test_merge_custom_msg("Commit Message:\n")
+    async def test_merge_custom_msg(self) -> None:
+        await self._test_merge_custom_msg("Commit Message:\n")
 
-    async def test_merge_custom_msg_case(self):
-        return await self._test_merge_custom_msg("Commit message\n")
+    async def test_merge_custom_msg_case(self) -> None:
+        await self._test_merge_custom_msg("Commit message\n")
 
-    async def test_merge_custom_msg_rn(self):
-        return await self._test_merge_custom_msg("Commit Message\r\n")
+    async def test_merge_custom_msg_rn(self) -> None:
+        await self._test_merge_custom_msg("Commit Message\r\n")
 
-    async def test_merge_custom_msg_merge(self):
-        return await self._test_merge_custom_msg("Commit Message:\n", "merge")
+    async def test_merge_custom_msg_merge(self) -> None:
+        await self._test_merge_custom_msg("Commit Message:\n", "merge")
 
-    async def test_merge_custom_msg_template(self):
-        return await self._test_merge_custom_msg(
+    async def test_merge_custom_msg_template(self) -> None:
+        await self._test_merge_custom_msg(
             "Commit Message:\n",
             "merge",
             msg="{{title}}\n\nThanks to {{author}}",
             commit_msg="test_merge_custom_msg_template: pull request n1 from fork\n\nThanks to mergify-test2",
         )
 
-    async def test_merge_invalid_custom_msg(self):
+    async def test_merge_invalid_custom_msg(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -267,7 +271,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         # Edit and fixes the typo
         await self.edit_pull(
-            p["number"], body="It fixes it\n\n## Commit Message\n\nHere it is valid now"
+            p["number"], body="It fixes it\n\n## Commit Message\n\nHere it is valid now"  # type: ignore[arg-type]
         )
         await self.wait_for("pull_request", {"action": "edited"})
 
@@ -291,7 +295,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert await self.is_pull_merged(p["number"])
 
-    async def test_merge_custom_msg_title_body(self):
+    async def test_merge_custom_msg_title_body(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -326,6 +330,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         )
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
+        assert summary is not None
         if config.SAAS_MODE:
             assert (
                 actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(
@@ -341,7 +346,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 in summary["output"]["summary"]
             )
 
-    async def test_merge_and_closes_issues(self):
+    async def test_merge_and_closes_issues(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -379,7 +384,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         issue = await self.client_admin.item(f"{self.url_origin}/issues/{i['number']}")
         assert "closed" == issue["state"]
 
-    async def test_rebase(self):
+    async def test_rebase(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -406,7 +411,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert await self.is_pull_merged(p2["number"])
 
-    async def test_merge_branch_protection_ci(self):
+    async def test_merge_branch_protection_ci(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -512,7 +517,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         assert await self.is_pull_merged(p["number"])
 
-    async def test_refresh_via_check_suite_rerequest(self):
+    async def test_refresh_via_check_suite_rerequest(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -533,6 +538,8 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
                 f"{self.url_origin}/commits/{p['head']['sha']}/check-runs",
                 api_version="antiope",
                 list_items="check_runs",
+                resource_name="check runs",
+                page_limit=5,
                 params={"name": "Summary"},
             ).__anext__(),
         )
@@ -571,7 +578,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         ).json()
         assert check_suite["status"] == "completed"
 
-    async def test_refresh_api(self):
+    async def test_refresh_api(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -669,7 +676,7 @@ DO NOT EDIT
             == comments[-1]["body"]
         )
 
-    async def test_marketplace_event(self):
+    async def test_marketplace_event(self) -> None:
         with mock.patch(
             "mergify_engine.dashboard.subscription.Subscription.get_subscription"
         ) as get_sub:
@@ -694,7 +701,7 @@ DO NOT EDIT
         assert r.content == b"Event queued"
         assert r.status_code == 202
 
-    async def test_refresh_on_conflict(self):
+    async def test_refresh_on_conflict(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -721,7 +728,7 @@ DO NOT EDIT
             {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
-    async def test_refresh_on_draft_conflict(self):
+    async def test_refresh_on_draft_conflict(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -748,7 +755,7 @@ DO NOT EDIT
             {"action": "created", "comment": {"body": "It conflict!"}},
         )
 
-    async def test_set_summary_with_broken_checks(self):
+    async def test_set_summary_with_broken_checks(self) -> None:
         await self.setup_repo()
         p = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -776,7 +783,7 @@ DO NOT EDIT
         assert check["output"]["title"] == "damn"
         assert check["output"]["summary"] == "but we was able to set the summary ;)"
 
-    async def test_requested_reviews(self):
+    async def test_requested_reviews(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -816,7 +823,7 @@ DO NOT EDIT
 
         # assert "review-requested team" == list(p2.get_issue_comments())[0].body
 
-    async def test_truncated_check_output(self):
+    async def test_truncated_check_output(self) -> None:
         # not used anyhow
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
@@ -834,7 +841,7 @@ DO NOT EDIT
         )
         assert check["output"]["summary"] == ("a" * 65532 + "…")
 
-    async def test_pull_request_init_summary(self):
+    async def test_pull_request_init_summary(self) -> None:
         rules = {
             "pull_request_rules": [{"name": "noop", "conditions": [], "actions": {}}]
         }
@@ -855,7 +862,7 @@ DO NOT EDIT
             == "Be patient, the page will be updated soon."
         )
 
-    async def test_pull_refreshed_after_config_change(self):
+    async def test_pull_refreshed_after_config_change(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -870,7 +877,7 @@ DO NOT EDIT
         p = await self.create_pr(files={"foo": "bar"})
         await self.run_engine()
 
-        rules["pull_request_rules"][0]["conditions"][
+        rules["pull_request_rules"][0]["conditions"][  # type: ignore[index]
             0
         ] = f"base={self.main_branch_name}"
         p_config = await self.create_pr(files={".mergify.yml": yaml.dump(rules)})
@@ -883,7 +890,7 @@ DO NOT EDIT
         comments = await self.get_issue_comments(p["number"])
         assert "it works" == comments[-1]["body"]
 
-    async def test_check_run_api(self):
+    async def test_check_run_api(self) -> None:
         await self.setup_repo()
         p = await self.create_pr()
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -935,7 +942,7 @@ DO NOT EDIT
         assert checks[0]["output"]["title"] == "PENDING"
         assert checks[0]["output"]["summary"] == "PENDING"
 
-    async def test_get_repository_by_id(self):
+    async def test_get_repository_by_id(self) -> None:
         repo = await self.installation_ctxt.get_repository_by_id(
             self.RECORD_CONFIG["repository_id"]
         )

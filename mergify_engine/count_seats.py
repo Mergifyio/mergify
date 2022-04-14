@@ -324,7 +324,11 @@ class Seats:
         async with github.AsyncGithubClient(
             auth=github_app.GithubBearerAuth(),
         ) as app_client:
-            async for installation in app_client.items("/app/installations"):
+            async for installation in app_client.items(
+                "/app/installations",
+                resource_name="installations",
+                page_limit=100,
+            ):
                 installation = typing.cast(
                     github_types.GitHubInstallation, installation
                 )
@@ -334,14 +338,19 @@ class Seats:
                 async with github.aget_client(installation) as client:
                     try:
                         async for repository in client.items(
-                            "/installation/repositories", list_items="repositories"
+                            "/installation/repositories",
+                            list_items="repositories",
+                            resource_name="repositories",
+                            page_limit=100,
                         ):
                             repository = typing.cast(
                                 github_types.GitHubRepository, repository
                             )
                             repo = SeatRepository(repository["id"], repository["name"])
                             async for collaborator in client.items(
-                                f"{repository['url']}/collaborators"
+                                f"{repository['url']}/collaborators",
+                                resource_name="collaborators",
+                                page_limit=100,
                             ):
                                 if collaborator["permissions"]["push"]:
                                     seat = SeatAccount(

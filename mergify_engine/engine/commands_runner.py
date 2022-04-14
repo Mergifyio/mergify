@@ -150,7 +150,9 @@ async def run_pending_commands_tasks(
 
     pendings = set()
     async for comment in ctxt.client.items(
-        f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments"
+        f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
+        resource_name="comments",
+        page_limit=20,
     ):
         if comment["user"]["id"] != config.BOT_USER_ID:
             continue

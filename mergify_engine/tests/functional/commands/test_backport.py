@@ -19,7 +19,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestCommandBackport(base.FunctionalTestBase):
-    async def test_command_backport(self):
+    async def test_command_backport(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         await self.setup_repo(test_branches=[stable_branch, feature_branch])
@@ -55,6 +55,8 @@ class TestCommandBackport(base.FunctionalTestBase):
             async for r in self.client_admin.items(
                 f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
+                resource_name="reactions",
+                page_limit=5,
             )
         ]
         assert len(reactions) == 1
@@ -81,7 +83,7 @@ class TestCommandBackport(base.FunctionalTestBase):
         ]
         assert refs == []
 
-    async def test_command_backport_with_defaults(self):
+    async def test_command_backport_with_defaults(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         rules = {
@@ -114,12 +116,14 @@ class TestCommandBackport(base.FunctionalTestBase):
             async for r in self.client_admin.items(
                 f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
+                resource_name="reactions",
+                page_limit=5,
             )
         ]
         assert len(reactions) == 1
         assert "+1" == reactions[0]["content"]
 
-    async def test_command_backport_without_config(self):
+    async def test_command_backport_without_config(self) -> None:
         stable_branch = self.get_full_branch_name("stable/#3.1")
         feature_branch = self.get_full_branch_name("feature/one")
         await self.setup_repo(test_branches=[stable_branch, feature_branch])
@@ -150,6 +154,8 @@ class TestCommandBackport(base.FunctionalTestBase):
             async for r in self.client_admin.items(
                 f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
+                resource_name="reactions",
+                page_limit=5,
             )
         ]
         assert len(reactions) == 1

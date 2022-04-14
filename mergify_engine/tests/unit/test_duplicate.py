@@ -21,7 +21,9 @@ from mergify_engine import github_types
 from mergify_engine.tests.unit import conftest
 
 
-async def fake_get_github_pulls_from_sha(url, api_version=None):
+async def fake_get_github_pulls_from_sha(
+    url, resource_name, page_limit, api_version=None
+):
     pr = {
         "number": 6,
         "base": {

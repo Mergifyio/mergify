@@ -146,7 +146,8 @@ async def _get_commits_to_cherrypick(
                 p["number"]
                 async for p in ctxt.client.items(
                     f"{ctxt.base_url}/commits/{parent_commit_sha}/pulls",
-                    api_version="groot",
+                    resource_name="pulls associated to a commit",
+                    page_limit=5,
                 )
                 if (
                     p["base"]["repo"]["full_name"]
@@ -161,6 +162,8 @@ async def _get_commits_to_cherrypick(
                     async for p in ctxt.client.items(
                         f"/repos/{ctxt.pull['head']['repo']['full_name']}/commits/{parent_commit_sha}/pulls",
                         api_version="groot",
+                        resource_name="pulls associated to a commit",
+                        page_limit=5,
                     )
                     if (
                         p["base"]["repo"]["full_name"]

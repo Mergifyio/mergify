@@ -25,7 +25,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestConfiguration(base.FunctionalTestBase):
-    async def test_invalid_configuration_fixed_by_pull_request(self):
+    async def test_invalid_configuration_fixed_by_pull_request(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -67,7 +67,7 @@ class TestConfiguration(base.FunctionalTestBase):
             == "The new Mergify configuration is valid"
         )
 
-    async def test_invalid_configuration_in_repository(self):
+    async def test_invalid_configuration_in_repository(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -94,7 +94,7 @@ class TestConfiguration(base.FunctionalTestBase):
             "* required key not provided @ pull_request_rules → item 0 → conditions"
         )
 
-    async def test_invalid_yaml_configuration_in_repository(self):
+    async def test_invalid_yaml_configuration_in_repository(self) -> None:
         await self.setup_repo("- this is totally invalid yaml\\n\n  - *\n*")
         p = await self.create_pr()
 
@@ -123,6 +123,8 @@ expected alphabetic or numeric character, but found"""
             async for annotation in ctxt.client.items(
                 f"{ctxt.base_url}/check-runs/{check_id}/annotations",
                 api_version="antiope",
+                resource_name="annotations",
+                page_limit=10,
             )
         ]
         assert annotations == [
@@ -140,7 +142,7 @@ expected alphabetic or numeric character, but found"""
             }
         ]
 
-    async def test_no_configuration_changed_with_weird_base_sha(self):
+    async def test_no_configuration_changed_with_weird_base_sha(self) -> None:
         # Test special case where the configuration is changed around the a
         # pull request creation.
         rules = {
@@ -156,6 +158,7 @@ expected alphabetic or numeric character, but found"""
         }
         # config has been update in the meantime
         await self.setup_repo(yaml.dump({"pull_request_rules": []}))
+        assert self.git.tmp is not None
         with open(self.git.tmp + "/.mergify.yml", "wb") as f:
             f.write(yaml.dump(rules).encode())
         await self.git("add", ".mergify.yml")
@@ -188,7 +191,7 @@ expected alphabetic or numeric character, but found"""
         assert len(checks) == 1
         assert checks[0]["output"]["title"] == "no rules match, no planned actions"
 
-    async def test_invalid_configuration_in_pull_request(self):
+    async def test_invalid_configuration_in_pull_request(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -217,7 +220,7 @@ expected alphabetic or numeric character, but found"""
         )
         assert checks[1]["output"]["summary"] == "expected a dictionary"
 
-    async def test_change_mergify_yml(self):
+    async def test_change_mergify_yml(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -241,7 +244,7 @@ expected alphabetic or numeric character, but found"""
             == "Configuration changed. This pull request must be merged manually — no rules match, no planned actions"
         )
 
-    async def test_change_mergify_yml_in_meantime_on_big_pull_request(self):
+    async def test_change_mergify_yml_in_meantime_on_big_pull_request(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -268,7 +271,7 @@ expected alphabetic or numeric character, but found"""
         assert summary is not None
         assert summary["output"]["title"] == "1 rule matches"
 
-    async def test_invalid_action_option(self):
+    async def test_invalid_action_option(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -295,7 +298,7 @@ expected alphabetic or numeric character, but found"""
             == "extra keys not allowed @ pull_request_rules → item 0 → actions → comment → unknown"
         )
 
-    async def test_no_configuration(self):
+    async def test_no_configuration(self) -> None:
         await self.setup_repo()
         p = await self.create_pr()
         await self.run_engine()
@@ -309,7 +312,7 @@ expected alphabetic or numeric character, but found"""
             == summary["output"]["title"]
         )
 
-    async def test_configuration_deleted(self):
+    async def test_configuration_deleted(self) -> None:
         await self.setup_repo("")
         await self.git("rm", "-rf", ".mergify.yml")
         p = await self.create_pr(git_tree_ready=True)
@@ -328,7 +331,7 @@ expected alphabetic or numeric character, but found"""
         )
         assert additionnal_check is not None
 
-    async def test_multiple_configurations(self):
+    async def test_multiple_configurations(self) -> None:
         await self.setup_repo(
             files={
                 ".mergify.yml": "",
@@ -349,7 +352,7 @@ expected alphabetic or numeric character, but found"""
         assert ".mergify.yml" in summary["output"]["summary"]
         assert ".github/mergify.yml" in summary["output"]["summary"]
 
-    async def test_empty_configuration(self):
+    async def test_empty_configuration(self) -> None:
         await self.setup_repo("")
         p = await self.create_pr()
         await self.run_engine()
@@ -363,7 +366,7 @@ expected alphabetic or numeric character, but found"""
             == summary["output"]["title"]
         )
 
-    async def test_merge_with_not_merged_attribute(self):
+    async def test_merge_with_not_merged_attribute(self) -> None:
         rules = {
             "pull_request_rules": [
                 {

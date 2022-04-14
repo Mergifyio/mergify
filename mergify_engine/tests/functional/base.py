@@ -931,7 +931,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
 
     async def get_branches(self) -> typing.List[github_types.GitHubBranch]:
-        return [c async for c in self.client_admin.items(f"{self.url_origin}/branches")]
+        return [
+            c
+            async for c in self.client_admin.items(
+                f"{self.url_origin}/branches", resource_name="branches", page_limit=10
+            )
+        ]
 
     async def get_commits(
         self, pull_number: github_types.GitHubPullRequestNumber
@@ -941,7 +946,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             async for c in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubBranchCommit, None],
                 self.client_admin.items(
-                    f"{self.url_origin}/pulls/{pull_number}/commits"
+                    f"{self.url_origin}/pulls/{pull_number}/commits",
+                    resource_name="commits",
+                    page_limit=10,
                 ),
             )
         ]
@@ -970,7 +977,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             async for comment in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubComment, None],
                 self.client_admin.items(
-                    f"{self.url_origin}/issues/{pull_number}/comments"
+                    f"{self.url_origin}/issues/{pull_number}/comments",
+                    resource_name="issue comments",
+                    page_limit=10,
                 ),
             )
         ]
@@ -983,7 +992,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             async for review in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubReview, None],
                 self.client_admin.items(
-                    f"{self.url_origin}/pulls/{pull_number}/reviews"
+                    f"{self.url_origin}/pulls/{pull_number}/reviews",
+                    resource_name="reviews",
+                    page_limit=10,
                 ),
             )
         ]
@@ -996,7 +1007,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             async for review in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubReview, None],
                 self.client_admin.items(
-                    f"{self.url_origin}/pulls/{pull_number}/comments"
+                    f"{self.url_origin}/pulls/{pull_number}/comments",
+                    resource_name="review comments",
+                    page_limit=10,
                 ),
             )
         ]
@@ -1015,7 +1028,12 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     ) -> typing.List[github_types.GitHubPullRequest]:
         return [
             i
-            async for i in self.client_admin.items(f"{self.url_origin}/pulls", **kwargs)
+            async for i in self.client_admin.items(
+                f"{self.url_origin}/pulls",
+                resource_name="pulls",
+                page_limit=5,
+                **kwargs,
+            )
         ]
 
     async def edit_pull(
@@ -1054,7 +1072,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             label
             async for label in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubLabel, None],
-                self.client_admin.items(f"{self.url_origin}/labels"),
+                self.client_admin.items(
+                    f"{self.url_origin}/labels", resource_name="labels", page_limit=3
+                ),
             )
         ]
 
@@ -1064,7 +1084,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         for match in matches:
             async for matchedBranch in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubGitRef, None],
-                self.client_admin.items(f"{url}/git/matching-refs/heads/{match}"),
+                self.client_admin.items(
+                    f"{url}/git/matching-refs/heads/{match}",
+                    resource_name="branches",
+                    page_limit=5,
+                ),
             ):
                 yield matchedBranch
 
@@ -1073,6 +1097,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             t
             async for t in typing.cast(
                 typing.AsyncGenerator[github_types.GitHubTeam, None],
-                self.client_admin.items("/orgs/mergifyio-testing/teams"),
+                self.client_admin.items(
+                    "/orgs/mergifyio-testing/teams", resource_name="teams", page_limit=5
+                ),
             )
         ]

@@ -50,12 +50,16 @@ class DeleteHeadBranchAction(actions.Action):
                 pull
                 async for pull in ctxt.client.items(
                     f"{ctxt.base_url}/pulls",
+                    resource_name="pulls",
+                    page_limit=20,
                     params={"base": ctxt.pull["head"]["ref"]},
                 )
             ] + [
                 pull
                 async for pull in ctxt.client.items(
                     f"{ctxt.base_url}/pulls",
+                    resource_name="pulls",
+                    page_limit=5,
                     params={"head": ctxt.pull["head"]["label"]},
                 )
                 if pull["number"] is not ctxt.pull["number"]

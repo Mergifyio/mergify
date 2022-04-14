@@ -250,7 +250,9 @@ class Installation:
                 members = [
                     github_types.GitHubLogin(member["login"])
                     async for member in self.client.items(
-                        f"/orgs/{self.owner_login}/teams/{team_slug}/members"
+                        f"/orgs/{self.owner_login}/teams/{team_slug}/members",
+                        resource_name="team members",
+                        page_limit=20,
                     )
                 ]
                 # TODO(sileht): move to msgpack when we remove redis-cache connection
@@ -744,7 +746,11 @@ class Repository(object):
                 label
                 async for label in typing.cast(
                     typing.AsyncIterator[github_types.GitHubLabel],
-                    self.installation.client.items(f"{self.base_url}/labels"),
+                    self.installation.client.items(
+                        f"{self.base_url}/labels",
+                        resource_name="labels",
+                        page_limit=5,
+                    ),
                 )
             ]
             self._caches.labels.set(labels)
@@ -1493,6 +1499,8 @@ class Context(object):
                     self.client.items(
                         f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
                         list_items="statuses",
+                        resource_name="statuses",
+                        page_limit=5,
                     ),
                 )
             ]
@@ -1720,7 +1728,9 @@ class Context(object):
                 async for review in typing.cast(
                     typing.AsyncIterable[github_types.GitHubReview],
                     self.client.items(
-                        f"{self.base_url}/pulls/{self.pull['number']}/reviews"
+                        f"{self.base_url}/pulls/{self.pull['number']}/reviews",
+                        resource_name="reviews",
+                        page_limit=5,
                     ),
                 )
             ]
@@ -1736,7 +1746,9 @@ class Context(object):
                 async for commit in typing.cast(
                     typing.AsyncIterable[github_types.GitHubBranchCommit],
                     self.client.items(
-                        f"{self.base_url}/pulls/{self.pull['number']}/commits"
+                        f"{self.base_url}/pulls/{self.pull['number']}/commits",
+                        resource_name="commits",
+                        page_limit=5,
                     ),
                 )
             ]
@@ -1753,7 +1765,9 @@ class Context(object):
                     async for file in typing.cast(
                         typing.AsyncIterable[github_types.GitHubFile],
                         self.client.items(
-                            f"{self.base_url}/pulls/{self.pull['number']}/files"
+                            f"{self.base_url}/pulls/{self.pull['number']}/files",
+                            resource_name="files",
+                            page_limit=5,
                         ),
                     )
                 ]
