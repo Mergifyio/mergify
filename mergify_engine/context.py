@@ -1747,15 +1747,25 @@ class Context(object):
     async def files(self) -> typing.List[github_types.CachedGitHubFile]:
         files = self._caches.files.get()
         if files is cache.Unset:
-            files = [
-                github_types.CachedGitHubFile({"filename": file["filename"]})
-                async for file in typing.cast(
-                    typing.AsyncIterable[github_types.GitHubFile],
-                    self.client.items(
-                        f"{self.base_url}/pulls/{self.pull['number']}/files"
-                    ),
-                )
-            ]
+            try:
+                files = [
+                    github_types.CachedGitHubFile({"filename": file["filename"]})
+                    async for file in typing.cast(
+                        typing.AsyncIterable[github_types.GitHubFile],
+                        self.client.items(
+                            f"{self.base_url}/pulls/{self.pull['number']}/files"
+                        ),
+                    )
+                ]
+            except http.HTTPClientSideError as e:
+                if (
+                    e.status_code == 422
+                    and "Sorry, this diff is taking too long to generate" in e.message
+                ):
+                    raise exceptions.UnprocessablePullRequest(
+                        "GitHub cannot generate the file list because the diff is taking too long"
+                    )
+                raise
             self._caches.files.set(files)
         return files
 
