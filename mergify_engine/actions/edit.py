@@ -86,12 +86,11 @@ class EditAction(actions.Action):
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
-        tokens = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
-        if not tokens or tokens[0]["oauth_access_token"] is None:
+        try:
+            tokens = await user_tokens.UserTokens.select_users_for(ctxt, bot_account)
+        except user_tokens.UserTokensUserNotFound as e:
             return check_api.Result(
-                check_api.Conclusion.FAILURE,
-                f"Unable to set {current_state} with user `{tokens[0]['login']}`",
-                f"Please make sure `{tokens[0]['login']}` has logged in Mergify dashboard.",
+                check_api.Conclusion.FAILURE, "Fail to convert pull request", e.reason
             )
 
         mutation = f"""
