@@ -1857,6 +1857,31 @@ queue_rules:
         in str(i.value)
     )
 
+    file = context.MergifyConfigFile(
+        type="file",
+        content="whatever",
+        sha="azertyuiop",
+        path="whatever",
+        decoded_content="""
+queue_rules:
+- name: default
+  conditions: []
+  checks_timeout: 2
+  batch_max_wait_time: 2
+""",
+    )
+
+    with pytest.raises(rules.InvalidRules) as i:
+        rules.get_mergify_config(file)
+    assert (
+        "* expected str for dictionary value @ queue_rules → item 0 → batch_max_wait_time"
+        in str(i.value)
+    )
+    assert (
+        "* not a valid value for dictionary value @ queue_rules → item 0 → checks_timeout"
+        in str(i.value)
+    )
+
 
 @pytest.mark.parametrize(
     "setting, logged",
