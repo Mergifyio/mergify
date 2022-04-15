@@ -247,9 +247,10 @@ async def set_check_run(
 
     # Maximum output/summary length for Check API is 65535
     summary = post_parameters["output"]["summary"]
-    if summary and len(summary) > 65535:
-        post_parameters["output"]["summary"] = utils.unicode_truncate(summary, 65532)
-        post_parameters["output"]["summary"] += "…"  # this is 3 bytes long
+    if summary:
+        post_parameters["output"]["summary"] = utils.unicode_truncate(
+            summary, 65535, "…"
+        )
 
     if external_id:
         post_parameters["external_id"] = external_id
