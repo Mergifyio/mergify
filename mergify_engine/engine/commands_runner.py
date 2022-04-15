@@ -310,6 +310,15 @@ async def handle(
             result=result,
         )
 
+    try:
+        command = load_command(mergify_config, comment)
+    except CommandInvalid as e:
+        log(e.message)
+        await post_comment(ctxt, e.message)
+        return
+    except NotACommand:
+        return
+
     if user:
         if (
             user["id"] != ctxt.pull["user"]["id"]
@@ -320,15 +329,6 @@ async def handle(
             log(message)
             await post_comment(ctxt, message)
             return
-
-    try:
-        command = load_command(mergify_config, comment)
-    except CommandInvalid as e:
-        log(e.message)
-        await post_comment(ctxt, e.message)
-        return
-    except NotACommand:
-        return
 
     if (
         ctxt.configuration_changed

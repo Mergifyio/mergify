@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
@@ -159,36 +160,49 @@ async def test_run_command_with_rerun_and_without_user(
 
 
 @pytest.mark.parametrize(
-    "user_id,permission, result",
+    "user_id,permission,comment,result",
     [
         (
             666,
             "nothing",
+            "not a command",
+            None,
+        ),
+        (
+            666,
+            "nothing",
+            "@mergifyio squash",
             "@wall-e is not allowed to run commands",
         ),
         (
             config.BOT_USER_ID,
             "nothing",
+            "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
         (
             123,
             "nothing",
+            "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
+        (666, "admin", "@mergifyio squash", "Pull request is already one-commit long"),
         (
             666,
             "admin",
+            "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
         (
             666,
             "maintain",
+            "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
         (
             666,
             "write",
+            "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
     ],
@@ -196,7 +210,8 @@ async def test_run_command_with_rerun_and_without_user(
 async def test_run_command_with_user(
     user_id: int,
     permission: str,
-    result: str,
+    comment: str,
+    result: typing.Optional[str],
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
 
@@ -232,12 +247,15 @@ async def test_run_command_with_user(
     await commands_runner.handle(
         ctxt=ctxt,
         mergify_config=EMPTY_CONFIG,
-        comment="@mergifyio something",
+        comment=comment,
         user=user,
     )
 
-    assert len(client.post.call_args_list) == 1
-    assert result in client.post.call_args_list[0][1]["json"]["body"]
+    if result is None:
+        assert len(client.post.call_args_list) == 0
+    else:
+        assert len(client.post.call_args_list) == 1
+        assert result in client.post.call_args_list[0][1]["json"]["body"]
 
 
 async def test_run_command_with_wrong_arg(
