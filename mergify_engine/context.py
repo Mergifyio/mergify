@@ -749,7 +749,7 @@ class Repository(object):
                     self.installation.client.items(
                         f"{self.base_url}/labels",
                         resource_name="labels",
-                        page_limit=5,
+                        page_limit=7,
                     ),
                 )
             ]
