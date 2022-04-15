@@ -148,6 +148,7 @@ async def _get_commits_to_cherrypick(
                     f"{ctxt.base_url}/commits/{parent_commit_sha}/pulls",
                     resource_name="pulls associated to a commit",
                     page_limit=5,
+                    api_version="groot",
                 )
                 if (
                     p["base"]["repo"]["full_name"]
