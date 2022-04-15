@@ -49,7 +49,6 @@ COMMAND_RESULT_MATCHER = re.compile(
 MERGE_QUEUE_COMMAND_MESSAGE = "Command not allowed on merge queue pull request."
 UNKNOWN_COMMAND_MESSAGE = "Sorry but I didn't understand the command. Please consult [the commands documentation](https://docs.mergify.com/commands.html) \U0001F4DA."
 INVALID_COMMAND_ARGS_MESSAGE = "Sorry but I didn't understand the arguments of the command `{command}`. Please consult [the commands documentation](https://docs.mergify.com/commands/) \U0001F4DA."  # noqa
-WRONG_ACCOUNT_MESSAGE = "_Hey, I reacted but my real name is @Mergifyio_"
 CONFIGURATION_CHANGE_MESSAGE = (
     "Sorry but this action cannot run when the configuration is updated"
 )
@@ -297,9 +296,6 @@ async def handle(
     user: typing.Optional[github_types.GitHubAccount],
     rerun: bool = False,
 ) -> None:
-    if "@mergify " not in comment.lower() and "@mergifyio " not in comment.lower():
-        return
-
     # Run command only if this is a pending task or if user have permission to do it.
     if not rerun and not user:
         raise RuntimeError("user must be set if rerun is false")
@@ -314,11 +310,6 @@ async def handle(
             result=result,
         )
 
-    if "@mergifyio" in comment.lower():  # @mergify have been used instead
-        footer = ""
-    else:
-        footer = "\n\n" + WRONG_ACCOUNT_MESSAGE
-
     if user:
         if (
             user["id"] != ctxt.pull["user"]["id"]
@@ -327,14 +318,14 @@ async def handle(
         ):
             message = f"@{user['login']} is not allowed to run commands"
             log(message)
-            await post_comment(ctxt, message + footer)
+            await post_comment(ctxt, message)
             return
 
     try:
         command = load_command(mergify_config, comment)
     except CommandInvalid as e:
         log(e.message)
-        await post_comment(ctxt, e.message + footer)
+        await post_comment(ctxt, e.message)
         return
     except NotACommand:
         return
@@ -346,12 +337,12 @@ async def handle(
     ):
         message = CONFIGURATION_CHANGE_MESSAGE
         log(message)
-        await post_comment(ctxt, message + footer)
+        await post_comment(ctxt, message)
         return
 
     if command.name != "refresh" and ctxt.is_merge_queue_pr():
         log(MERGE_QUEUE_COMMAND_MESSAGE)
-        await post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE + footer)
+        await post_comment(ctxt, MERGE_QUEUE_COMMAND_MESSAGE)
         return
 
     result, message = await run_command(ctxt, mergify_config, command, user)
@@ -360,4 +351,4 @@ async def handle(
         return
 
     log(message, result)
-    await post_comment(ctxt, message + footer)
+    await post_comment(ctxt, message)
