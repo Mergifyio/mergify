@@ -131,12 +131,32 @@ async def stop_pending_yaaredis_tasks() -> None:
         await asyncio.wait(tasks)
 
 
-def unicode_truncate(s: str, length: int, encoding: str = "utf-8") -> str:
+def unicode_truncate(
+    s: str,
+    length: int,
+    placeholder: str = "",
+    encoding: str = "utf-8",
+) -> str:
     """Truncate a string to length in bytes.
 
     :param s: The string to truncate.
-    :param length: The length in number of bytes — not characters."""
-    return s.encode(encoding)[:length].decode(encoding, errors="ignore")
+    :param length: The length in number of bytes — not characters (placeholder included).
+    :param placeholder: String that will appear at the end of the output text if it has been truncated.
+    """
+    b = s.encode(encoding)
+    if len(b) > length:
+        placeholder_bytes = placeholder.encode(encoding)
+        placeholder_length = len(placeholder_bytes)
+        if placeholder_length > length:
+            raise ValueError(
+                "`placeholder` length must be greater or equal to `length`"
+            )
+
+        cut_at = length - placeholder_length
+
+        return (b[:cut_at] + placeholder_bytes).decode(encoding, errors="ignore")
+    else:
+        return s
 
 
 def compute_hmac(data: bytes, secret: str) -> str:

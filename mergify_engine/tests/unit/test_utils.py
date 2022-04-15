@@ -12,6 +12,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
+
 import msgpack
 import pytest
 
@@ -19,28 +21,69 @@ from mergify_engine import github_types
 from mergify_engine import utils
 
 
-def test_unicode_truncate():
+@pytest.mark.parametrize(
+    "length,placeholder,expected",
+    (
+        (0, "", ""),
+        (1, "", "h"),
+        (2, "", "h"),
+        (3, "", "hé"),
+        (4, "", "hé "),
+        (10, "", "hé ho! ho"),
+        (18, "", "hé ho! how are yo"),
+        (19, "", "hé ho! how are you"),
+        (20, "", "hé ho! how are you"),
+        (21, "", "hé ho! how are you"),
+        (22, "", "hé ho! how are you√"),
+        (23, "", "hé ho! how are you√2"),
+        (50, "", "hé ho! how are you√2?"),
+        # ellipsis
+        (0, "…", None),
+        (1, "…", None),
+        (2, "…", None),
+        (3, "…", "…"),
+        (4, "…", "h…"),
+        (5, "…", "h…"),
+        (6, "…", "hé…"),
+        (7, "…", "hé …"),
+        (13, "…", "hé ho! ho…"),
+        (21, "…", "hé ho! how are yo…"),
+        (22, "…", "hé ho! how are you…"),
+        (23, "…", "hé ho! how are you…"),
+        (24, "…", "hé ho! how are you√2?"),
+        (50, "…", "hé ho! how are you√2?"),
+        (21, "😎", "hé ho! how are y😎"),
+        (22, "😎", "hé ho! how are yo😎"),
+        (23, "😎", "hé ho! how are you😎"),
+        (24, "😎", "hé ho! how are you√2?"),
+        (50, "😎", "hé ho! how are you√2?"),
+        (3, "😎", None),
+        (4, "😎", "😎"),
+        (5, "😎", "h😎"),
+        (6, "😎", "h😎"),
+        (7, "😎", "hé😎"),
+    ),
+)
+def test_unicode_truncate(
+    length: int,
+    placeholder: str,
+    expected: typing.Optional[str],
+) -> None:
     s = "hé ho! how are you√2?"
-    assert utils.unicode_truncate(s, 0) == ""
-    assert utils.unicode_truncate(s, 1) == "h"
-    assert utils.unicode_truncate(s, 2) == "h"
-    assert utils.unicode_truncate(s, 3) == "hé"
-    assert utils.unicode_truncate(s, 4) == "hé "
-    assert utils.unicode_truncate(s, 10) == "hé ho! ho"
-    assert utils.unicode_truncate(s, 18) == "hé ho! how are yo"
-    assert utils.unicode_truncate(s, 19) == "hé ho! how are you"
-    assert utils.unicode_truncate(s, 20) == "hé ho! how are you"
-    assert utils.unicode_truncate(s, 21) == "hé ho! how are you"
-    assert utils.unicode_truncate(s, 22) == "hé ho! how are you√"
-    assert utils.unicode_truncate(s, 23) == "hé ho! how are you√2"
-    assert utils.unicode_truncate(s, 50) == s
+    if expected is None:
+        with pytest.raises(ValueError):
+            utils.unicode_truncate(s, length, placeholder)
+    else:
+        result = utils.unicode_truncate(s, length, placeholder)
+        assert len(result.encode()) <= length
+        assert result == expected
 
 
-def test_process_identifier():
+def test_process_identifier() -> None:
     assert isinstance(utils._PROCESS_IDENTIFIER, str)
 
 
-def test_get_random_choices():
+def test_get_random_choices() -> None:
     choices = {
         "jd": 10,
         "sileht": 1,
