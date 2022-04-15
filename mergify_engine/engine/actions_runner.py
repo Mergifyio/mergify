@@ -172,11 +172,10 @@ async def get_summary_check_result(
 ) -> typing.Optional[check_api.Result]:
     summary_title, summary = await gen_summary(ctxt, pull_request_rules, match)
 
-    serialized_conclusions = serialize_conclusions(conclusions)
-    summary_for_logging = summary + serialized_conclusions
+    summary = serialize_conclusions(conclusions) + "\n" + summary
+    summary_for_logging = summary
 
     summary += constants.MERGIFY_PULL_REQUEST_DOC
-    summary += serialized_conclusions
 
     summary_changed = (
         not summary_check
@@ -268,6 +267,8 @@ def load_conclusions_line(
             return None
         if lines[-1].startswith("<!-- ") and lines[-1].endswith(" -->"):
             return lines[-1]
+        elif lines[0].startswith("<!-- ") and lines[0].endswith(" -->"):
+            return lines[0]
     return None
 
 
