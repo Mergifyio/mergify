@@ -275,7 +275,11 @@ async def exec_action(
         return await method(ctxt, rule)
     except Exception as e:  # pragma: no cover
         # Forward those to worker
-        if exceptions.should_be_ignored(e) or exceptions.need_retry(e):
+        if (
+            exceptions.should_be_ignored(e)
+            or exceptions.need_retry(e)
+            or isinstance(e, exceptions.UnprocessablePullRequest)
+        ):
             raise
         # NOTE(sileht): the action fails, this is a bug!!!, so just set the
         # result as pending and retry in 5 minutes...
