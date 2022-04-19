@@ -17,6 +17,7 @@
 import datetime
 import typing
 from unittest import mock
+from urllib import parse
 
 import httpx
 import pytest
@@ -337,15 +338,15 @@ async def test_client_installation_HTTP_404(respx_mock: respx.MockRouter) -> Non
 @mock.patch.object(github.CachedToken, "STORAGE", {})
 @pytest.mark.respx(base_url=config.GITHUB_REST_API_URL)
 async def test_client_installation_HTTP_301(respx_mock: respx.MockRouter) -> None:
+    url_prefix = parse.urlparse(config.GITHUB_REST_API_URL).path
     respx_mock.get("/user/12345/installation").respond(
         301,
-        headers={"Location": "/repositories/12345/installation"},
+        headers={"Location": f"{url_prefix}/repositories/12345/installation"},
     )
 
     respx_mock.get("/repositories/12345/installation").respond(
         404, json={"message": "Repository not found"}
     )
-
     with pytest.raises(exceptions.MergifyNotInstalled):
         await github.get_installation_from_account_id(
             github_types.GitHubAccountIdType(12345)
