@@ -53,25 +53,25 @@ targets:
     name: "Update CI test GitHub workflow"
     kind: yaml
     spec:
-      file: ".github/workflows/ci-test.yaml"
+      file: ".github/workflows/ci.yaml"
       key: "jobs.test.steps[1].with.python-version"
   ci-docs:
     name: "Update CI docs GitHub workflow"
     kind: yaml
     spec:
-      file: ".github/workflows/ci-docs.yaml"
+      file: ".github/workflows/ci.yaml"
       key: "jobs.docs.steps[1].with.python-version"
   ci-pep8:
     name: "Update CI pep8 GitHub workflow"
     kind: yaml
     spec:
-      file: ".github/workflows/ci-pep8.yaml"
+      file: ".github/workflows/ci.yaml"
       key: "jobs.pep8.steps[1].with.python-version"
   ci-requirements:
     name: "Update CI requirements GitHub workflow"
     kind: yaml
     spec:
-      file: ".github/workflows/ci-requirements.yaml"
+      file: ".github/workflows/ci.yaml"
       key: "jobs.requirements.steps[1].with.python-version"
   ci-releaser:
     name: "Update CI releaser GitHub workflow"
