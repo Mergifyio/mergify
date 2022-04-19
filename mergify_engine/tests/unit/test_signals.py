@@ -21,9 +21,25 @@ from mergify_engine.tests.unit import conftest
 
 async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
     signals.setup()
-    assert len(signals.SIGNALS) == 2
+    assert len(signals.SIGNALS) == 3
 
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
     with mock.patch("mergify_engine_signals.noop.Signal.__call__") as signal_method:
         await signals.send(ctxt, "action.update", {"attr": "value"})
         signal_method.assert_called_once_with(ctxt, "action.update", {"attr": "value"})
+
+
+async def test_datadog():
+    signals.setup()
+    assert len(signals.SIGNALS) == 3
+
+    ctxt = mock.Mock(
+        subscription=mock.Mock(active=True),
+        pull={"base": {"user": {"type": "Organization", "id": 123456789}}},
+    )
+
+    with mock.patch("datadog.statsd.increment") as increment:
+        await signals.send(ctxt, "action.update", {"attr", "value"})
+        increment.assert_called_once_with(
+            "engine.signals.action.count", tags=["event:update"]
+        )
