@@ -1278,12 +1278,10 @@ class Worker:
         if to_start:
             LOG.info("dedicated workers to start", workers=to_start)
         for owner_id in to_start:
-            self._dedicated_worker_tasks[owner_id] = asyncio.create_task(
-                self.loop_and_sleep_forever(
-                    f"dedicated-{owner_id}",
-                    self.idle_sleep_time,
-                    functools.partial(self.dedicated_stream_worker_task, owner_id),
-                )
+            self._dedicated_worker_tasks[owner_id] = self.create_task(
+                f"dedicated-{owner_id}",
+                self.idle_sleep_time,
+                functools.partial(self.dedicated_stream_worker_task, owner_id),
             )
 
     async def _shutdown(self) -> None:
@@ -1329,7 +1327,7 @@ class Worker:
 
     def stop(self) -> None:
         self._stopping.set()
-        self._stop_task = asyncio.create_task(self._shutdown())
+        self._stop_task = asyncio.create_task(self._shutdown(), name="shutdown")
 
     async def wait_shutdown_complete(self) -> None:
         await self._stopping.wait()
