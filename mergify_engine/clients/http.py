@@ -64,11 +64,26 @@ class HTTPClientSideError(httpx.HTTPStatusError):
     def message(self) -> str:
         # TODO(sileht): do something with errors and documentation_url when present
         # https://developer.github.com/v3/#client-errors
-        return typing.cast(str, self.response.json()["message"])
+        to_cast = (
+            self.response.json()["errors"][0]["message"]
+            if "errors" in self.response.json()
+            else self.response.json()["message"]
+        )
+        return typing.cast(str, to_cast)
 
     @property
     def status_code(self) -> int:
         return self.response.status_code
+
+    def contains(self, msg_to_find: str) -> bool:
+
+        if "errors" in self.response.json():
+            return any(
+                msg_to_find in error["message"]
+                for error in self.response.json()["errors"]
+            )
+
+        return msg_to_find in self.response.json()["message"]
 
 
 class HTTPForbidden(HTTPClientSideError):

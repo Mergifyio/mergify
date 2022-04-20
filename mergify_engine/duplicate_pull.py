@@ -415,12 +415,12 @@ async def duplicate(
         )
     except http.HTTPClientSideError as e:
         if e.status_code == 422:
-            if "No commits between" in e.message:
+            if e.contains("No commits between"):
                 if cherry_pick_error:
                     raise DuplicateFailed(cherry_pick_error)
                 else:
                     raise DuplicateNotNeeded(e.message)
-            elif "A pull request already exists" in e.message:
+            elif e.contains("A pull request already exists"):
                 raise DuplicateAlreadyExists(e.message)
 
         raise

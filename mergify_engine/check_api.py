@@ -173,7 +173,7 @@ async def get_checks_for_ref(
             )
         ]
     except http.HTTPClientSideError as e:
-        if e.status_code == 422 and e.message.startswith("No commit found for SHA"):
+        if e.status_code == 422 and e.contains("No commit found for SHA"):
             return []
         raise
 

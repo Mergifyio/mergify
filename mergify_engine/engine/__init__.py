@@ -464,6 +464,6 @@ async def create_initial_summary(
                 json=post_parameters,
             )
         except http.HTTPClientSideError as e:
-            if e.status_code == 422 and "No commit found for SHA" in e.message:
+            if e.status_code == 422 and e.contains("No commit found for SHA"):
                 return
             raise
