@@ -44,6 +44,18 @@ from mergify_engine.dashboard import user_tokens
 if typing.TYPE_CHECKING:
     from mergify_engine import rules
 
+
+def build_pr_link(
+    repository: context.Repository,
+    pull_request_number: github_types.GitHubPullRequestNumber,
+    label: typing.Optional[str] = None,
+) -> str:
+    if label is None:
+        label = f"#{pull_request_number}"
+
+    return f"[{label}](/{repository.installation.owner_login}/{repository.repo['name']}/pull/{pull_request_number})"
+
+
 LOG = daiquiri.getLogger(__name__)
 
 CHECK_ASSERTS = {
@@ -371,8 +383,13 @@ class TrainCar:
             ci_has_passed=data.get("ci_has_passed", False),
         )
 
-    def _get_user_refs(self) -> str:
-        refs = [f"#{ep.user_pull_request_number}" for ep in self.initial_embarked_pulls]
+    def _get_user_refs(self, create_link: bool = True) -> str:
+        refs = [
+            build_pr_link(self.train.repository, ep.user_pull_request_number)
+            if create_link
+            else f"#{ep.user_pull_request_number}"
+            for ep in self.initial_embarked_pulls
+        ]
         if len(refs) == 1:
             return refs[0]
         else:
@@ -388,10 +405,13 @@ class TrainCar:
         else:
             refs = [f"{self.train.ref} ({self.initial_current_base_sha[:7]})"]
 
-        refs += [f"#{p}" for p in self.parent_pull_request_numbers]
+        refs += [
+            build_pr_link(self.train.repository, p) if markdown else f"#{p}"
+            for p in self.parent_pull_request_numbers
+        ]
 
         if include_my_self:
-            return f"{', '.join(refs)} and {self._get_user_refs()}"
+            return f"{', '.join(refs)} and {self._get_user_refs(create_link=markdown)}"
         elif len(refs) == 1:
             return refs[-1]
         else:
@@ -618,8 +638,6 @@ class TrainCar:
             f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.head_branch}"
         )
 
-        self.creation_state = "created"
-
         bot_account = queue_rule.config["draft_bot_account"]
         github_user: typing.Optional[user_tokens.UserTokensUser] = None
         if bot_account:
@@ -771,7 +789,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 await tmp_pull_ctxt.set_summary_check(
                     check_api.Result(
                         check_api.Conclusion.CANCELLED,
-                        title=f"The pull request {self._get_user_refs()} has been re-embarked for merge",
+                        title=f"The pull request {self._get_user_refs(create_link=False)} has been re-embarked for merge",
                         summary=reason,
                     )
                 )
@@ -961,7 +979,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         unexpected_change: typing.Optional[UnexpectedChange] = None,
         force_refresh: bool = False,
     ) -> None:
-        refs = self._get_user_refs()
+        refs = self._get_user_refs(create_link=False)
         if conclusion == check_api.Conclusion.SUCCESS:
             if len(self.initial_embarked_pulls) == 1:
                 tmp_pull_title = f"The pull request {refs} is mergeable"
@@ -1016,10 +1034,16 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 if failure.creation_state == "updated":
                     speculative_checks = "[in place]"
                 elif failure.creation_state == "created":
-                    speculative_checks = f"#{failure.queue_pull_request_number}"
+                    if failure.queue_pull_request_number is None:
+                        raise RuntimeError(
+                            "car state is created, but queue_pull_request_number is None"
+                        )
+                    speculative_checks = build_pr_link(
+                        self.train.repository, failure.queue_pull_request_number
+                    )
                 else:
                     speculative_checks = ""
-            batch_failure_summary += f"| {self._get_user_refs()} | {self._get_embarked_refs(include_my_self=False)} | {speculative_checks} |"
+            batch_failure_summary += f"| {self._get_user_refs()} | {self._get_embarked_refs(include_my_self=False, markdown=True)} | {speculative_checks} |"
         else:
             batch_failure_summary = ""
 
@@ -2070,7 +2094,8 @@ class Train(queue.QueueBase):
                 ctxt = await self.repository.get_pull_request_context(
                     embarked_pull.user_pull_request_number
                 )
-                pull_html_url = f"{ctxt.pull['base']['repo']['html_url']}/pull/{embarked_pull.user_pull_request_number}"
+                # NOTE(sileht): we use this wierd url format to not trigger the GitHub pull request cross references
+                # [#1234](/Mergifyio/mergify-engine/pull/1234]
                 try:
                     fancy_priority = queue.PriorityAliases(
                         embarked_pull.config["priority"]
@@ -2081,14 +2106,25 @@ class Train(queue.QueueBase):
                 speculative_checks = ""
                 if car is not None:
                     if car.creation_state == "updated":
-                        speculative_checks = f"[in place]({pull_html_url})"
+                        speculative_checks = build_pr_link(
+                            self.repository,
+                            embarked_pull.user_pull_request_number,
+                            "in place",
+                        )
                     elif car.creation_state == "created":
-                        speculative_checks = f"#{car.queue_pull_request_number}"
+                        if car.queue_pull_request_number is None:
+                            raise RuntimeError(
+                                "car state is created, but queue_pull_request_number is None"
+                            )
+
+                        speculative_checks = build_pr_link(
+                            self.repository, car.queue_pull_request_number
+                        )
 
                 queued_at = date.pretty_datetime(embarked_pull.queued_at)
                 table.append(
                     f"| {i + 1} "
-                    f"| {ctxt.pull['title']} ([#{embarked_pull.user_pull_request_number}]({pull_html_url})) "
+                    f"| {ctxt.pull['title']} ({build_pr_link(self.repository, embarked_pull.user_pull_request_number)}) "
                     f"| {embarked_pull.config['name']}/{fancy_priority} "
                     f"| {speculative_checks} "
                     f"| {queued_at}"
