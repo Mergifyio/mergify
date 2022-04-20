@@ -694,6 +694,20 @@ async def test_stream_processor_retrying_pull(
         exceptions.MergeableStateUnknown(mock.Mock()),
         exceptions.MergeableStateUnknown(mock.Mock()),
         exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
+        exceptions.MergeableStateUnknown(mock.Mock()),
     ]
 
     await worker.push(
@@ -791,10 +805,18 @@ async def test_stream_processor_retrying_pull(
     await p.consume("bucket~123", 123, "owner-123")
     await p.consume("bucket~123", 123, "owner-123")
     await p.consume("bucket~123", 123, "owner-123")
-    assert len(run_engine.mock_calls) == 9
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume("bucket~123", 123, "owner-123")
+    assert len(run_engine.mock_calls) == 17
 
     # Too many retries, everything is gone
-    assert 7 == len(logger.info.mock_calls)
+    assert 15 == len(logger.info.mock_calls)
     assert 1 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == (
         "failed to process pull request, retrying",

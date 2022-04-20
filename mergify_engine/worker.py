@@ -100,8 +100,8 @@ else:
 
 LOG = daiquiri.getLogger(__name__)
 
-
-MAX_RETRIES: int = 7
+# we keep the PR in queue for ~ 7 minutes (a try == WORKER_PROCESSING_DELAY)
+MAX_RETRIES: int = 15
 WORKER_PROCESSING_DELAY: float = 30
 STREAM_ATTEMPTS_LOGGING_THRESHOLD: int = 20
 
