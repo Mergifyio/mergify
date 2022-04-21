@@ -19,7 +19,6 @@ import asyncio
 import json
 import logging
 import os
-import time
 
 from mergify_engine import config
 from mergify_engine import logs
@@ -83,7 +82,7 @@ async def main() -> None:
                     )
             except Exception:
                 LOG.error("event handling failure", exc_info=True)
-            time.sleep(1)
+            asyncio.sleep(1)
 
 
 if __name__ == "__main__":

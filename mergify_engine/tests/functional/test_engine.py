@@ -13,8 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import asyncio
 import logging
-import time
 import typing
 from unittest import mock
 
@@ -720,7 +720,7 @@ DO NOT EDIT
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
-            time.sleep(3)
+            await asyncio.sleep(3)
 
         await self.run_engine()
         await self.wait_for(
@@ -747,7 +747,7 @@ DO NOT EDIT
         # Wait a bit than Github refresh the mergeable_state before running the
         # engine
         if base.RECORD:
-            time.sleep(3)
+            await asyncio.sleep(3)
 
         await self.run_engine()
         await self.wait_for(
