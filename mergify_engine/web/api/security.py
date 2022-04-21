@@ -61,7 +61,9 @@ async def get_application(
 
     # Seatbelt
     current_scope = None if app.account_scope is None else app.account_scope["login"]
-    if scope is not None and current_scope != scope:
+    if scope is not None and (
+        current_scope is None or current_scope.lower() != scope.lower()
+    ):
         LOG.error(
             "got application with wrong scope",
             expected_scope=scope,
