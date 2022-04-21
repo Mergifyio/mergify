@@ -99,7 +99,7 @@ class ApplicationSaas(ApplicationBase):
         if account_scope is None:
             account_scope_key = "#"
         else:
-            account_scope_key = account_scope
+            account_scope_key = account_scope.lower()
         return f"api-key-cache~{api_access_key}~{account_scope_key}"
 
     def _has_expired(self) -> bool:
