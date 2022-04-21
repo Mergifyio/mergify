@@ -14,17 +14,6 @@ targets:
       file: runtime.txt
       forcecreate: true
       content: python-{{ source `python-version` }}
-  Dockerfile:
-    name: "Update python base image"
-    sourceID: python-version
-    kind: dockerfile
-    spec:
-      file: Dockerfile
-      instruction:
-        keyword: "FROM"
-        matcher: "python"
-    transformers:
-      - addSuffix: -slim
   tox-1:
     name: "Update tox.ini basepython"
     kind: file
