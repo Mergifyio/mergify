@@ -23,6 +23,7 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
+from mergify_engine import merge_fast_forwarder
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine.clients import http
@@ -140,26 +141,6 @@ class MergeBaseAction(actions.Action, abc.ABC):
 
         data = {}
 
-        try:
-            commit_title_and_message = await ctxt.pull_request.get_commit_message(
-                self.config["commit_message"],
-                self.config["commit_message_template"],
-            )
-        except context.RenderTemplateFailure as rmf:
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Invalid commit message",
-                str(rmf),
-            )
-
-        if commit_title_and_message is not None:
-            title, message = commit_title_and_message
-            data["commit_title"] = title
-            data["commit_message"] = message
-
-        data["sha"] = ctxt.pull["head"]["sha"]
-        data["merge_method"] = method
-
         github_user: typing.Optional[user_tokens.UserTokensUser] = None
         if merge_bot_account:
             tokens = await ctxt.repository.installation.get_user_tokens()
@@ -171,22 +152,76 @@ class MergeBaseAction(actions.Action, abc.ABC):
                     f"Please make sure `{merge_bot_account}` has logged in Mergify dashboard.",
                 )
 
-        try:
-            await ctxt.client.put(
-                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
-                oauth_token=github_user["oauth_access_token"] if github_user else None,
-                json=data,
-            )
-        except http.HTTPClientSideError as e:  # pragma: no cover
-            await ctxt.update()
-            if ctxt.pull["merged"]:
-                ctxt.log.info("merged in the meantime")
-            else:
-                return await self._handle_merge_error(e, ctxt, rule, q)
-        else:
+        if method == "fast-forward":
+            try:
+                await merge_fast_forwarder.merge(ctxt, github_user)
+            except merge_fast_forwarder.MergeFastForwardBaseMoved:
+                return await self.get_queue_status(ctxt, rule, q)
+            except merge_fast_forwarder.MergeFastForwardFailed as e:
+                message = "Mergify failed to merge the pull request"
+                ctxt.log.info(
+                    "fast-foward merge fail",
+                    mergify_message=message,
+                    error_message=e.reason,
+                )
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    message,
+                    f"GitHub error message: `{e.reason}`",
+                )
+
             await self.send_signal(ctxt)
-            await ctxt.update()
-            ctxt.log.info("merged")
+            # NOTE(sileht): We can't use merge_report() here, because it takes
+            # some times for GitHub to detect this pull request has been
+            # merged. Just after the fastforward git push, mergeable_state is
+            # mark as conflict and a bit later as unknown and merged attribute set to
+            # true. We can't block here just for this.
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "The pull request has been merged automatically",
+                f"The pull request has been merged automatically at *{ctxt.pull['head']['sha']}*",
+            )
+
+        else:  # Via API
+
+            try:
+                commit_title_and_message = await ctxt.pull_request.get_commit_message(
+                    self.config["commit_message"],
+                    self.config["commit_message_template"],
+                )
+            except context.RenderTemplateFailure as rmf:
+                return check_api.Result(
+                    check_api.Conclusion.ACTION_REQUIRED,
+                    "Invalid commit message",
+                    str(rmf),
+                )
+
+            if commit_title_and_message is not None:
+                title, message = commit_title_and_message
+                data["commit_title"] = title
+                data["commit_message"] = message
+
+            data["sha"] = ctxt.pull["head"]["sha"]
+            data["merge_method"] = method
+
+            try:
+                await ctxt.client.put(
+                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
+                    oauth_token=github_user["oauth_access_token"]
+                    if github_user
+                    else None,
+                    json=data,
+                )
+            except http.HTTPClientSideError as e:  # pragma: no cover
+                await ctxt.update()
+                if ctxt.pull["merged"]:
+                    ctxt.log.info("merged in the meantime")
+                else:
+                    return await self._handle_merge_error(e, ctxt, rule, q)
+            else:
+                await self.send_signal(ctxt)
+                await ctxt.update()
+                ctxt.log.info("merged")
 
         result = await self.merge_report(ctxt)
         if result:
@@ -318,15 +353,19 @@ class MergeBaseAction(actions.Action, abc.ABC):
             title = "Draft flag needs to be removed"
             summary = ""
         elif ctxt.pull["merged"]:
-            if ctxt.pull["merged_by"] is None:
-                mode = "somehow"
+            if self.config["method"] == "fast-forward":
+                # NOTE(sileht): When fast-forward is used, GitHub uses a wrong
+                # merged_by so we can't detect if we merge it or not.
+                mode = ""
+            elif ctxt.pull["merged_by"] is None:
+                mode = " somehow"
             elif ctxt.pull["merged_by"]["login"] == config.BOT_USER_LOGIN:
-                mode = "automatically"
+                mode = " automatically"
             else:
-                mode = "manually"
+                mode = " manually"
             conclusion = check_api.Conclusion.SUCCESS
-            title = f"The pull request has been merged {mode}"
-            summary = f"The pull request has been merged {mode} at *{ctxt.pull['merge_commit_sha']}*"
+            title = f"The pull request has been merged{mode}"
+            summary = f"The pull request has been merged{mode} at *{ctxt.pull['merge_commit_sha']}*"
         elif ctxt.closed:
             conclusion = check_api.Conclusion.CANCELLED
             title = "The pull request has been closed manually"

@@ -34,8 +34,8 @@ Options
    * - ``method``
      - string
      - ``merge``
-     - Merge method to use. Possible values are ``merge``, ``squash`` or
-       ``rebase``.
+     - Merge method to use. Possible values are ``merge``, ``squash``,
+       ``rebase`` or ``fast-forward``.
    * - ``rebase_fallback``
      - string
      - ``merge``

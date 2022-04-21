@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import logging
+import typing
 
 import pytest
 import yaml
@@ -21,6 +22,7 @@ import yaml
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import utils
 from mergify_engine.tests.functional import base
 
@@ -372,3 +374,93 @@ superRP!"""
 
         p2 = await self.get_pull(p2["number"])
         assert p2["merged"]
+
+    async def test_merge_fastforward_basic(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "merge": {
+                            "method": "fast-forward",
+                        }
+                    },
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p = await self.create_pr(message="")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        p = await self.get_pull(p["number"])
+        assert p["merged"]
+        # FIXME(sileht): GitHub seems completly lost with a manual fast-forward merge
+        # This merged_by is set to mergify-test1 instead of the GitHub App, I don't get why
+        # assert p["merged_by"]["login"] == config.BOT_USER_LOGIN
+
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            await self.client_admin.item(
+                f"{self.url_origin}/branches/{self.main_branch_name}"
+            ),
+        )
+        assert p["head"]["sha"] == branch["commit"]["sha"]
+
+        # NOTE(sileht): GitHub seems completly lost with a manual fast-forward merge
+        assert branch["commit"]["committer"] is None
+        # assert branch["commit"]["committer"]["login"] == config.BOT_USER_LOGIN
+
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p['head']['sha']}*"
+        )
+
+    async def test_merge_fastforward_bot_account(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "merge on main",
+                    "conditions": [f"base={self.main_branch_name}"],
+                    "actions": {
+                        "merge": {
+                            "method": "fast-forward",
+                            "merge_bot_account": "{{ body }}",
+                        }
+                    },
+                },
+            ]
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p = await self.create_pr(message="mergify-test4")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+
+        p = await self.get_pull(p["number"])
+        assert p["merged"]
+        # FIXME(sileht): GitHub seems completly lost with a manual fast-forward merge
+        # This merged_by is set to mergify-test1, I don't get why
+        # assert p["merged_by"]["login"] == "mergify-test4"
+
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            await self.client_admin.item(
+                f"{self.url_origin}/branches/{self.main_branch_name}"
+            ),
+        )
+        assert p["head"]["sha"] == branch["commit"]["sha"]
+
+        # NOTE(sileht): GitHub seems completly lost with a manual fast-forward merge
+        assert branch["commit"]["committer"] is None
+        # assert branch["commit"]["committer"]["login"] == "mergify-test4"
