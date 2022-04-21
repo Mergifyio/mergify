@@ -3315,7 +3315,12 @@ DO NOT EDIT
                 {
                     "name": "default",
                     "conditions": [
-                        "check-success=continuous-integration/fake-ci",
+                        {
+                            "or": [
+                                "check-success=continuous-integration/fake-ci",
+                                "check-success=continuous-integration/other-ci",
+                            ]
+                        },
                         "schedule: MON-FRI 08:00-17:00",
                     ],
                     "checks_timeout": "10 m",
@@ -3366,8 +3371,7 @@ DO NOT EDIT
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
-            pulls = await self.get_pulls()
-            tmp_pull = await self.get_pull(pulls[0]["number"])
+            tmp_pull = await self.get_pull(p["number"] + 1)
             await self.create_status(tmp_pull)
 
         with freeze_time("2021-05-30T20:12:00", tick=True):

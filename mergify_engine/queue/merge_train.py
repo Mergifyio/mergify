@@ -883,21 +883,24 @@ You don't need to do anything. Mergify will close this pull request automaticall
         ):
             self.checks_ended_timestamp = date.utcnow()
 
-        ci_conditions_list = [
-            condition.match
-            for condition in evaluated_queue_rule.conditions.walk()
-            if condition.get_attribute_name().startswith("check-")
-            or condition.get_attribute_name().startswith("status-")
-        ]
-        if all(ci_conditions_list):
+        if self.checks_conclusion == check_api.Conclusion.SUCCESS:
             self.ci_has_passed = True
+        else:
+            conditions_with_only_checks = evaluated_queue_rule.conditions.copy()
+            for condition_with_only_checks in conditions_with_only_checks.walk():
+                attr = condition_with_only_checks.get_attribute_name()
+                if not (attr.startswith("check-") or attr.startswith("status-")):
+                    condition_with_only_checks.update("number>0")
 
-        if timeout is not None and not self.ci_has_passed:
-            if (
-                self.checks_conclusion != check_api.Conclusion.FAILURE
-                and self.checks_have_timed_out(date.utcnow(), timeout)
-            ):
-                self.has_timed_out = True
+            queue_pull_requests = await self.get_pull_requests_to_evaluate()
+            self.ci_has_passed = await conditions_with_only_checks(queue_pull_requests)
+
+        if (
+            timeout is not None
+            and self.checks_conclusion != check_api.Conclusion.FAILURE
+            and not self.ci_has_passed
+        ):
+            self.has_timed_out = self.checks_have_timed_out(date.utcnow(), timeout)
 
             if self.queue_pull_request_number is not None and not self.has_timed_out:
                 # Circular import
