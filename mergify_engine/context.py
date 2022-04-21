@@ -1767,7 +1767,7 @@ class Context(object):
                         self.client.items(
                             f"{self.base_url}/pulls/{self.pull['number']}/files",
                             resource_name="files",
-                            page_limit=5,
+                            page_limit=10,
                         ),
                     )
                 ]
