@@ -331,7 +331,7 @@ These are the options of the ``queue`` action:
      - ``merge``
      - Merge method to use. Possible values are ``merge``, ``squash``,
        ``rebase`` or ``fast-forward``.
-       ``fast-forward`` is not support on queues with ``speculative_checks > 1``,
+       ``fast-forward`` is not supported on queues with ``speculative_checks > 1``,
        ``batch_size > 1``, or with ``allow_inplace_checks`` set to ``false``.
    * - ``rebase_fallback``
      - string
