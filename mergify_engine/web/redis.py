@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2021 Mergify SAS
+# Copyright © 2021—2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -56,16 +56,16 @@ async def shutdown() -> None:
     LOG.info("asgi: finished redis shutdown")
 
 
-async def get_redis_stream():
+async def get_redis_stream() -> utils.RedisStream:
     global _AREDIS_STREAM
     return _AREDIS_STREAM
 
 
-async def get_redis_cache():
+async def get_redis_cache() -> utils.RedisCache:
     global _AREDIS_CACHE
     return _AREDIS_CACHE
 
 
-async def get_redis_queue():
+async def get_redis_queue() -> utils.RedisQueue:
     global _AREDIS_QUEUE
     return _AREDIS_QUEUE

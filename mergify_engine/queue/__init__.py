@@ -37,11 +37,11 @@ class PriorityAliases(enum.Enum):
     high = 3000
 
 
-def Priority(v):
-    try:
-        return PriorityAliases[v].value
-    except KeyError:
+def Priority(v: typing.Union[int, str]) -> int:
+    if isinstance(v, int):
         return v
+
+    return PriorityAliases[v].value
 
 
 MAX_PRIORITY: int = 10000
@@ -76,7 +76,7 @@ class QueueBase(abc.ABC):
     ref: github_types.GitHubRefType
 
     @functools.cached_property
-    def log(self):
+    def log(self) -> daiquiri.KeywordArgumentAdapter:
         return daiquiri.getLogger(
             __name__,
             gh_owner=self.repository.installation.owner_login,
