@@ -443,26 +443,3 @@ We also provide custom Jinja2 filters:
 
    By default, the HTML comments are stripped from ``body``. To get the
    full body, you can use the ``body_raw`` attribute.
-
-Validation
-----------
-
-Changes to the configuration file should be done via a pull request in order
-for Mergify to validate it via a GitHub check.
-
-However, if you want to validate your configuration file before sending a pull
-request, you can use the following command line:
-
-.. code:: bash
-
-    $ curl -F 'data=@.mergify.yml' https://engine.mergify.io/validate/
-
-
-Or by uploading the configuration file with this form:
-
-.. raw:: html
-
-    <form method=post enctype=multipart/form-data action=https://engine.mergify.io/validate target=_blank>
-      <input type=file name=data>
-      <input type=submit value=Validate>
-    </form>
