@@ -329,8 +329,10 @@ These are the options of the ``queue`` action:
    * - ``method``
      - string
      - ``merge``
-     - Merge method to use. Possible values are ``merge``, ``squash`` or
-       ``rebase``.
+     - Merge method to use. Possible values are ``merge``, ``squash``,
+       ``rebase`` or ``fast-forward``.
+       ``fast-forward`` is not support on queues with ``speculative_checks > 1``,
+       ``batch_size > 1``, or with ``allow_inplace_checks`` set to ``false``.
    * - ``rebase_fallback``
      - string
      - ``merge``
@@ -350,7 +352,7 @@ These are the options of the ``queue`` action:
 
    * - ``update_method``
      - string
-     - ``merge``
+     - ``merge`` for all merge methods except ``fast-forward`` where ``rebase`` is used
      - Method to use to update the pull request with its base branch when the
        speculative check is done in-place.
        Possible values:
