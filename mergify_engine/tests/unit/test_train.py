@@ -86,16 +86,19 @@ queue_rules:
   - name: high-1x1
     conditions: []
     speculative_checks: 1
+    allow_inplace_checks: True
 
   - name: high-1x2
     conditions: []
     speculative_checks: 1
+    allow_inplace_checks: True
     batch_size: 2
     batch_max_wait_time: 0 s
 
   - name: 1x5
     conditions: []
     speculative_checks: 1
+    allow_inplace_checks: True
     batch_size: 5
     batch_max_wait_time: 0 s
 

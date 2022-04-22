@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Queue rules option ``allow_inplace_checks`` default if now ``true`` only if
+    ``speculative_checks: 1`` or ``batch_size: 1``.
