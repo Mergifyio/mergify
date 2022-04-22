@@ -68,7 +68,10 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "name", default="" if partial_validation else voluptuous.UNDEFINED
             ): str,
             voluptuous.Required("method", default="merge"): voluptuous.Any(
-                "rebase", "merge", "squash"
+                "rebase",
+                "merge",
+                "squash",
+                "fast-forward",
             ),
             voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
                 "merge", "squash", "none", None
@@ -79,8 +82,8 @@ Then, re-embark the pull request into the merge queue by posting the comment
             voluptuous.Required(
                 "update_bot_account", default=None
             ): types.Jinja2WithNone,
-            voluptuous.Required("update_method", default="merge"): voluptuous.Any(
-                "rebase", "merge"
+            voluptuous.Required("update_method", default=None): voluptuous.Any(
+                "rebase", "merge", None
             ),
             voluptuous.Required(
                 "commit_message_template", default=None
@@ -203,6 +206,38 @@ Then, re-embark the pull request into the merge queue by posting the comment
         subscription_status = await self._subscription_status(ctxt)
         if subscription_status:
             return subscription_status
+
+        if self.config["method"] == "fast-forward":
+            if self.config["update_method"] != "rebase":
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"`update_method: {self.config['update_method']}` is not compatible with fast-forward merge method",
+                    "`update_method` must be set to `rebase`.",
+                )
+            elif self.config["commit_message_template"] is not None:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Commit message can't be changed with fast-forward merge method",
+                    "`commit_message_template` must not be set if `method: fast-forward` is set.",
+                )
+            elif self.queue_rule.config["batch_size"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "batch_size > 1 is not compatible with fast-forward merge method",
+                    "The merge `method` or the queue configuration must be updated.",
+                )
+            elif self.queue_rule.config["speculative_checks"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "speculative_checks > 1 is not compatible with fast-forward merge method",
+                    "The merge `method` or the queue configuration must be updated.",
+                )
+            elif not self.queue_rule.config["allow_inplace_checks"]:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "allow_inplace_checks=False is not compatible with fast-forward merge method",
+                    "The merge `method` or the queue configuration must be updated.",
+                )
 
         # FIXME(sileht): we should use the computed update_bot_account in TrainCar.update_pull(),
         # not the original one
@@ -370,6 +405,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
         return result
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
+        if self.config["update_method"] is None:
+            self.config["update_method"] = (
+                "rebase" if self.config["method"] == "fast-forward" else "merge"
+            )
+
         if not config.ALLOW_COMMIT_MESSAGE_OPTION:
             self.config["commit_message"] = "default"
 
