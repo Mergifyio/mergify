@@ -20,7 +20,6 @@ import fastapi
 from starlette import responses
 from starlette.middleware import cors
 
-from mergify_engine.web import config_validator
 from mergify_engine.web import dashboard
 from mergify_engine.web import github
 from mergify_engine.web import legacy_badges
@@ -48,7 +47,6 @@ app.include_router(dashboard.router)
 app.include_router(github.router)
 app.include_router(refresher.router)
 app.include_router(simulator.router, prefix="/simulator")
-app.include_router(config_validator.router, prefix="/validate")
 app.include_router(legacy_badges.router, prefix="/badges")
 
 app.mount("/v1", api_root.app)
