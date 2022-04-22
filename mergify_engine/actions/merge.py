@@ -70,7 +70,10 @@ class MergeAction(merge_base.MergeBaseAction):
 
     validator_default = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
-            "rebase", "merge", "squash"
+            "rebase",
+            "merge",
+            "squash",
+            "fast-forward",
         ),
         # NOTE(sileht): None is supported for legacy reason
         voluptuous.Required("rebase_fallback", default="merge"): voluptuous.Any(
@@ -121,6 +124,14 @@ class MergeAction(merge_base.MergeBaseAction):
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
+        if self.config["method"] == "fast-forward":
+            if self.config["commit_message_template"] is not None:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Commit message can't be changed with fast-forward merge method",
+                    "`commit_message_template` must not be set if `method: fast-forward` is set.",
+                )
+
         report = await self.merge_report(ctxt)
         if report is not None:
             return report
@@ -159,10 +170,20 @@ class MergeAction(merge_base.MergeBaseAction):
     ) -> typing.List[
         typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
     ]:
-        branch_protection_conditions = (
+        conditions_requirements: typing.List[
+            typing.Union[conditions.RuleConditionGroup, conditions.RuleCondition]
+        ] = []
+        if self.config["method"] == "fast-forward":
+            conditions_requirements.append(
+                conditions.RuleCondition(
+                    "#commits-behind=0",
+                    description=":pushpin: fast-forward merge requirement",
+                )
+            )
+        conditions_requirements.extend(
             await conditions.get_branch_protection_conditions(
                 ctxt.repository, ctxt.pull["base"]["ref"], strict=True
             )
         )
-        depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
-        return branch_protection_conditions + depends_on_conditions
+        conditions_requirements.extend(await conditions.get_depends_on_conditions(ctxt))
+        return conditions_requirements

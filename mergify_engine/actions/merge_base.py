@@ -140,26 +140,6 @@ class MergeBaseAction(actions.Action, abc.ABC):
 
         data = {}
 
-        try:
-            commit_title_and_message = await ctxt.pull_request.get_commit_message(
-                self.config["commit_message"],
-                self.config["commit_message_template"],
-            )
-        except context.RenderTemplateFailure as rmf:
-            return check_api.Result(
-                check_api.Conclusion.ACTION_REQUIRED,
-                "Invalid commit message",
-                str(rmf),
-            )
-
-        if commit_title_and_message is not None:
-            title, message = commit_title_and_message
-            data["commit_title"] = title
-            data["commit_message"] = message
-
-        data["sha"] = ctxt.pull["head"]["sha"]
-        data["merge_method"] = method
-
         github_user: typing.Optional[user_tokens.UserTokensUser] = None
         if merge_bot_account:
             tokens = await ctxt.repository.installation.get_user_tokens()
@@ -171,22 +151,76 @@ class MergeBaseAction(actions.Action, abc.ABC):
                     f"Please make sure `{merge_bot_account}` has logged in Mergify dashboard.",
                 )
 
-        try:
-            await ctxt.client.put(
-                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
-                oauth_token=github_user["oauth_access_token"] if github_user else None,
-                json=data,
-            )
-        except http.HTTPClientSideError as e:  # pragma: no cover
-            await ctxt.update()
-            if ctxt.pull["merged"]:
-                ctxt.log.info("merged in the meantime")
+        if method == "fast-forward":
+            try:
+                await ctxt.client.put(
+                    f"{ctxt.base_url}/git/refs/heads/{ctxt.pull['base']['ref']}",
+                    oauth_token=github_user["oauth_access_token"]
+                    if github_user
+                    else None,
+                    json={"sha": ctxt.pull["head"]["sha"]},
+                )
+            except http.HTTPClientSideError as e:  # pragma: no cover
+                await ctxt.update()
+                if ctxt.pull["merged"]:
+                    ctxt.log.info("merged in the meantime")
+                else:
+                    return await self._handle_merge_error(e, ctxt, rule, q)
             else:
-                return await self._handle_merge_error(e, ctxt, rule, q)
-        else:
-            await self.send_signal(ctxt)
-            await ctxt.update()
-            ctxt.log.info("merged")
+                await self.send_signal(ctxt)
+                ctxt.log.info("merged")
+
+            # NOTE(sileht): We can't use merge_report() here, because it takes
+            # some time for GitHub to detect this pull request has been
+            # merged. Just after the fast-forward git push, mergeable_state is
+            # mark as conflict and a bit later as unknown and merged attribute set to
+            # true. We can't block here just for this.
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "The pull request has been merged",
+                f"The pull request has been merged at *{ctxt.pull['head']['sha']}*.",
+            )
+
+        else:  # Via API
+
+            try:
+                commit_title_and_message = await ctxt.pull_request.get_commit_message(
+                    self.config["commit_message"],
+                    self.config["commit_message_template"],
+                )
+            except context.RenderTemplateFailure as rmf:
+                return check_api.Result(
+                    check_api.Conclusion.ACTION_REQUIRED,
+                    "Invalid commit message",
+                    str(rmf),
+                )
+
+            if commit_title_and_message is not None:
+                title, message = commit_title_and_message
+                data["commit_title"] = title
+                data["commit_message"] = message
+
+            data["sha"] = ctxt.pull["head"]["sha"]
+            data["merge_method"] = method
+
+            try:
+                await ctxt.client.put(
+                    f"{ctxt.base_url}/pulls/{ctxt.pull['number']}/merge",
+                    oauth_token=github_user["oauth_access_token"]
+                    if github_user
+                    else None,
+                    json=data,
+                )
+            except http.HTTPClientSideError as e:  # pragma: no cover
+                await ctxt.update()
+                if ctxt.pull["merged"]:
+                    ctxt.log.info("merged in the meantime")
+                else:
+                    return await self._handle_merge_error(e, ctxt, rule, q)
+            else:
+                await self.send_signal(ctxt)
+                await ctxt.update()
+                ctxt.log.info("merged")
 
         result = await self.merge_report(ctxt)
         if result:
