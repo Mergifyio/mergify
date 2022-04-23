@@ -27,7 +27,7 @@ from mergify_engine.dashboard import subscription
 from mergify_engine.rules import types
 
 
-def CheckRunJinja2(v):
+def CheckRunJinja2(v: typing.Any) -> typing.Optional[str]:
     return types.Jinja2(
         v,
         {

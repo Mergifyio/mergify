@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020–2021 Mergify SAS
+# Copyright © 2020–2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -42,11 +42,10 @@ class PullRequestUrlInvalid(voluptuous.Invalid):  # type: ignore[misc]
     pass
 
 
-@voluptuous.message("expected a Pull Request URL", cls=PullRequestUrlInvalid)
-def PullRequestUrl(v):
+@voluptuous.message("expected a Pull Request URL", cls=PullRequestUrlInvalid)  # type: ignore[misc]
+def PullRequestUrl(v: str) -> typing.Tuple[str, str, int]:
     _, owner, repo, _, pull_number = urlsplit(v).path.split("/")
-    pull_number = int(pull_number)
-    return owner, repo, pull_number
+    return owner, repo, int(pull_number)
 
 
 def SimulatorMergifyConfig(v: bytes) -> rules.MergifyConfig:

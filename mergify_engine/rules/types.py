@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -32,7 +32,7 @@ class LineColumnPath:
     line: int
     column: typing.Optional[int] = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.column is None:
             return f"line {self.line}"
         return f"line {self.line}, column {self.column}"
@@ -51,8 +51,8 @@ class DummyContext(context.Context):
             raise context.PullRequestAttributeError(key)
 
     @staticmethod
-    def ensure_complete():
-        pass
+    def ensure_complete() -> None:  # type: ignore[override]
+        return None
 
 
 class DummyPullRequest(context.PullRequest):
@@ -186,7 +186,7 @@ _DUMMY_PR = DummyPullRequest(
 
 
 def Jinja2(
-    value: typing.Optional[typing.Any],
+    value: typing.Any,
     extra_variables: typing.Optional[typing.Dict[str, typing.Any]] = None,
 ) -> typing.Optional[str]:
     """A Jinja2 type for voluptuous Schemas."""
