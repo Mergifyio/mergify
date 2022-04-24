@@ -158,8 +158,8 @@ expected alphabetic or numeric character, but found"""
         }
         # config has been update in the meantime
         await self.setup_repo(yaml.dump({"pull_request_rules": []}))
-        assert self.git.tmp is not None
-        with open(self.git.tmp + "/.mergify.yml", "wb") as f:
+        assert self.git.repository is not None
+        with open(self.git.repository + "/.mergify.yml", "wb") as f:
             f.write(yaml.dump(rules).encode())
         await self.git("add", ".mergify.yml")
         await self.git("commit", "--no-edit", "-m", "conf update")
@@ -177,7 +177,7 @@ expected alphabetic or numeric character, but found"""
         await self.run_engine()
 
         await self.git("checkout", "save-point", "-b", self.main_branch_name)
-        with open(self.git.tmp + "/.mergify.yml", "wb") as f:
+        with open(self.git.repository + "/.mergify.yml", "wb") as f:
             f.write(yaml.dump({}).encode())
         await self.git("add", ".mergify.yml")
         await self.git("commit", "--no-edit", "-m", "conf update")

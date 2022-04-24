@@ -38,7 +38,7 @@ class TestRebaseAction(base.FunctionalTestBase):
 
         await self.git("checkout", self.main_branch_name)
 
-        open(self.git.tmp + "/an_other_file", "wb").close()
+        open(self.git.repository + "/an_other_file", "wb").close()
         await self.git("add", "an_other_file")
 
         await self.git("commit", "--no-edit", "-m", "commit ahead")

@@ -41,7 +41,7 @@ class TestActionSquash(base.FunctionalTestBase):
         )
 
         for i in range(0, 3):
-            open(self.git.tmp + f"/file{i}", "wb").close()
+            open(self.git.repository + f"/file{i}", "wb").close()
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i+1}")
 

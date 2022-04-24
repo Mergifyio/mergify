@@ -199,7 +199,7 @@ class TestBackportAction(BackportActionTestBase):
         # Commit something in stable
         await self.git("checkout", "--quiet", stable_branch)
         # Write in the file that create_pr will create in main
-        with open(os.path.join(self.git.tmp, "conflicts"), "wb") as f:
+        with open(os.path.join(self.git.repository, "conflicts"), "wb") as f:
             f.write(b"conflicts incoming")
         await self.git("add", "conflicts")
         await self.git("commit", "--no-edit", "-m", "add conflict")
