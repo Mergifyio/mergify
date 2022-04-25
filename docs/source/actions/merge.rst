@@ -51,27 +51,13 @@ Options
        If no ``merge_bot_account`` is set, Mergify will merge the pull request
        itself. The user account **must** have already been
        logged in Mergify dashboard once and have **write** or **maintain** permission.
-   * - ``commit_message``
-     - string
-     - ``default``
-     - |deprecated tag|
-       Defines what commit message to use when merging using the ``squash`` or
-       ``merge`` method. Possible values are:
-
-       * ``default`` to use the default commit message provided by GitHub
-         or defined in ``commit_message_template``
-         or defined in the pull request body (see :ref:`commit message`).
-
-       * ``title+body`` means to use the title and body from the pull request
-         itself as the commit message. The pull request number will be added to
-         end of the title.
 
        .. _commit_message_template:
    * - ``commit_message_template``
      - :ref:`data type template`
      -
-     - Template to use as the commit message when using the ``merge`` or ``squash`` merge method
-       and ``commit_message`` is set to ``default``.
+     - Template to use as the commit message when using the ``merge`` or ``squash`` merge method.
+       Template can also be defined in the pull request body (see :ref:`commit message`).
 
 .. _queue-depends-on:
 
@@ -113,32 +99,6 @@ request:
 
 Defining the Commit Message
 ---------------------------
-
-|deprecated tag|
-
-.. warning::
-
-    ``commit_message`` is deprecated and will be removed on April 25th, 2022. It's replaced by :ref:`commit_message_template <commit_message_template>`.
-
-
-    To migrate you need to remove the ``commit_message`` option from your configuration, then
-
-    * if you used the value ``default`` or ``template``, you are done.
-    * if you used the value ``title+body``, set :ref:`commit_message_template <commit_message_template>` to:
-
-    .. code-block:: md
-
-     {{ title }} (#{{ number }})
-
-     {{ body }}
-
-
-    * if you used to set ``## Commit Message`` in the pull request body, set :ref:`commit_message_template <commit_message_template>` to:
-
-    .. code-block:: md
-
-     {{ body | get_section("## Commit Message", "") }}
-
 
 When a pull request is merged using the ``squash`` or ``merge`` method, you can
 override the default commit message. To that end, you need to set

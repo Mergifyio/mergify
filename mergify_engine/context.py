@@ -2019,17 +2019,8 @@ class PullRequest(BasePullRequest):
 
     async def get_commit_message(
         self,
-        mode: typing.Literal["default", "title+body", "template"] = "default",
         template: typing.Optional[str] = None,
     ) -> typing.Optional[typing.Tuple[str, str]]:
-
-        if mode == "title+body":
-            body = typing.cast(str, await self.body)
-            # Include PR number to mimic default GitHub format
-            return (
-                f"{(await self.title)} (#{(await self.number)})",
-                body,
-            )
 
         if template is None:
             # No template from configuration, looks at template from body

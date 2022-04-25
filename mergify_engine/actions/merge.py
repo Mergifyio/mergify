@@ -21,7 +21,6 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import queue
 from mergify_engine import rules
@@ -68,7 +67,7 @@ class MergeAction(merge_base.MergeBaseAction):
         # | actions.ActionFlag.ALWAYS_RUN
     )
 
-    validator_default = {
+    validator = {
         voluptuous.Required("method", default="merge"): voluptuous.Any(
             "rebase",
             "merge",
@@ -87,25 +86,6 @@ class MergeAction(merge_base.MergeBaseAction):
             "priority", default=queue.PriorityAliases.medium.value
         ): queue.PrioritySchema,
     }
-
-    validator_commit_message_mode = {
-        voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-            "default", "title+body"
-        ),
-    }
-
-    @classmethod
-    def get_config_schema(
-        cls, partial_validation: bool
-    ) -> typing.Dict[typing.Any, typing.Any]:
-        schema = cls.validator_default.copy()
-        if config.ALLOW_COMMIT_MESSAGE_OPTION:
-            schema.update(cls.validator_commit_message_mode)
-        return schema
-
-    def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:
-        if not config.ALLOW_COMMIT_MESSAGE_OPTION:
-            self.config["commit_message"] = "default"
 
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
@@ -159,8 +139,6 @@ class MergeAction(merge_base.MergeBaseAction):
             "action.merge",
             {
                 "merge_bot_account": bool(self.config["merge_bot_account"]),
-                "commit_message": self.config["commit_message"],
-                "commit_message_set": "commit_message" in self.raw_config,
             },
         )
 
