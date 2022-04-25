@@ -23,12 +23,10 @@ import yaml
 
 from mergify_engine import cache
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine.clients import github
-from mergify_engine.engine import actions_runner
 from mergify_engine.rules import live_resolvers
 from mergify_engine.tests.functional import base
 
@@ -294,57 +292,6 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert checks[0]["conclusion"] == "success"
 
         assert await self.is_pull_merged(p["number"])
-
-    async def test_merge_custom_msg_title_body(self) -> None:
-        rules = {
-            "pull_request_rules": [
-                {
-                    "name": "Merge on main",
-                    "conditions": [
-                        f"base={self.main_branch_name}",
-                        "status-success=continuous-integration/fake-ci",
-                    ],
-                    "actions": {
-                        "merge": {"method": "merge", "commit_message": "title+body"}
-                    },
-                }
-            ]
-        }
-
-        await self.setup_repo(yaml.dump(rules))
-
-        msg = "It fixes it"
-        p = await self.create_pr(message=msg)
-        await self.create_status(p)
-
-        await self.run_engine()
-
-        await self.wait_for("pull_request", {"action": "closed"})
-
-        assert await self.is_pull_merged(p["number"])
-
-        commit = (await self.get_head_commit())["commit"]
-        assert (
-            f"test_merge_custom_msg_title_body: pull request n1 from fork (#{p['number']})\n\n{msg}"
-            == commit["message"]
-        )
-        ctxt = await context.Context.create(self.repository_ctxt, p, [])
-        summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-        assert summary is not None
-        if config.SAAS_MODE:
-            assert (
-                actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_SASS.format(
-                    action_name="merge"
-                )
-                in summary["output"]["summary"]
-            )
-        else:
-            assert (
-                actions_runner.COMMIT_MESSAGE_MODE_DEPRECATION_GHES.format(
-                    action_name="merge"
-                )
-                in summary["output"]["summary"]
-            )
 
     async def test_merge_and_closes_issues(self) -> None:
         rules = {

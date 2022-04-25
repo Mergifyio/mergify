@@ -19,7 +19,6 @@ import voluptuous
 
 from mergify_engine import actions
 from mergify_engine import check_api
-from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import delayed_refresh
@@ -62,8 +61,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         cls,
         partial_validation: bool,
     ) -> typing.Dict[typing.Any, typing.Any]:
-
-        validator_default = {
+        return {
             voluptuous.Required(
                 "name", default="" if partial_validation else voluptuous.UNDEFINED
             ): str,
@@ -93,17 +91,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
             ): queue.PrioritySchema,
             voluptuous.Required("require_branch_protection", default=True): bool,
         }
-
-        validator_commit_message = {
-            voluptuous.Required("commit_message", default="default"): voluptuous.Any(
-                "default", "title+body"
-            ),
-        }
-
-        schema = validator_default
-        if config.ALLOW_COMMIT_MESSAGE_OPTION:
-            schema.update(validator_commit_message)
-        return schema
 
     async def _subscription_status(
         self, ctxt: context.Context
@@ -410,9 +397,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "rebase" if self.config["method"] == "fast-forward" else "merge"
             )
 
-        if not config.ALLOW_COMMIT_MESSAGE_OPTION:
-            self.config["commit_message"] = "default"
-
         try:
             self.queue_rule = mergify_config["queue_rules"][self.config["name"]]
         except KeyError:
@@ -546,8 +530,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 "allow_inplace_checks": self.config["queue_config"][
                     "allow_inplace_checks"
                 ],
-                "commit_message": self.config["commit_message"],
-                "commit_message_set": "commit_message" in self.raw_config,
             },
         )
 

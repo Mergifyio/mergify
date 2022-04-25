@@ -23,7 +23,7 @@ from mergify_engine.tests.unit import conftest
 
 
 @pytest.mark.parametrize(
-    "body, title, message, mode, template",
+    "body, title, message, template",
     [
         (
             """Hello world
@@ -34,7 +34,6 @@ my title
 my body""",
             "my title",
             "my body",
-            "default",
             None,
         ),
         (
@@ -47,7 +46,6 @@ my body
 is longer""",
             "my title",
             "my body\nis longer",
-            "default",
             None,
         ),
         (
@@ -60,7 +58,6 @@ Authored-By: {{author}}
 on two lines""",
             "My PR title",
             "Authored-By: contributor\non two lines",
-            "default",
             None,
         ),
         (
@@ -77,7 +74,6 @@ CI worked:
 """,
             "My Title",
             "CI worked:\n\n- my CI\n",
-            "default",
             None,
         ),
         (
@@ -90,7 +86,6 @@ my title
 my body""",
             "my title",
             "my body",
-            "default",
             None,
         ),
         (
@@ -103,7 +98,6 @@ WATCHOUT ^^^ there is empty spaces above for testing ^^^^
 my body""",  # noqa:W293,W291
             "my title",
             "WATCHOUT ^^^ there is empty spaces above for testing ^^^^\nmy body",
-            "default",
             None,
         ),
         (
@@ -116,21 +110,12 @@ my title
 """,
             "my title",
             "",
-            "default",
-            None,
-        ),
-        (
-            "Here's my message",
-            "My PR title (#43)",
-            "Here's my message",
-            "title+body",
             None,
         ),
         (
             "",
             "My PR title (#43)",
             "",
-            "template",
             "{{title}} (#{{number}})\n\n{{body}}",
         ),
     ],
@@ -139,7 +124,6 @@ async def test_merge_commit_message(
     body: str,
     title: str,
     message: str,
-    mode: typing.Literal["default", "title+body", "template"],
     template: typing.Optional[str],
     context_getter: conftest.ContextGetterFixture,
 ) -> None:
@@ -163,7 +147,7 @@ async def test_merge_commit_message(
         ]
     )
     ctxt._caches.pull_check_runs.set([])
-    assert await ctxt.pull_request.get_commit_message(mode=mode, template=template) == (
+    assert await ctxt.pull_request.get_commit_message(template=template) == (
         title,
         message,
     )

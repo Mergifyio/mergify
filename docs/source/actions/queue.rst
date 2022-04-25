@@ -378,26 +378,11 @@ These are the options of the ``queue`` action:
        request with the highest priority is merged first.
        ``low``, ``medium``, ``high`` are aliases for ``1000``, ``2000``, ``3000``.
 
-   * - ``commit_message``
-     - string
-     - ``default``
-     - |deprecated tag|
-       Defines what commit message to use when merging using the ``squash`` or
-       ``merge`` method. Possible values are:
-
-       * ``default`` to use the default commit message provided by GitHub
-         or defined in ``commit_message_template``
-         or defined in the pull request body (see :ref:`commit message`).
-
-       * ``title+body`` means to use the title and body from the pull request
-         itself as the commit message. The pull request number will be added to
-         end of the title.
-
    * - ``commit_message_template``
      - :ref:`data type template`
      -
-     - Template to use as the commit message when using the ``merge`` or ``squash`` merge method
-       and ``commit_message`` is set to ``default``.
+     - Template to use as the commit message when using the ``merge`` or ``squash`` merge method.
+       Template can also be defined in the pull request body (see :ref:`commit message`).
 
    * - ``require_branch_protection``
      - bool
