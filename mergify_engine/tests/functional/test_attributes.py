@@ -52,9 +52,9 @@ class TestAttributes(base.FunctionalTestBase):
             pr_force_rebase = await self.create_pr()
             await self.merge_pull(pr_force_rebase["number"])
             await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
-            await self.run_engine()
+            await self.run_full_engine()
             await self.wait_for("pull_request", {"action": "opened"})
-            await self.run_engine()
+            await self.run_full_engine()
             pr = await self.get_pull(pr["number"])
             assert pr["merged"]
 
@@ -73,14 +73,14 @@ class TestAttributes(base.FunctionalTestBase):
             pr = await self.create_pr()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
-            await self.run_engine()
+            await self.run_full_engine()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
 
             assert await self.redis_cache.zcard("delayed-refresh") == 1
 
         with freeze_time("2021-05-30T14:00:00", tick=True):
-            await self.run_engine()
+            await self.run_full_engine()
             await self.wait_for("issue_comment", {"action": "created"})
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])
@@ -137,14 +137,14 @@ class TestAttributes(base.FunctionalTestBase):
             pr = await self.create_pr()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
-            await self.run_engine()
+            await self.run_full_engine()
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
 
             assert await self.redis_cache.zcard("delayed-refresh") == 1
 
         with freeze_time("2021-06-02T14:00:00", tick=True):
-            await self.run_engine()
+            await self.run_full_engine()
             await self.wait_for("issue_comment", {"action": "created"})
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])

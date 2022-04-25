@@ -532,7 +532,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     async def wait_for(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         return await self._event_reader.wait_for(*args, **kwargs)
 
-    async def _async_run_workers(self) -> None:
+    async def run_full_engine(self) -> None:
+        LOG.log(42, "RUNNING FULL ENGINE")
         w = worker.Worker(
             idle_sleep_time=self.WORKER_IDLE_SLEEP_TIME if RECORD else 0.01,
             enabled_services={"shared-stream", "dedicated-stream", "delayed-refresh"},
@@ -557,7 +558,15 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     async def run_engine(self) -> None:
         LOG.log(42, "RUNNING ENGINE")
-        await self._async_run_workers()
+        w = worker.Worker(enabled_services=set())
+        await w.start()
+
+        while w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0:
+            await w.shared_stream_worker_task(0)
+            await w.dedicated_stream_worker_task(config.TESTING_ORGANIZATION_ID)
+
+        w.stop()
+        await w.wait_shutdown_complete()
 
     def get_gitter(
         self, logger: "logging.LoggerAdapter[logging.Logger]"
