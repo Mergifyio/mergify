@@ -17,6 +17,7 @@ import asyncio
 import collections
 import dataclasses
 import logging
+import os
 import re
 import shutil
 import tempfile
@@ -25,10 +26,6 @@ import urllib.parse
 
 from mergify_engine import config
 from mergify_engine import github_types
-
-
-if typing.TYPE_CHECKING:
-    import subprocess  # nosec
 
 
 @dataclasses.dataclass
@@ -96,9 +93,26 @@ class Gitter(object):
     GIT_COMMAND_TIMEOUT: int = dataclasses.field(init=False, default=4 * 60 + 30)
 
     async def init(self) -> None:
+        # TODO(sileht): use aiofiles instead of thread
         self.tmp = await asyncio.to_thread(  # type: ignore[call-arg]
             tempfile.mkdtemp, prefix="mergify-gitter"
         )
+        if self.tmp is None:
+            raise RuntimeError("mkdtemp failed")
+        self.repository = os.path.join(self.tmp, "repository")
+        # TODO(sileht): use aiofiles instead of thread
+        await asyncio.to_thread(os.mkdir, self.repository)
+
+        self.env = {
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NOGLOB_PATHSPECS": "1",
+            "GIT_PROTOCOL_FROM_USER": "0",
+            "GIT_ALLOW_PROTOCOL": "https",
+            "PATH": os.environ["PATH"],
+            "HOME": self.tmp,
+            "TMPDIR": self.tmp,
+        }
         version = await self("version")
         self.logger.info("git directory created", path=self.tmp, version=version)
         await self("init", "--initial-branch=tmp-mergify-trunk")
@@ -109,14 +123,30 @@ class Gitter(object):
         await self("config", "core.repositoryformatversion", "1")
         # Disable gc since this is a thrown-away repository
         await self("config", "gc.auto", "0")
+        # Use one git cache daemon per Gitter
+        await self("config", "credential.useHttpPath", "true")
+        await self(
+            "config",
+            "credential.helper",
+            f"cache --timeout=300 --socket={self.tmp}/.git-creds-socket",
+        )
+
+    def prepare_safe_env(
+        self,
+        _env: typing.Optional[typing.Dict[str, str]] = None,
+    ) -> typing.Dict[str, str]:
+        safe_env = self.env.copy()
+        if _env is not None:
+            safe_env.update(_env)
+        return safe_env
 
     async def __call__(
         self,
         *args: str,
         _input: typing.Optional[str] = None,
-        _env: typing.Optional["subprocess._ENV"] = None,
+        _env: typing.Optional[typing.Dict[str, str]] = None,
     ) -> str:
-        if self.tmp is None:
+        if self.repository is None:
             raise RuntimeError("__call__() called before init()")
 
         self.logger.info("calling: %s", " ".join(args))
@@ -128,11 +158,11 @@ class Gitter(object):
             p = await asyncio.create_subprocess_exec(
                 "git",
                 *args,
-                cwd=self.tmp,
+                cwd=self.repository,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 stdin=None if _input is None else asyncio.subprocess.PIPE,
-                env=_env,
+                env=self.prepare_safe_env(_env),
             )
 
             stdout, _ = await asyncio.wait_for(
@@ -186,10 +216,13 @@ class Gitter(object):
         self.logger.info("cleaning: %s", self.tmp)
         try:
             await self(
-                "credential-cache", f"--socket={self.tmp}/.git/creds/socket", "exit"
+                "credential-cache",
+                f"--socket={self.tmp}/.git-creds-socket",
+                "exit",
             )
         except GitError:  # pragma: no cover
             self.logger.warning("git credential-cache exit fail")
+        # TODO(sileht): use aiofiles instead of thread
         await asyncio.to_thread(shutil.rmtree, self.tmp)
 
     async def configure(
@@ -201,13 +234,6 @@ class Gitter(object):
             email = config.GIT_EMAIL
         await self("config", "user.name", name)
         await self("config", "user.email", email)
-        # Use one git cache daemon per Gitter
-        await self("config", "credential.useHttpPath", "true")
-        await self(
-            "config",
-            "credential.helper",
-            f"cache --timeout=300 --socket={self.tmp}/.git/creds/socket",
-        )
 
     async def add_cred(self, username: str, password: str, path: str) -> None:
         parsed = list(urllib.parse.urlparse(config.GITHUB_URL))

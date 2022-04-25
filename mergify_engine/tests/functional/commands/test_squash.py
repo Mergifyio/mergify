@@ -28,7 +28,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         )
 
         for i in range(0, 3):
-            open(self.git.tmp + f"/file{i}", "wb").close()
+            open(self.git.repository + f"/file{i}", "wb").close()
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i+1}")
 
@@ -74,7 +74,7 @@ class TestCommandSquash(base.FunctionalTestBase):
             "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name1
         )
 
-        open(self.git.tmp + "/file0", "wb").close()
+        open(self.git.repository + "/file0", "wb").close()
         await self.git("add", "file0")
         await self.git("commit", "--no-edit", "-m", "feat(): add file0")
 
@@ -91,7 +91,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         )
 
         for i in range(1, 4):
-            open(self.git.tmp + f"/file{i}", "wb").close()
+            open(self.git.repository + f"/file{i}", "wb").close()
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i}")
 
@@ -157,7 +157,7 @@ Awesome body
             "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name1
         )
 
-        open(self.git.tmp + "/file0", "wb").close()
+        open(self.git.repository + "/file0", "wb").close()
         await self.git("add", "file0")
         await self.git("commit", "--no-edit", "-m", "feat(): add file0")
 
@@ -170,7 +170,7 @@ Awesome body
         )
 
         for i in range(1, 4):
-            open(self.git.tmp + f"/file{i}", "wb").close()
+            open(self.git.repository + f"/file{i}", "wb").close()
             await self.git("add", f"file{i}")
             await self.git("commit", "--no-edit", "-m", f"feat(): add file{i}")
 
@@ -193,7 +193,7 @@ Awesome body
             "checkout", "--quiet", f"origin/{self.main_branch_name}", "-b", branch_name3
         )
 
-        open(self.git.tmp + "/an_other_file", "wb").close()
+        open(self.git.repository + "/an_other_file", "wb").close()
         await self.git("add", "an_other_file")
         await self.git("commit", "--no-edit", "-m", "feat(): add an other file")
 

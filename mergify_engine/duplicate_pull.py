@@ -322,7 +322,7 @@ async def duplicate(
                 cherry_pick_error += f"Cherry-pick of {commit['sha']} has failed:\n```\n{output}```\n\n\n"
                 if not ignore_conflicts:
                     raise DuplicateFailed(cherry_pick_error)
-                await git("add", "*")
+                await git("add", "*", _env={"GIT_NOGLOB_PATHSPECS": "0"})
                 await git("commit", "-a", "--no-edit", "--allow-empty")
 
         await git("push", "origin", bp_branch)

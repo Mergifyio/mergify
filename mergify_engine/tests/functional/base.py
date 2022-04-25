@@ -572,7 +572,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         files: typing.Optional[typing.Dict[str, str]] = None,
     ) -> None:
 
-        if self.git.tmp is None:
+        if self.git.repository is None:
             raise RuntimeError("self.git.init() not called, tmp dir empty")
 
         if test_branches is None:
@@ -596,11 +596,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git("remote", "add", "fork", self.git_fork)
 
         if mergify_config is None:
-            with open(self.git.tmp + "/.gitkeep", "w") as f:
+            with open(self.git.repository + "/.gitkeep", "w") as f:
                 f.write("repo must not be empty")
             await self.git("add", ".gitkeep")
         else:
-            with open(self.git.tmp + "/.mergify.yml", "w") as f:
+            with open(self.git.repository + "/.mergify.yml", "w") as f:
                 f.write(mergify_config)
             await self.git("add", ".mergify.yml")
 
@@ -638,7 +638,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
     ) -> github_types.GitHubPullRequest:
         self.pr_counter += 1
 
-        if self.git.tmp is None:
+        if self.git.repository is None:
             raise RuntimeError("self.git.init() not called, tmp dir empty")
 
         if base is None:
@@ -660,17 +660,18 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         if files is not None:
             await self._git_create_files(files)
         else:
-            open(self.git.tmp + f"/test{self.pr_counter}", "wb").close()
+            open(self.git.repository + f"/test{self.pr_counter}", "wb").close()
             await self.git("add", f"test{self.pr_counter}")
         args_commit = ["commit", "--no-edit", "-m", title]
         tmp_kwargs = {}
         if verified:
             temporary_folder = tempfile.mkdtemp()
+            tmp_env = {"GNUPGHOME": temporary_folder}
             self.addCleanup(shutil.rmtree, temporary_folder)
-            tmp_env = os.environ.copy()
-            tmp_env["GNUPGHOME"] = temporary_folder
             subprocess.run(
-                ["gpg", "--import"], input=config.TESTING_GPGKEY_SECRET, env=tmp_env
+                ["gpg", "--import"],
+                input=config.TESTING_GPGKEY_SECRET,
+                env=self.git.prepare_safe_env(tmp_env),
             )
             await self.git("config", "user.signingkey", config.TESTING_ID_GPGKEY_SECRET)
             await self.git(
@@ -711,11 +712,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         return typing.cast(github_types.GitHubPullRequest, resp.json())
 
     async def _git_create_files(self, files: typing.Dict[str, str]) -> None:
-        if self.git.tmp is None:
+        if self.git.repository is None:
             raise RuntimeError("self.git.init() not called, tmp dir empty")
 
         for name, content in files.items():
-            path = self.git.tmp + "/" + name
+            path = self.git.repository + "/" + name
             directory_path = os.path.dirname(path)
             os.makedirs(directory_path, exist_ok=True)
             with open(path, "w") as f:

@@ -30,8 +30,8 @@ class TestDismissReviewsAction(base.FunctionalTestBase):
     async def _push_for_synchronize(
         self, branch, filename="unwanted_changes", remote="fork"
     ):
-        open(self.git.tmp + f"/{filename}", "wb").close()
-        await self.git("add", self.git.tmp + f"/{filename}")
+        open(self.git.repository + f"/{filename}", "wb").close()
+        await self.git("add", self.git.repository + f"/{filename}")
         await self.git("commit", "--no-edit", "-m", filename)
         await self.git("push", "--quiet", remote, branch)
 

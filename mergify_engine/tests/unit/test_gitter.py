@@ -37,18 +37,18 @@ async def test_gitter(monkeypatch: pytest.MonkeyPatch) -> None:
             exc_info.value.output == "fatal: pathspec 'toto' did not match any files\n"
         )
 
-        if git.tmp is None:
+        if git.repository is None:
             pytest.fail("No tmp dir")
 
-        with open(git.tmp + "/.mergify.yml", "w") as f:
+        with open(git.repository + "/.mergify.yml", "w") as f:
             f.write("pull_request_rules:")
         await git("add", ".mergify.yml")
         await git("commit", "-m", "Intial commit", "-a", "--no-edit")
 
-        assert os.path.exists(f"{git.tmp}/.git")
+        assert os.path.exists(f"{git.repository}/.git")
     finally:
         await git.cleanup()
-        assert not os.path.exists(f"{git.tmp}/.git")
+        assert not os.path.exists(f"{git.repository}/.git")
 
 
 @pytest.mark.parametrize(
