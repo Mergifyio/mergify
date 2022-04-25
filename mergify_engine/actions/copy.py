@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2018 Mehdi Abaakouk <sileht@sileht.net>
+#  Copyright © 2018—2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -40,7 +40,7 @@ def Regex(value: str) -> typing.Pattern[str]:
         raise voluptuous.Invalid(str(e))
 
 
-def DuplicateBodyJinja2(v):
+def DuplicateBodyJinja2(v: typing.Any) -> typing.Optional[str]:
     return types.Jinja2(
         v,
         {
@@ -50,7 +50,7 @@ def DuplicateBodyJinja2(v):
     )
 
 
-def DuplicateTitleJinja2(v):
+def DuplicateTitleJinja2(v: typing.Any) -> typing.Optional[str]:
     return types.Jinja2(
         v,
         {

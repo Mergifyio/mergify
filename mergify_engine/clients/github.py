@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -123,7 +123,7 @@ class GithubAppInstallationAuth(httpx.Auth):
         return self._installation["account"]["login"]
 
     @contextlib.contextmanager
-    def response_body_read(self):
+    def response_body_read(self) -> typing.Generator[None, None, None]:
         self.requires_response_body = True
         try:
             yield
