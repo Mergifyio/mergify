@@ -119,7 +119,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
         )
 
         assert r.status_code == 404
-        assert r.json() == {"detail": f'The queue "{queue_name}" does not exists.'}
+        assert r.json() == {"detail": f'The queue "{queue_name}" does not exist.'}
 
     async def test_create_queue_freeze(self):
 
@@ -503,7 +503,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
 
         assert r.status_code == 404
         assert r.json() == {
-            "detail": f'The queue "{queue_name}" does not exists or is not currently frozen.'
+            "detail": f'The queue "{queue_name}" does not exist or is not currently frozen.'
         }
 
         queue_name = "default"
@@ -518,7 +518,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
 
         assert r.status_code == 404
         assert r.json() == {
-            "detail": f'The queue "{queue_name}" does not exists or is not currently frozen.'
+            "detail": f'The queue "{queue_name}" does not exist or is not currently frozen.'
         }
 
     async def test_delete_queue_freeze(self):
@@ -711,7 +711,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
 
         assert r.status_code == 404
         assert r.json() == {
-            "detail": f'The queue "{queue_name}" does not exists or is not currently frozen.'
+            "detail": f'The queue "{queue_name}" does not exist or is not currently frozen.'
         }
 
         queue_name = "urgent"
@@ -726,7 +726,7 @@ class TestQueueFreeze(base.FunctionalTestBase):
 
         assert r.status_code == 404
         assert r.json() == {
-            "detail": f'The queue "{queue_name}" does not exists or is not currently frozen.'
+            "detail": f'The queue "{queue_name}" does not exist or is not currently frozen.'
         }
 
     async def test_get_queue_freeze(self):
