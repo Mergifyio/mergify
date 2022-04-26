@@ -3358,13 +3358,13 @@ DO NOT EDIT
             p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.create_status(p1)
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.wait_for("pull_request", {"action": "synchronize"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             # p1 has been rebased
             p1 = await self.get_pull(p1["number"])
@@ -3384,7 +3384,7 @@ DO NOT EDIT
 
         with freeze_time("2021-05-30T10:12:00", tick=True):
 
-            await self.run_engine()
+            await self.run_full_engine()
             check = first(
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
@@ -3431,13 +3431,13 @@ DO NOT EDIT
             p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.create_status(p1)
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.wait_for("pull_request", {"action": "opened"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             # p1 has been rebased
             p1 = await self.get_pull(p1["number"])
@@ -3457,7 +3457,7 @@ DO NOT EDIT
 
         with freeze_time("2021-05-30T10:12:00", tick=True):
 
-            await self.run_engine()
+            await self.run_full_engine()
             check = first(
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
@@ -3511,13 +3511,13 @@ DO NOT EDIT
             p = await self.create_pr()
             await self.merge_pull(p["number"])
             await self.wait_for("pull_request", {"action": "closed"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.create_status(p1)
-            await self.run_engine()
+            await self.run_full_engine()
 
             await self.wait_for("pull_request", {"action": "opened"})
-            await self.run_engine()
+            await self.run_full_engine()
 
             # p1 has been rebased
             p1 = await self.get_pull(p1["number"])
@@ -3539,7 +3539,7 @@ DO NOT EDIT
 
         with freeze_time("2021-05-30T20:12:00", tick=True):
 
-            await self.run_engine()
+            await self.run_full_engine()
             check = first(
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
