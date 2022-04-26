@@ -395,6 +395,7 @@ async def create_queue_freeze(
     summary="Unfreeze merge queue",
     description="Unfreeze the specified merge queue",
     dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
+    status_code=204,
 )
 async def delete_queue_freeze(
     application: application_mod.Application = fastapi.Depends(  # noqa: B008
