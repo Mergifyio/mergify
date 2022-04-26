@@ -181,7 +181,6 @@ class QueueFreezeResponse:
     response_model=Queues,
     responses={
         **api.default_responses,  # type: ignore
-        404: {"description": "Not found"},
         200: {
             "content": {
                 "application/json": {
@@ -330,6 +329,10 @@ async def repository_queues(
     summary="Freezes merge queue",
     description="Freezes the merge of the requested queue and the queues following it",
     response_model=QueueFreezeResponse,
+    responses={
+        **api.default_responses,  # type: ignore
+        404: {"description": "The queue does not exist"},
+    },
     dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
 )
 async def create_queue_freeze(
@@ -358,7 +361,7 @@ async def create_queue_freeze(
     queue_rules = config["queue_rules"]
     if all(queue_name != rule.name for rule in queue_rules):
         raise fastapi.HTTPException(
-            status_code=404, detail=f'The queue "{queue_name}" does not exists.'
+            status_code=404, detail=f'The queue "{queue_name}" does not exist.'
         )
 
     qf = await freeze.QueueFreeze.get(repository_ctxt, queue_name)
@@ -396,6 +399,10 @@ async def create_queue_freeze(
     description="Unfreeze the specified merge queue",
     dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
     status_code=204,
+    responses={
+        **api.default_responses,  # type: ignore
+        404: {"description": "The queue does not exist or is not currently frozen"},
+    },
 )
 async def delete_queue_freeze(
     application: application_mod.Application = fastapi.Depends(  # noqa: B008
@@ -418,7 +425,7 @@ async def delete_queue_freeze(
     if not await qf.delete():
         raise fastapi.HTTPException(
             status_code=404,
-            detail=f'The queue "{queue_name}" does not exists or is not currently frozen.',
+            detail=f'The queue "{queue_name}" does not exist or is not currently frozen.',
         )
 
     return fastapi.Response(status_code=HTTP_204_NO_CONTENT)
@@ -430,6 +437,10 @@ async def delete_queue_freeze(
     description="Checks if the queue is frozen and get the queue freeze data",
     response_model=QueueFreezeResponse,
     dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
+    responses={
+        **api.default_responses,  # type: ignore
+        404: {"description": "The queue does not exist or is not currently frozen"},
+    },
 )
 async def get_queue_freeze(
     queue_name: rules.QueueName = fastapi.Path(  # noqa: B008
@@ -444,7 +455,7 @@ async def get_queue_freeze(
     if qf is None:
         raise fastapi.HTTPException(
             status_code=404,
-            detail=f'The queue "{queue_name}" does not exists or is not currently frozen.',
+            detail=f'The queue "{queue_name}" does not exist or is not currently frozen.',
         )
 
     return QueueFreezeResponse(
@@ -466,6 +477,9 @@ async def get_queue_freeze(
     description="Get the list of frozen queues inside the requested repository",
     response_model=QueueFreezeResponse,
     dependencies=[fastapi.Depends(security.check_subscription_feature_queue_freeze)],
+    responses={
+        **api.default_responses,  # type: ignore
+    },
 )
 async def get_list_queue_freeze(
     repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
