@@ -92,7 +92,7 @@ async def render_bot_account(
         except http.HTTPNotFound:
             raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,
-                (f"`{bot_account}` account used as `{option_name}` does not exists"),
+                (f"`{bot_account}` account used as `{option_name}` does not exist"),
                 "",
             )
 

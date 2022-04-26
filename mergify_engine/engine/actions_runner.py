@@ -533,7 +533,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
             check_name,
             check_api.Result(
                 check_api.Conclusion.CANCELLED,
-                "The rule/action does not exists anymore",
+                "The rule/action does not exist anymore",
                 "",
             ),
         )
