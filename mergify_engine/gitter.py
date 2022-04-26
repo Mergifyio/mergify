@@ -26,6 +26,7 @@ import urllib.parse
 
 from mergify_engine import config
 from mergify_engine import github_types
+from mergify_engine.dashboard import user_tokens
 
 
 @dataclasses.dataclass
@@ -226,14 +227,23 @@ class Gitter(object):
         await asyncio.to_thread(shutil.rmtree, self.tmp)
 
     async def configure(
-        self, name: typing.Optional[str] = None, email: typing.Optional[str] = None
+        self, user: typing.Optional[user_tokens.UserTokensUser] = None
     ) -> None:
-        if name is None:
-            name = f"{config.CONTEXT}-bot"
-        if email is None:
-            email = config.GIT_EMAIL
+        if user is None:
+            name = "Mergify"
+            login = config.BOT_USER_LOGIN
+            account_id = config.BOT_USER_ID
+        else:
+            name = user["name"] or user["login"]
+            login = user["login"]
+            account_id = user["id"]
+
         await self("config", "user.name", name)
-        await self("config", "user.email", email)
+        await self(
+            "config",
+            "user.email",
+            f"{account_id}+{login}@users.noreply.{config.GITHUB_DOMAIN}",
+        )
 
     async def add_cred(self, username: str, password: str, path: str) -> None:
         parsed = list(urllib.parse.urlparse(config.GITHUB_URL))

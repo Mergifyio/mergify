@@ -96,12 +96,14 @@ async def dashboard(
         config.TESTING_ORGANIZATION_ID,
         [
             {
+                "id": github_types.GitHubAccountIdType(config.ORG_ADMIN_ID),
                 "login": github_types.GitHubLogin("mergify-test1"),
                 "oauth_access_token": config.ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN,
                 "name": None,
                 "email": None,
             },
             {
+                "id": github_types.GitHubAccountIdType(config.ORG_USER_ID),
                 "login": github_types.GitHubLogin("mergify-test4"),
                 "oauth_access_token": config.ORG_USER_PERSONAL_TOKEN,
                 "name": None,

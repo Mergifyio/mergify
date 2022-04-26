@@ -21,6 +21,7 @@ import os
 import secrets
 import sys
 import typing
+from urllib import parse
 
 import dotenv
 import voluptuous
@@ -60,16 +61,17 @@ def CommaSeparatedStringTuple(
     return d
 
 
-def AccountTokens(v: str) -> typing.Dict[str, str]:
+def AccountTokens(v: str) -> typing.List[typing.Tuple[int, str, str]]:
     try:
-        return dict(
-            typing.cast(
-                typing.List[typing.Tuple[str, str]],
-                CommaSeparatedStringTuple(v, split=2),
+        return [
+            (int(_id), login, token)
+            for _id, login, token in typing.cast(
+                typing.List[typing.Tuple[int, str, str]],
+                CommaSeparatedStringTuple(v, split=3),
             )
-        )
+        ]
     except ValueError:
-        raise ValueError("wrong format, expect `login1:token1,login2:token2`")
+        raise ValueError("wrong format, expect `id1:login1:token1,id2:login2:token2`")
 
 
 API_ACCESS_KEY_LEN = 32
@@ -208,8 +210,6 @@ Schema = voluptuous.Schema(
         voluptuous.Required("CACHE_TOKEN_SECRET_OLD", default=None): voluptuous.Any(
             None, str
         ),
-        voluptuous.Required("CONTEXT", default="mergify"): str,
-        voluptuous.Required("GIT_EMAIL", default="noreply@mergify.com"): str,
         voluptuous.Required("WORKER_SHUTDOWN_TIMEOUT", default=10): voluptuous.Coerce(
             float
         ),
@@ -233,6 +233,7 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "TESTING_ORGANIZATION_NAME", default="mergifyio-testing"
         ): str,
+        voluptuous.Required("ORG_ADMIN_ID", default=38494943): int,
         voluptuous.Required(
             "ORG_ADMIN_PERSONAL_TOKEN",
             default="<ORG_ADMIN_PERSONAL_TOKEN>",
@@ -240,9 +241,8 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "EXTERNAL_USER_PERSONAL_TOKEN", default="<EXTERNAL_USER_TOKEN>"
         ): str,
-        voluptuous.Required(
-            "ORG_USER_PERSONAL_TOKEN", default="<EXTERNAL_USER_TOKEN>"
-        ): str,
+        voluptuous.Required("ORG_USER_ID", default=74646794): int,
+        voluptuous.Required("ORG_USER_PERSONAL_TOKEN", default="<ORG_USER_TOKEN>"): str,
         voluptuous.Required(
             "ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN",
             default="<ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
@@ -292,9 +292,7 @@ DASHBOARD_TO_ENGINE_API_KEY: str
 DASHBOARD_TO_ENGINE_API_KEY_PRE_ROTATION: str
 OAUTH_CLIENT_ID: str
 OAUTH_CLIENT_SECRET: str
-GIT_EMAIL: str
-CONTEXT: str
-ACCOUNT_TOKENS: typing.Dict[str, str]
+ACCOUNT_TOKENS: typing.List[typing.Tuple[int, str, str]]
 APPLICATION_APIKEYS: typing.Dict[str, ApplicationAPIKey]
 WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
@@ -312,7 +310,9 @@ LOG_DATADOG: bool
 LOG_DATADOG_LEVEL: int  # This is converted to an int by voluptuous
 LOG_DEBUG_LOGGER_NAMES: typing.List[str]
 ORG_ADMIN_PERSONAL_TOKEN: str
+ORG_ADMIN_ID: github_types.GitHubAccountIdType
 ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
+ORG_USER_ID: github_types.GitHubAccountIdType
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 TESTING_MERGIFY_TEST_1_ID: int
 TESTING_MERGIFY_TEST_2_ID: int
@@ -330,6 +330,7 @@ for key, _ in Schema.schema.items():
     val = os.getenv(f"MERGIFYENGINE_{key}")
     if val is not None:
         CONFIG[key] = val
+
 
 # DASHBOARD API KEYS are required only for Saas
 if "SUBSCRIPTION_TOKEN" in CONFIG:
@@ -352,6 +353,9 @@ if globals()["STREAM_URL"] is None:
 
 if globals()["QUEUE_URL"] is None:
     QUEUE_URL = globals()["STORAGE_URL"]
+
+GITHUB_URL = globals()["GITHUB_URL"]  # mypy workaround
+GITHUB_DOMAIN = parse.urlparse(GITHUB_URL).hostname
 
 # NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
 # it in base64 format

@@ -273,10 +273,7 @@ async def duplicate(
             username = "x-access-token"
             password = token
         else:
-            await git.configure(
-                bot_account_user["name"] or bot_account_user["login"],
-                bot_account_user["email"],
-            )
+            await git.configure(bot_account_user)
             username = bot_account_user["oauth_access_token"]
             password = ""  # nosec
 

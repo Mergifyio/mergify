@@ -15,10 +15,25 @@ async def test_init(redis_cache):
     "users",
     (
         [],
-        [{"login": "foo", "oauth_access_token": "bar", "name": None, "email": None}],
         [
-            {"login": "foo", "oauth_access_token": "bar", "name": None, "email": None},
             {
+                "id": 54321,
+                "login": "foo",
+                "oauth_access_token": "bar",
+                "name": None,
+                "email": None,
+            }
+        ],
+        [
+            {
+                "id": 42,
+                "login": "foo",
+                "oauth_access_token": "bar",
+                "name": None,
+                "email": None,
+            },
+            {
+                "id": 123,
                 "login": "login",
                 "oauth_access_token": "token",
                 "name": None,
@@ -101,10 +116,12 @@ async def test_user_tokens_tokens_via_env(monkeypatch, redis_cache):
     assert ut.get_token_for("nop") is None
 
     monkeypatch.setattr(
-        config, "ACCOUNT_TOKENS", config.AccountTokens("foo:bar,login:token")
+        config, "ACCOUNT_TOKENS", config.AccountTokens("1:foo:bar,5:login:token")
     )
 
     ut = await user_tokens.UserTokensOnPremise.get(redis_cache, 123)
+    assert ut.get_token_for("foo")["id"] == 1
     assert ut.get_token_for("foo")["oauth_access_token"] == "bar"
+    assert ut.get_token_for("login")["id"] == 5
     assert ut.get_token_for("login")["oauth_access_token"] == "token"
     assert ut.get_token_for("nop") is None

@@ -40,6 +40,7 @@ class UserTokensUserNotFound(Exception):
 
 
 class UserTokensUser(typing.TypedDict):
+    id: github_types.GitHubAccountIdType
     login: github_types.GitHubLogin
     oauth_access_token: github_types.GitHubOAuthToken
     name: typing.Optional[str]
@@ -176,6 +177,13 @@ class UserTokensSaas(UserTokensBase):
                 # Old cache format, just drop it
                 return None
 
+            if (
+                decrypted_tokens["user_tokens"]
+                and "id" not in decrypted_tokens["user_tokens"][0]
+            ):
+                # Old cache format, just drop it
+                return None
+
             return cls(redis, owner_id, decrypted_tokens["user_tokens"], ttl)
         return None
 
@@ -210,6 +218,7 @@ class UserTokensOnPremise(UserTokensBase):
             owner_id,
             [
                 {
+                    "id": github_types.GitHubAccountIdType(_id),
                     "login": github_types.GitHubLogin(login),
                     "oauth_access_token": github_types.GitHubOAuthToken(
                         oauth_access_token
@@ -217,7 +226,7 @@ class UserTokensOnPremise(UserTokensBase):
                     "email": None,
                     "name": None,
                 }
-                for login, oauth_access_token in config.ACCOUNT_TOKENS.items()
+                for _id, login, oauth_access_token in config.ACCOUNT_TOKENS
             ],
         )
 

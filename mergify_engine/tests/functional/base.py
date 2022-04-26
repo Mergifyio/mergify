@@ -600,7 +600,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             "",
             f"mergify-test2/{self.RECORD_CONFIG['repository_name']}",
         )
-        await self.git("config", "user.name", f"{config.CONTEXT}-tester")
         await self.git("remote", "add", "origin", self.git_origin)
         await self.git("remote", "add", "fork", self.git_fork)
 
