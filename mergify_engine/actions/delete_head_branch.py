@@ -84,7 +84,7 @@ class DeleteHeadBranchAction(actions.Action):
             ):
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
-                    f"Branch `{ctxt.pull['head']['ref']}` does not exists",
+                    f"Branch `{ctxt.pull['head']['ref']}` does not exist",
                     "",
                 )
             else:

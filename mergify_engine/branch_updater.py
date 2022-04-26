@@ -118,7 +118,7 @@ async def _do_rebase(
     # $ git push origin sileht/testpr:sileht/testpr
 
     if ctxt.pull["head"]["repo"] is None:
-        raise BranchUpdateFailure("The head repository does not exists anymore")
+        raise BranchUpdateFailure("The head repository does not exist anymore")
 
     head_branch = ctxt.pull["head"]["ref"]
     base_branch = ctxt.pull["base"]["ref"]
