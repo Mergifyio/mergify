@@ -64,26 +64,20 @@ class HTTPClientSideError(httpx.HTTPStatusError):
     def message(self) -> str:
         # TODO(sileht): do something with errors and documentation_url when present
         # https://developer.github.com/v3/#client-errors
-        to_cast = (
-            self.response.json()["errors"][0]["message"]
-            if "errors" in self.response.json()
-            else self.response.json()["message"]
-        )
-        return typing.cast(str, to_cast)
+        response = self.response.json()
+        message = response.get("message", "No error message provided by GitHub")
+
+        if "errors" in response:
+            if "message" in response["errors"][0]:
+                message = response["errors"][0]["message"]
+            elif isinstance(response["errors"][0], str):
+                message = response["errors"][0]
+
+        return typing.cast(str, message)
 
     @property
     def status_code(self) -> int:
         return self.response.status_code
-
-    def contains(self, msg_to_find: str) -> bool:
-
-        if "errors" in self.response.json():
-            return any(
-                msg_to_find in error["message"]
-                for error in self.response.json()["errors"]
-            )
-
-        return msg_to_find in self.response.json()["message"]
 
 
 class HTTPForbidden(HTTPClientSideError):

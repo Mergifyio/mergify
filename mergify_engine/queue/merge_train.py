@@ -560,7 +560,7 @@ class TrainCar:
             )
         except http.HTTPClientSideError as e:
 
-            if e.contains("A pull request already exists for"):
+            if "A pull request already exists for" in e.message:
                 # NOTE(sileht): filter pull request on head is dangerous.
                 # head must be organization:ref-name, if the left or the right side of the : is empty
                 # all pull requests are returned. So it's better to double checks
@@ -580,7 +580,7 @@ class TrainCar:
                     await self.train._close_pull_request(pull["number"])
                 raise tenacity.TryAgain
 
-            if not e.contains("Draft pull requests are not supported"):
+            if "Draft pull requests are not supported" not in e.message:
                 self.train.log.error(
                     "fail to create a merge-queue pull request",
                     head=branch_name,
@@ -614,7 +614,7 @@ class TrainCar:
                 },
             )
         except http.HTTPClientSideError as exc:
-            if exc.status_code == 422 and exc.contains("Reference already exists"):
+            if exc.status_code == 422 and "Reference already exists" in exc.message:
                 try:
                     await self._delete_branch()
                 except http.HTTPClientSideError as exc_patch:
@@ -668,8 +668,9 @@ class TrainCar:
                     },
                 )
             except http.HTTPClientSideError as e:
-                if e.status_code == 403 and e.contains(
-                    "Resource not accessible by integration"
+                if (
+                    e.status_code == 403
+                    and "Resource not accessible by integration" in e.message
                 ):
                     self.train.log.info(
                         "fail to create the queue pull request due to GitHub App restriction",
@@ -681,7 +682,7 @@ class TrainCar:
                     )
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationPostponed(self) from e
-                elif e.contains("Merge conflict"):
+                elif "Merge conflict" in e.message:
                     pull_requests_ahead = self.parent_pull_request_numbers[:]
                     for ep in self.still_queued_embarked_pulls:
                         if ep.user_pull_request_number == pull_number:
@@ -2168,7 +2169,7 @@ class Train(queue.QueueBase):
             )
         except http.HTTPClientSideError as exc:
             if exc.status_code == 404 or (
-                exc.status_code == 422 and exc.contains("Reference does not exist")
+                exc.status_code == 422 and "Reference does not exist" in exc.message
             ):
                 self.log.warning(
                     "fail to delete merge-queue branch",
