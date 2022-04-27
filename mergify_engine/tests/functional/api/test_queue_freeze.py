@@ -89,7 +89,15 @@ class TestQueueFreeze(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 422
-        assert r.json() == {"detail": "Missing request body parameter"}
+        assert r.json() == {
+            "detail": [
+                {
+                    "loc": ["body"],
+                    "msg": "field required",
+                    "type": "value_error.missing",
+                }
+            ]
+        }
 
         freeze_payload = {"false_key": "test freeze reason"}
 
@@ -104,7 +112,13 @@ class TestQueueFreeze(base.FunctionalTestBase):
 
         assert r.status_code == 422
         assert r.json() == {
-            "detail": "Body parameter got an unexpected keyword argument 'false_key'"
+            "detail": [
+                {
+                    "loc": ["body", "reason"],
+                    "msg": "field required",
+                    "type": "value_error.missing",
+                }
+            ]
         }
 
         freeze_payload = {"reason": "test freeze reason"}

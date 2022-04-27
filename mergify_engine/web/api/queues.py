@@ -139,11 +139,10 @@ class Queues:
     )
 
 
-@pydantic.dataclasses.dataclass
-class QueueFreezePayload:
-    reason: str = dataclasses.field(
-        metadata={"description": "The reason of the queue freeze"}
-    )
+# FIXME(sileht): reuse dataclasses variante once
+# https://github.com/tiangolo/fastapi/issues/4679 is fixed
+class QueueFreezePayload(pydantic.BaseModel):
+    reason: str = pydantic.Field(description="The reason of the queue freeze")
 
 
 @pydantic.dataclasses.dataclass
