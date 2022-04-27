@@ -172,6 +172,79 @@ async def test_client_HTTP_400(respx_mock: respx.MockRouter) -> None:
     assert str(exc_info.value.request.url) == "https://foobar/"
 
 
+async def test_message_format_client_HTTP_400(respx_mock: respx.MockRouter) -> None:
+    respx_mock.get("https://foobar/").respond(
+        400, json={"message": "This is a 4XX error", "documentation_url": "fake_url"}
+    )
+    async with http.AsyncClient() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("https://foobar/")
+
+    assert exc_info.value.message == "This is a 4XX error"
+
+    respx_mock.get("https://foobar/").respond(
+        400,
+        json={
+            "message": "error message",
+            "errors": ["This is a 4XX error"],
+            "documentation_url": "fake_url",
+        },
+    )
+    async with http.AsyncClient() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("https://foobar/")
+
+    assert exc_info.value.message == "This is a 4XX error"
+
+    respx_mock.get("https://foobar/").respond(
+        400,
+        json={
+            "message": "This is a 4XX error",
+            "errors": [{"resource": "test", "field": "test", "code": "test"}],
+            "documentation_url": "fake_url",
+        },
+    )
+    async with http.AsyncClient() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("https://foobar/")
+
+    assert exc_info.value.message == "This is a 4XX error"
+
+    respx_mock.get("https://foobar/").respond(
+        400,
+        json={
+            "message": "error message",
+            "errors": [
+                {
+                    "resource": "test",
+                    "code": "test",
+                    "field": "test",
+                    "message": "This is a 4XX error",
+                }
+            ],
+            "documentation_url": "fake_url",
+        },
+    )
+    async with http.AsyncClient() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("https://foobar/")
+
+    assert exc_info.value.message == "This is a 4XX error"
+
+    respx_mock.get("https://foobar/").respond(
+        400,
+        json={
+            "not_message_key": "false_key",
+            "documentation_url": "fake_url",
+        },
+    )
+    async with http.AsyncClient() as client:
+        with pytest.raises(http.HTTPClientSideError) as exc_info:
+            await client.get("https://foobar/")
+
+    assert exc_info.value.message == "No error message provided by GitHub"
+
+
 async def test_client_HTTP_500(respx_mock: respx.MockRouter) -> None:
     respx_mock.get("https://foobar/").respond(500, text="This is a 5XX error")
 

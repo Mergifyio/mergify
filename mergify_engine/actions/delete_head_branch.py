@@ -80,7 +80,7 @@ class DeleteHeadBranchAction(actions.Action):
             await ctxt.client.delete(f"{ctxt.base_url}/git/refs/heads/{ref_to_delete}")
         except http.HTTPClientSideError as e:
             if e.status_code == 404 or (
-                e.status_code == 422 and e.contains("Reference does not exist")
+                e.status_code == 422 and "Reference does not exist" in e.message
             ):
                 return check_api.Result(
                     check_api.Conclusion.SUCCESS,
