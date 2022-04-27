@@ -1,0 +1,5 @@
+---
+upgrade:
+  - |
+    The environment variables ``MERGIFYENGINE_ACCOUNT_TOKENS`` format has
+    changed to ``id1:login1:token1,id2:login2:token2``.

@@ -102,7 +102,7 @@ async def pre_rebase_check(ctxt: context.Context) -> None:
 async def _do_rebase(
     ctxt: context.Context,
     user: user_tokens.UserTokensUser,
-    bot_account_feature: subscription.Features,
+    committer: typing.Optional[user_tokens.UserTokensUser],
 ) -> None:
     # NOTE(sileht):
     # $ curl https://api.github.com/repos/sileht/repotest/pulls/2 | jq .commits
@@ -125,10 +125,7 @@ async def _do_rebase(
     git = gitter.Gitter(ctxt.log)
     try:
         await git.init()
-        if ctxt.subscription.has_feature(bot_account_feature):
-            await git.configure(user["name"] or user["login"], user["email"])
-        else:
-            await git.configure()
+        await git.configure(committer)
         await git.setup_remote(
             "origin", ctxt.pull["head"]["repo"], user["oauth_access_token"], ""
         )
@@ -227,9 +224,15 @@ async def rebase_with_git(
     except user_tokens.UserTokensUserNotFound as e:
         raise BranchUpdateFailure(f"Unable to rebase: {e.reason}")
 
+    # NOTE(sileht): select_users_for returns only one item if bot_account is set
+    if bot_account is not None and ctxt.subscription.has_feature(bot_account_feature):
+        committer = users[0]
+    else:
+        committer = None
+
     for user in users:
         try:
-            await _do_rebase(ctxt, user, bot_account_feature)
+            await _do_rebase(ctxt, user, committer)
         except gitter.GitAuthenticationFailure as e:  # pragma: no cover
             ctxt.log.info(
                 "authentification failure, will retry another token: %s",

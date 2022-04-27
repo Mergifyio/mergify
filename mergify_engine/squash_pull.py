@@ -53,7 +53,7 @@ async def _do_squash(
         await git.init()
 
         if ctxt.subscription.has_feature(Features.BOT_ACCOUNT):
-            await git.configure(user["name"] or user["login"], user["email"])
+            await git.configure(user)
         else:
             await git.configure()
 
