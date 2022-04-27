@@ -9,7 +9,7 @@ on:
 
 jobs:
   pep8:
-    timeout-minutes: 5
+    timeout-minutes: 7
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout 🛎️
