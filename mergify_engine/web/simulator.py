@@ -48,7 +48,7 @@ def PullRequestUrl(v: str) -> typing.Tuple[str, str, int]:
     return owner, repo, int(pull_number)
 
 
-def SimulatorMergifyConfig(v: bytes) -> rules.MergifyConfig:
+def SimulatorMergifyConfig(v: str) -> rules.MergifyConfig:
     try:
         return rules.get_mergify_config(
             context.MergifyConfigFile(

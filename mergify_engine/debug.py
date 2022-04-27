@@ -271,7 +271,7 @@ async def report(
             print(".mergify.yml is missing")
         else:
             print(f"Config filename: {config_file['path']}")
-            print(config_file["decoded_content"].decode())
+            print(config_file["decoded_content"])
             try:
                 mergify_config = await repository.get_mergify_config()
             except rules.InvalidRules as e:  # pragma: no cover

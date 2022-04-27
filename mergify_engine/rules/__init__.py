@@ -403,7 +403,7 @@ class YAMLInvalid(voluptuous.Invalid):  # type: ignore[misc]
 
 
 @tracer.wrap("yaml.load")
-def YAML(v: bytes) -> typing.Any:
+def YAML(v: str) -> typing.Any:
     try:
         return yaml.safe_load(v)
     except yaml.MarkedYAMLError as e:
@@ -596,7 +596,9 @@ def UserConfigurationSchema(
     return voluptuous.Schema(schema)(config)
 
 
-YamlSchema = voluptuous.Schema(voluptuous.Coerce(YAML))
+YamlSchema: typing.Callable[[str], typing.Any] = voluptuous.Schema(
+    voluptuous.Coerce(YAML)
+)
 
 
 @dataclasses.dataclass
