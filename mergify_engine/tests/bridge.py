@@ -82,7 +82,7 @@ async def main() -> None:
                     )
             except Exception:
                 LOG.error("event handling failure", exc_info=True)
-            asyncio.sleep(1)
+            await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
