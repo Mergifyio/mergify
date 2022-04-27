@@ -387,7 +387,7 @@ async def test_configuration_changed(
 
         main_config_file = await repository.get_mergify_config_file()
         assert main_config_file is not None
-        assert main_config_file["decoded_content"] == b"pull_request_rules:"
+        assert main_config_file["decoded_content"] == "pull_request_rules:"
 
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert changed
@@ -509,7 +509,7 @@ async def test_configuration_duplicated(
 
         main_config_file = await repository.get_mergify_config_file()
         assert main_config_file is not None
-        assert main_config_file["decoded_content"] == b"pull_request_rules:"
+        assert main_config_file["decoded_content"] == "pull_request_rules:"
 
         with pytest.raises(engine.MultipleConfigurationFileFound):
             await engine._check_configuration_changes(ctxt, main_config_file)
@@ -615,7 +615,7 @@ async def test_configuration_not_changed(
 
         main_config_file = await repository.get_mergify_config_file()
         assert main_config_file is not None
-        assert main_config_file["decoded_content"] == b"pull_request_rules:"
+        assert main_config_file["decoded_content"] == "pull_request_rules:"
 
         changed = await engine._check_configuration_changes(ctxt, main_config_file)
         assert not changed

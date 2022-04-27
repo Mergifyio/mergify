@@ -1906,7 +1906,7 @@ queue_rules:
 - name: default
   conditions: []
   {setting}
-""".encode(),
+""",
     )
 
     config = rules.get_mergify_config(file)

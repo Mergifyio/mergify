@@ -34,7 +34,7 @@ EMPTY_CONFIG = rules.get_mergify_config(
         content="whatever",
         sha=github_types.SHAType("azertyuiop"),
         path="whatever",
-        decoded_content=b"",
+        decoded_content="",
     )
 )
 
@@ -99,7 +99,7 @@ defaults:
         content="whatever",
         sha=github_types.SHAType("azertyuiop"),
         path="whatever",
-        decoded_content=raw_config.encode(),
+        decoded_content=raw_config,
     )
     config = rules.get_mergify_config(file)
     command = commands_runner.load_command(config, "@mergifyio backport")

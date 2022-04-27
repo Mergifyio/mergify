@@ -65,11 +65,11 @@ MARKDOWN_COMMENT_RE = re.compile("(<!--.*?-->)", flags=re.DOTALL | re.IGNORECASE
 
 
 class MergifyConfigFile(github_types.GitHubContentFile):
-    decoded_content: bytes
+    decoded_content: str
 
 
 DEFAULT_CONFIG_FILE = MergifyConfigFile(
-    decoded_content=b"",
+    decoded_content="",
     type="file",
     content="<default>",
     sha=github_types.SHAType("<default>"),
@@ -385,7 +385,7 @@ class Repository(object):
                 sha=content["sha"],
                 decoded_content=base64.b64decode(
                     bytearray(content["content"], "utf-8")
-                ),
+                ).decode(),
             )
 
     @tracer.wrap("get_mergify_config", span_type="worker")

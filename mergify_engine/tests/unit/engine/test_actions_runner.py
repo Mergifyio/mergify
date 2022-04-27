@@ -101,7 +101,7 @@ async def test_get_already_merged_summary(
         content="whatever",
         sha=github_types.SHAType("azertyuiop"),
         path="whatever",
-        decoded_content=raw_config.encode(),
+        decoded_content=raw_config,
     )
 
     config = rules.get_mergify_config(file)
