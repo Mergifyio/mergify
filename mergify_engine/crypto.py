@@ -27,7 +27,7 @@ from datadog import statsd
 from mergify_engine import config
 
 
-digest_current = hashes.Hash(hashes.SHA256(), backend=default_backend())
+digest_current = hashes.Hash(hashes.SHA256(), backend=default_backend())  # type: ignore[no-untyped-call]
 digest_current.update(config.CACHE_TOKEN_SECRET.encode())
 SECRET_KEY = digest_current.finalize()
 del digest_current
@@ -35,7 +35,7 @@ del digest_current
 SECRET_KEY_OLD: typing.Optional[bytes]
 
 if config.CACHE_TOKEN_SECRET_OLD:
-    digest_old = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    digest_old = hashes.Hash(hashes.SHA256(), backend=default_backend())  # type: ignore[no-untyped-call]
     digest_old.update(config.CACHE_TOKEN_SECRET_OLD.encode())
     SECRET_KEY_OLD = digest_old.finalize()
     del digest_old
@@ -59,22 +59,22 @@ def encrypt(value: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(SECRET_KEY),
         ciphers.modes.GCM(iv),
-        backend=default_backend(),
+        backend=default_backend(),  # type: ignore[no-untyped-call]
     )
-    encryptor = cipher.encryptor()  # type: ignore[no-untyped-call]
+    encryptor = cipher.encryptor()
     encrypted = encryptor.update(value) + encryptor.finalize()
     encrypted = base64.b64encode(iv + encryptor.tag + encrypted)
-    return encrypted  # type: ignore[no-any-return]
+    return encrypted
 
 
 def _decrypt(iv: bytes, tag: bytes, value: bytes, secret: bytes) -> bytes:
     cipher = ciphers.Cipher(
         ciphers.algorithms.AES(secret),
         ciphers.modes.GCM(iv, tag),
-        backend=default_backend(),
+        backend=default_backend(),  # type: ignore[no-untyped-call]
     )
-    decryptor = cipher.decryptor()  # type: ignore[no-untyped-call]
-    return decryptor.update(value) + decryptor.finalize()  # type: ignore[no-any-return]
+    decryptor = cipher.decryptor()
+    return decryptor.update(value) + decryptor.finalize()
 
 
 def decrypt(value: bytes) -> bytes:
