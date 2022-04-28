@@ -60,7 +60,7 @@ def pre_update_check(ctxt: context.Context) -> None:
     ):
         raise BranchUpdateFailure(
             "Mergify needs the author permission to update the base branch of the pull request.\n"
-            f"{ctxt.pull['head']['user']['login']} needs to "
+            f"@{ctxt.pull['head']['user']['login']} needs to "
             "[authorize modification on its head branch]"
             "(https://docs.github.com/en/github/collaborating-with-pull-requests/working-with-forks/allowing-changes-to-a-pull-request-branch-created-from-a-fork).",
             title="Pull request can't be updated with latest base branch changes",
