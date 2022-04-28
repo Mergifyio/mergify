@@ -4,3 +4,9 @@ target-version = ['py39']
 [build-system]
 requires = ["setuptools >= 40.6.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--strict-markers"
+asyncio_mode = "auto"
+markers = ["recorder", "subscription"]
