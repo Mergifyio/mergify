@@ -22,6 +22,7 @@ import pydantic
 from mergify_engine import context
 from mergify_engine import github_types
 from mergify_engine import rules
+from mergify_engine.clients import http
 from mergify_engine.engine import actions_runner
 from mergify_engine.web import api
 from mergify_engine.web.api import security
@@ -97,9 +98,12 @@ async def simulator_pull(
     ),
 ) -> SimulatorResponse:
     config = body.get_config()
-    ctxt = await repository_ctxt.get_pull_request_context(
-        github_types.GitHubPullRequestNumber(number)
-    )
+    try:
+        ctxt = await repository_ctxt.get_pull_request_context(
+            github_types.GitHubPullRequestNumber(number)
+        )
+    except http.HTTPClientSideError as e:
+        raise fastapi.HTTPException(status_code=e.status_code, detail=e.message)
     ctxt.sources = [{"event_type": "mergify-simulator", "data": [], "timestamp": ""}]  # type: ignore[typeddict-item]
     match = await config["pull_request_rules"].get_pull_request_rule(ctxt)
     title, summary = await actions_runner.gen_summary(
