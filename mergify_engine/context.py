@@ -1500,7 +1500,7 @@ class Context(object):
                         f"{self.base_url}/commits/{self.pull['head']['sha']}/status",
                         list_items="statuses",
                         resource_name="statuses",
-                        page_limit=5,
+                        page_limit=10,
                     ),
                 )
             ]
