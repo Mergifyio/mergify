@@ -25,7 +25,6 @@ from mergify_engine.web import github
 from mergify_engine.web import legacy_badges
 from mergify_engine.web import redis
 from mergify_engine.web import refresher
-from mergify_engine.web import simulator
 from mergify_engine.web import utils
 from mergify_engine.web.api import root as api_root
 
@@ -46,7 +45,6 @@ app.add_middleware(
 app.include_router(dashboard.router)
 app.include_router(github.router)
 app.include_router(refresher.router)
-app.include_router(simulator.router, prefix="/simulator")
 app.include_router(legacy_badges.router, prefix="/badges")
 
 app.mount("/v1", api_root.app)
