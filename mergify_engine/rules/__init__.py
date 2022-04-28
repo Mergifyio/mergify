@@ -612,14 +612,15 @@ class InvalidRules(Exception):
             return f"item {path_item}"
         return str(path_item)
 
-    def _format_error(self, error: voluptuous.Invalid) -> str:
+    @classmethod
+    def format_error(cls, error: voluptuous.Invalid) -> str:
         msg = str(error.msg)
 
         if error.error_type:
             msg += f" for {error.error_type}"
 
         if error.path:
-            path = " → ".join(map(self._format_path_item, error.path))
+            path = " → ".join(map(cls._format_path_item, error.path))
             msg += f" @ {path}"
         # Only include the error message if it has been provided
         # voluptuous set it to the `message` otherwise
@@ -644,8 +645,8 @@ class InvalidRules(Exception):
 
     def __str__(self) -> str:
         if len(self.errors) >= 2:
-            return "* " + "\n* ".join(sorted(map(self._format_error, self.errors)))
-        return self._format_error(self.errors[0])
+            return "* " + "\n* ".join(sorted(map(self.format_error, self.errors)))
+        return self.format_error(self.errors[0])
 
     def get_annotations(self, path: str) -> typing.List[github_types.GitHubAnnotation]:
         return functools.reduce(

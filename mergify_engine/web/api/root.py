@@ -43,6 +43,7 @@ from mergify_engine.web.api import applications
 from mergify_engine.web.api import badges
 from mergify_engine.web.api import queues
 from mergify_engine.web.api import security
+from mergify_engine.web.api import simulator
 
 
 def api_enabled() -> None:
@@ -76,6 +77,10 @@ app = fastapi.FastAPI(
             "name": "queues",
             "description": "Operations with queues.",
         },
+        {
+            "name": "simulator",
+            "description": "Mergify configuration simulator",
+        },
     ],
     servers=[{"url": "https://api.mergify.com/v1", "description": "default"}],
     dependencies=[fastapi.Depends(api_enabled)],
@@ -91,6 +96,7 @@ app.add_middleware(
 app.include_router(applications.router)
 app.include_router(queues.router)
 app.include_router(badges.router)
+app.include_router(simulator.router)
 
 web_utils.setup_exception_handlers(app)
 
