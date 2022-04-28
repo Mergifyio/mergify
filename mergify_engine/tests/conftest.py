@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import typing
 
 import freezegun
@@ -17,6 +18,22 @@ from mergify_engine.clients import github
 freezegun.configure(  # type:ignore[attr-defined]
     extend_ignore_list=["mergify_engine.clients.github_app"]
 )
+
+original_os_environ = os.environ.copy()
+
+
+@pytest.fixture()
+def original_environment_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> typing.Generator[None, None, None]:
+    current = os.environ.copy()
+    os.environ.clear()
+    os.environ.update(original_os_environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(current)
 
 
 @pytest.fixture()
