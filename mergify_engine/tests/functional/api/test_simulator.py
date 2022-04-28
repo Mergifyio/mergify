@@ -13,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import httpx
-import pytest
 import yaml
 
 from mergify_engine import config
@@ -154,15 +152,14 @@ class TestApiSimulator(base.FunctionalTestBase):
         users:
           - mergify-test1
 """
-        with pytest.raises(httpx.HTTPStatusError) as exc_info:
-            await self.app.post(
-                f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/42424242/simulator",
-                json={"mergify_yml": mergify_yaml},
-                headers={
-                    "Authorization": f"bearer {self.api_key_admin}",
-                },
-            )
-            assert exc_info.value.response.status_code == 404
+        resp = await self.app.post(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/42424242/simulator",
+            json={"mergify_yml": mergify_yaml},
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+            },
+        )
+        assert resp.status_code == 404
 
     async def test_simulator_invalid_json(self):
         rules = {
