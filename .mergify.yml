@@ -70,6 +70,7 @@ pull_request_rules:
 
   - name: automatic merge from dependabot
     conditions:
+      - and: *CheckRuns
       - check-success=semantic-pull-request
       - check-success=requirements
       - author=dependabot[bot]
