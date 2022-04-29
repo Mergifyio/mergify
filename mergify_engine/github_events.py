@@ -271,6 +271,8 @@ async def push_to_worker(
         elif event["repository"]["archived"]:  # pragma: no cover
             ignore_reason = "repository archived"
 
+        await context.Repository.clear_config_file_cache(redis_cache, repo_id)
+
     elif event_type == "check_suite":
         event = typing.cast(github_types.GitHubEventCheckSuite, event)
         owner_login = event["repository"]["owner"]["login"]

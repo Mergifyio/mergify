@@ -330,13 +330,6 @@ class Repository(object):
         ".github/mergify.yml",
     ]
 
-    @staticmethod
-    def get_config_location_cache_key(
-        owner_login: github_types.GitHubLogin,
-        repo_name: github_types.GitHubRepositoryName,
-    ) -> str:
-        return f"config-location~{owner_login}~{repo_name}"
-
     async def iter_mergify_config_files(
         self,
         ref: typing.Optional[github_types.SHAType] = None,
@@ -422,22 +415,66 @@ class Repository(object):
         if mergify_config_file is not cache.Unset:
             return mergify_config_file
 
-        config_location_cache = self.get_config_location_cache_key(
-            self.installation.owner_login, self.repo["name"]
+        cached_config_file = await self.get_cached_config_file(
+            self.repo["id"],
         )
-        cached_filename = await self.installation.redis.get(config_location_cache)
+
+        if cached_config_file is not None:
+            self._caches.mergify_config_file.set(cached_config_file)
+            return cached_config_file
+
+        config_file_cache_key = self.get_config_file_cache_key(self.repo["id"])
+        config_location_cache_key = self.get_config_location_cache_key(self.repo["id"])
+        cached_filename = await self.installation.redis.get(config_location_cache_key)
+        pipeline = await self.installation.redis.pipeline()
+
         async for config_file in self.iter_mergify_config_files(
             preferred_filename=cached_filename
         ):
+
             if cached_filename != config_file["path"]:
-                await self.installation.redis.set(
-                    config_location_cache, config_file["path"], ex=60 * 60 * 24 * 31
+                await pipeline.set(
+                    config_location_cache_key, config_file["path"], ex=60 * 60 * 24 * 31
                 )
+
+            await pipeline.set(
+                config_file_cache_key,
+                json.dumps(
+                    {
+                        "type": config_file["type"],
+                        "content": config_file["content"],
+                        "path": config_file["path"],
+                        "sha": config_file["sha"],
+                    }
+                ),
+                ex=60 * 60 * 24 * 31,
+            )
             self._caches.mergify_config_file.set(config_file)
+            await pipeline.execute()
             return config_file
 
-        await self.installation.redis.delete(config_location_cache)
         self._caches.mergify_config_file.set(None)
+        return None
+
+    async def get_cached_config_file(
+        self,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> typing.Optional[MergifyConfigFile]:
+        config_file = await self.installation.redis.get(
+            self.get_config_file_cache_key(repo_id),
+        )
+
+        if config_file is not None:
+            jsonified_config_file = json.loads(config_file)
+            return MergifyConfigFile(
+                type=jsonified_config_file["type"],
+                content=jsonified_config_file["content"],
+                path=jsonified_config_file["path"],
+                sha=jsonified_config_file["sha"],
+                decoded_content=base64.b64decode(
+                    bytearray(jsonified_config_file["content"], "utf-8")
+                ).decode(),
+            )
         return None
 
     async def get_commits(
@@ -511,6 +548,42 @@ class Repository(object):
             )
 
         return self.pull_contexts[pull_number]
+
+    CONFIG_LOCATION_CACHE_KEY_PREFIX = "config_location"
+    CONFIG_LOCATION_CACHE_KEY_DELIMITER = "/"
+
+    @classmethod
+    def get_config_location_cache_key(
+        cls,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> str:
+        return (
+            f"{cls.CONFIG_LOCATION_CACHE_KEY_PREFIX}"
+            f"{cls.CONFIG_LOCATION_CACHE_KEY_DELIMITER}{repo_id}"
+        )
+
+    CONFIG_FILE_CACHE_KEY_PREFIX = "config_file"
+    CONFIG_FILE_CACHE_KEY_DELIMITER = "/"
+
+    @classmethod
+    def get_config_file_cache_key(
+        cls,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> str:
+        return (
+            f"{cls.CONFIG_FILE_CACHE_KEY_PREFIX}"
+            f"{cls.CONFIG_FILE_CACHE_KEY_DELIMITER}{repo_id}"
+        )
+
+    @classmethod
+    async def clear_config_file_cache(
+        cls,
+        redis: utils.RedisCache,
+        repo_id: github_types.GitHubRepositoryIdType,
+    ) -> None:
+        await redis.delete(
+            cls.get_config_file_cache_key(repo_id),
+        )
 
     USERS_PERMISSION_CACHE_KEY_PREFIX = "users_permission"
     USERS_PERMISSION_CACHE_KEY_DELIMITER = "/"

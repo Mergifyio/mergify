@@ -589,6 +589,9 @@ queue_rules:
     ):
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
+        await repository.clear_config_file_cache(
+            repository.installation.redis, repository.repo["id"]
+        )
         await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
     assert [4, 5] == get_waiting_content(t)
@@ -620,6 +623,9 @@ queue_rules:
     ):
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
+        await repository.clear_config_file_cache(
+            repository.installation.redis, repository.repo["id"]
+        )
         await t.refresh()
     assert [[1]] == get_cars_content(t)
     assert [2, 3] == get_waiting_content(t)
@@ -654,6 +660,9 @@ queue_rules:
     ):
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
+        await repository.clear_config_file_cache(
+            repository.installation.redis, repository.repo["id"]
+        )
         await t.refresh()
     assert [] == get_cars_content(t)
     assert [1, 2, 3] == get_waiting_content(t)
