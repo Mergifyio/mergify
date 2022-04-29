@@ -329,9 +329,13 @@ class TestAttributes(base.FunctionalTestBase):
 
         # Test items
         assert list(ctxt.pull_request) == list(
-            context.PullRequest.ATTRIBUTES | context.PullRequest.LIST_ATTRIBUTES
+            context.PullRequest.ATTRIBUTES
+            | context.PullRequest.LIST_ATTRIBUTES
+            | context.PullRequest.LIST_ATTRIBUTES_WITH_LENGTH_OPTIMIZATION
         )
         assert await ctxt.pull_request.items() == {
+            "#commits": 1,
+            "#files": 1,
             "number": pr["number"],
             "closed": False,
             "locked": False,

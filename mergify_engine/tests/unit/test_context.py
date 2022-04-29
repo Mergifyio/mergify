@@ -575,6 +575,14 @@ def a_pull_request() -> github_types.GitHubPullRequest:
     )
 
 
+async def test_length_optimisation(a_pull_request):
+    a_pull_request["commits"] = 10
+    a_pull_request["changed_files"] = 5
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    assert await getattr(ctxt.pull_request, "#commits") == 10
+    assert await getattr(ctxt.pull_request, "#files") == 5
+
+
 async def test_context_depends_on(a_pull_request):
     a_pull_request[
         "body"

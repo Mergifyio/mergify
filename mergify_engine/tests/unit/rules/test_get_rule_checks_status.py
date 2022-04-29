@@ -39,7 +39,10 @@ class FakeQueuePullRequest:
 
     async def __getattr__(self, name: str) -> context.ContextAttributeType:
         fancy_name = name.replace("_", "-")
-        return self.attrs[fancy_name]
+        try:
+            return self.attrs[fancy_name]
+        except KeyError:
+            raise context.PullRequestAttributeError(name=fancy_name)
 
     def sync_checks(self) -> None:
         self.attrs["check-success-or-neutral"] = (

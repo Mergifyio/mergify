@@ -47,6 +47,8 @@ class DummyContext(context.Context):
             return None
         elif key in context.PullRequest.LIST_ATTRIBUTES:
             return []
+        elif key in context.PullRequest.LIST_ATTRIBUTES_WITH_LENGTH_OPTIMIZATION:
+            return 0
         else:
             raise context.PullRequestAttributeError(key)
 

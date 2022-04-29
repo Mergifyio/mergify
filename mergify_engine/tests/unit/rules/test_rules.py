@@ -72,7 +72,10 @@ class FakeQueuePullRequest:
 
     async def __getattr__(self, name: str) -> context.ContextAttributeType:
         fancy_name = name.replace("_", "-")
-        return self.attrs[fancy_name]
+        try:
+            return self.attrs[fancy_name]
+        except KeyError:
+            raise context.PullRequestAttributeError(name=fancy_name)
 
 
 async def test_multiple_pulls_to_match():

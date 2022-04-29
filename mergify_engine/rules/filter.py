@@ -178,26 +178,35 @@ class Filter(typing.Generic[FilterResultT]):
         self,
         obj: GetAttrObjectT,
         attribute_name: str,
+        op: typing.Callable[[typing.Any], typing.Any],
     ) -> typing.List[typing.Any]:
-        op: typing.Callable[[typing.Any], typing.Any]
-        if attribute_name.startswith(self.LENGTH_OPERATOR):
-            attribute_name = attribute_name[1:]
-            op = len
-        else:
-            attribute_name = attribute_name
-            op = _identity
         try:
             attr = getattr(obj, attribute_name)
             if inspect.iscoroutine(attr):
                 attr = await attr
-        except KeyError:
+        except AttributeError:
             raise UnknownAttribute(attribute_name)
+
         try:
             values = op(attr)
         except TypeError:
             raise InvalidOperator(attribute_name)
 
         return self._to_list(values)
+
+    async def _find_attribute_values(
+        self,
+        obj: GetAttrObjectT,
+        attribute_name: str,
+    ) -> typing.List[typing.Any]:
+        op: typing.Callable[[typing.Any], typing.Any]
+        if attribute_name.startswith(self.LENGTH_OPERATOR):
+            try:
+                return await self._get_attribute_values(obj, attribute_name, _identity)
+            except UnknownAttribute:
+                return await self._get_attribute_values(obj, attribute_name[1:], len)
+        else:
+            return await self._get_attribute_values(obj, attribute_name, _identity)
 
     def build_evaluator(
         self,
@@ -263,7 +272,7 @@ class Filter(typing.Generic[FilterResultT]):
             raise InvalidArguments(str(e))
 
         async def _op(obj: GetAttrObjectT) -> FilterResultT:
-            attribute_values = await self._get_attribute_values(obj, attribute_name)
+            attribute_values = await self._find_attribute_values(obj, attribute_name)
             reference_value_expander = self.value_expanders.get(
                 attribute_name, self._to_list
             )

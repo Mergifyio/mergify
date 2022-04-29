@@ -122,7 +122,9 @@ pull_request_rules:
 
 * TRAIN: 
 * PULL REQUEST:
-{{'approved-reviews-by': [],
+{{'#commits': 1,
+ '#files': 1,
+ 'approved-reviews-by': [],
  'assignee': [],
  'author': 'mergify-test2',
  'base': '{self.main_branch_name}',

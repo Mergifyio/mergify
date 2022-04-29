@@ -1269,8 +1269,14 @@ class Context(object):
         elif name == "body-raw":
             return self.body
 
+        elif name == "#files":
+            return self.pull["changed_files"]
+
         elif name == "files":
             return [f["filename"] for f in await self.files]
+
+        elif name == "#commits":
+            return self.pull["commits"]
 
         elif name == "commits":
             return [c["commit_message"] for c in await self.commits]
@@ -1927,11 +1933,20 @@ class PullRequest(BasePullRequest):
         "files",
     }
 
+    LIST_ATTRIBUTES_WITH_LENGTH_OPTIMIZATION = {
+        "#files",
+        "#commits",
+    }
+
     async def __getattr__(self, name: str) -> ContextAttributeType:
         return await self.context._get_consolidated_data(name.replace("_", "-"))
 
     def __iter__(self) -> typing.Iterator[str]:
-        return iter(self.ATTRIBUTES | self.LIST_ATTRIBUTES)
+        return iter(
+            self.ATTRIBUTES
+            | self.LIST_ATTRIBUTES
+            | self.LIST_ATTRIBUTES_WITH_LENGTH_OPTIMIZATION
+        )
 
     async def items(self) -> typing.Dict[str, ContextAttributeType]:
         d = {}
