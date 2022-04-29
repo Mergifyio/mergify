@@ -20,6 +20,7 @@ import zoneinfo
 from freezegun import freeze_time
 import pytest
 
+from mergify_engine import context
 from mergify_engine import date
 from mergify_engine.rules import filter
 from mergify_engine.rules import parser
@@ -30,7 +31,10 @@ UTC = datetime.timezone.utc
 
 class FakePR(dict):  # type: ignore[type-arg]
     def __getattr__(self, k):
-        return self[k]
+        try:
+            return self[k]
+        except KeyError:
+            raise context.PullRequestAttributeError(name=k)
 
 
 async def test_binary() -> None:
@@ -70,6 +74,16 @@ async def test_len() -> None:
     assert await f(FakePR({"foo": [10, "abc", 20, 30]}))
     assert not await f(FakePR({"foo": [10, 20]}))
     assert not await f(FakePR({"foo": []}))
+
+
+async def test_optimized_len() -> None:
+    f = filter.BinaryFilter({"=": ("#foo", 3)})
+    assert await f(FakePR({"foo": "bar"}))
+    with pytest.raises(filter.InvalidOperator):
+        await f(FakePR({"foo": 2}))
+    assert not await f(FakePR({"foo": "a"}))
+    assert await f(FakePR({"#foo": 3, "foo": "a"}))
+    assert not await f(FakePR({"#foo": 2, "foo": "abc"}))
 
 
 async def test_regexp() -> None:
