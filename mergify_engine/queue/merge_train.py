@@ -715,7 +715,7 @@ class TrainCar:
         self.queue_pull_request_number = pull_request_number
 
         queue_pull_requests = await self.get_pull_requests_to_evaluate()
-        evaluated_queue_rule = await queue_rule.get_pull_request_rule(
+        evaluated_queue_rule = await queue_rule.get_evaluated_queue_rule(
             self.train.repository,
             self.train.ref,
             queue_pull_requests,
