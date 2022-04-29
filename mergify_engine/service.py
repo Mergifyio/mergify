@@ -46,3 +46,16 @@ def setup(service_name: str, dump_config: bool = True) -> None:
     ddtrace.config.httpx["split_by_domain"] = True
 
     logs.setup_logging(dump_config=dump_config)
+
+    # NOTE(sileht): For security reason, we don't expose env after this point
+    # env is authorized during modules loading and pre service initializarion
+    # after it's not.
+    envs_to_preserve = ("PATH", "LANG", "VIRTUAL_ENV")
+
+    saved_env = {
+        env: os.environ[env]
+        for env in os.environ
+        if env in envs_to_preserve or env.startswith("DD_")
+    }
+    os.environ.clear()
+    os.environ.update(saved_env)
