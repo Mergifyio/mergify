@@ -673,3 +673,7 @@ class GitHubAnnotation(typing.TypedDict):
     annotation_level: GitHubAnnotationLevel
     message: str
     title: str
+
+
+class GitHubCompareCommits(typing.TypedDict):
+    behind_by: int

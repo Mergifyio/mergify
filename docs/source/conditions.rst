@@ -211,9 +211,10 @@ Here's the list of pull request attribute that can be used in conditions:
      - :ref:`Timestamp <iso timestamp>` or :ref:`Relative timestamp <relative timestamp>`
      - The time the pull request mergeability checks have started at.
    * - ``commits-behind``
-     - list of string
-     - The list of commits sha between the head of the base branch and the base
-       of the pull request (maximum 100 last commits sha).
+     - list of commits
+     - The list of commits between the head of the base branch and the base of
+       the pull request. This can only be used with the length operator as
+       `#commits-behind`.
    * - ``review-requested``
      - list of string
      - The list of GitHub user or team login that were requested to review the

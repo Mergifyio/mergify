@@ -407,9 +407,8 @@ superRP!"""
         )
         assert p["head"]["sha"] == branch["commit"]["sha"]
 
-        # NOTE(sileht): GitHub seems completly lost with a manual fast-forward merge
-        assert branch["commit"]["committer"] is None
-        # assert branch["commit"]["committer"]["login"] == config.BOT_USER_LOGIN
+        assert branch["commit"]["committer"] is not None
+        assert branch["commit"]["committer"]["login"] == config.BOT_USER_LOGIN
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
         checks = await ctxt.pull_engine_check_runs
@@ -455,6 +454,5 @@ superRP!"""
         )
         assert p["head"]["sha"] == branch["commit"]["sha"]
 
-        # NOTE(sileht): GitHub seems completly lost with a manual fast-forward merge
-        assert branch["commit"]["committer"] is None
-        # assert branch["commit"]["committer"]["login"] == "mergify-test4"
+        assert branch["commit"]["committer"] is not None
+        assert branch["commit"]["committer"]["login"] == config.BOT_USER_LOGIN
