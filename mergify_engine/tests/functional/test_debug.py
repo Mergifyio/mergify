@@ -123,6 +123,7 @@ pull_request_rules:
 * TRAIN: 
 * PULL REQUEST:
 {{'#commits': 1,
+ '#commits-behind': 0,
  '#files': 1,
  'approved-reviews-by': [],
  'assignee': [],
@@ -141,7 +142,6 @@ pull_request_rules:
  'closed': False,
  'commented-reviews-by': [],
  'commits': ['test_debugger: pull request n1 from fork'],
- 'commits-behind': [],
  'commits-unverified': ['test_debugger: pull request n1 from fork'],
  'conflict': False,
  'dismissed-reviews-by': [],

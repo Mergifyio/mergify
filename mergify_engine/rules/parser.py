@@ -107,6 +107,8 @@ CONDITION_PARSERS = {
 ATTRIBUTES = sorted(CONDITION_PARSERS, key=lambda v: (len(v), v), reverse=True)
 
 
+ATTRIBUTES_WITH_ONLY_LENGTH = ("commits-behind",)
+
 # Negate, quantity (default: True, True)
 PARSER_MODIFIERS = {
     Parser.BOOL: (True, False),
@@ -290,6 +292,10 @@ def parse(v: str) -> typing.Any:
 
     position = _skip_ws(v, length, position + len(attribute))
 
+    if not quantity and attribute in ATTRIBUTES_WITH_ONLY_LENGTH:
+        raise ConditionParsingError(
+            f"`#` modifier is required for attribute: `{attribute}`"
+        )
     # Get the type of parser
     parser = CONDITION_PARSERS[attribute]
 

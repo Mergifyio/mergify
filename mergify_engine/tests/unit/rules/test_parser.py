@@ -525,6 +525,7 @@ def test_search(line, result):
         ("#", "Incomplete condition"),
         ("-#", "Incomplete condition"),
         ("#-", "Invalid attribute"),
+        ("commits-behind", "`#` modifier is required for attribute: `commits-behind`"),
     ),
 )
 def test_invalid(line: str, expected_error: str) -> None:

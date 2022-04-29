@@ -19,7 +19,6 @@ import contextlib
 import dataclasses
 import datetime
 import functools
-import itertools
 import json
 import logging
 import random
@@ -810,9 +809,9 @@ class ContextCaches:
     commits: cache.SingleCache[
         typing.List[github_types.CachedGitHubBranchCommit]
     ] = dataclasses.field(default_factory=cache.SingleCache)
-    commits_behind: cache.SingleCache[
-        typing.List[github_types.SHAType]
-    ] = dataclasses.field(default_factory=cache.SingleCache)
+    commits_behind_count: cache.SingleCache[int] = dataclasses.field(
+        default_factory=cache.SingleCache
+    )
 
 
 ContextAttributeType = typing.Union[
@@ -1239,8 +1238,8 @@ class Context(object):
         elif name == "number":
             return typing.cast(int, self.pull["number"])
 
-        elif name == "commits-behind":
-            return await self.commits_behind
+        elif name == "#commits-behind":
+            return await self.commits_behind_count
 
         elif name == "conflict":
             return self.pull["mergeable"] is False
@@ -1625,35 +1624,32 @@ class Context(object):
         return external_parents_sha
 
     @property
-    async def commits_behind(self) -> typing.List[github_types.SHAType]:
-        commits_behind = self._caches.commits_behind.get()
-        if commits_behind is cache.Unset:
+    async def commits_behind_count(self) -> int:
+        commits_behind_count = self._caches.commits_behind_count.get()
+        if commits_behind_count is cache.Unset:
             if self.pull["merged"]:
-                commits_behind = typing.cast(typing.List[github_types.SHAType], [])
+                commits_behind_count = 0
             else:
                 try:
-                    commits = await self.repository.get_commits(
-                        self.pull["base"]["ref"]
+                    data = typing.cast(
+                        github_types.GitHubCompareCommits,
+                        await self.client.item(
+                            f"{self.repository.base_url}/compare/{self.pull['base']['label']}...{self.pull['head']['label']}"
+                        ),
                     )
                 except http.HTTPNotFound:
-                    commits_behind = [
-                        github_types.SHAType("<base-branch-deleted>")
-                    ] * 100
+                    commits_behind_count = 1000000
                 else:
-                    external_parents_sha = await self._get_external_parents()
-                    commits_behind = list(
-                        itertools.takewhile(
-                            lambda sha: sha not in external_parents_sha,
-                            (c["sha"] for c in commits),
-                        )
-                    )
-            self._caches.commits_behind.set(commits_behind)
-        return commits_behind
+                    commits_behind_count = data["behind_by"]
+            self._caches.commits_behind_count.set(commits_behind_count)
+        return commits_behind_count
 
     @property
     async def is_behind(self) -> bool:
         is_behind = self._caches.is_behind.get()
         if is_behind is cache.Unset:
+            # FIXME(sileht): check if we can leverage compare API here like
+            # commits_behind_count but using sha instead of label
             branch_name_escaped = parse.quote(self.pull["base"]["ref"], safe="")
             branch = typing.cast(
                 github_types.GitHubBranch,
@@ -1924,7 +1920,6 @@ class PullRequest(BasePullRequest):
         "check-pending",
         "check-stale",
         "commits",
-        "commits-behind",
         "commits-unverified",
         "review-threads-resolved",
         "review-threads-unresolved",
@@ -1936,6 +1931,7 @@ class PullRequest(BasePullRequest):
     LIST_ATTRIBUTES_WITH_LENGTH_OPTIMIZATION = {
         "#files",
         "#commits",
+        "#commits-behind",
     }
 
     async def __getattr__(self, name: str) -> ContextAttributeType:
@@ -2102,7 +2098,6 @@ class QueuePullRequest(BasePullRequest):
         "schedule",
         "queue-merge-started-at",
         "queue-merge-started-at-relative",
-        "commits-behind",
     )
 
     async def __getattr__(self, name: str) -> ContextAttributeType:

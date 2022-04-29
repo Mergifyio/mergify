@@ -194,7 +194,7 @@ class TestAttributes(base.FunctionalTestBase):
             self.repository_ctxt, p, wait_background_github_processing=True
         )
         assert await ctxt.is_behind
-        assert len(await ctxt.commits_behind) == 3
+        assert await ctxt.commits_behind_count == 3
         assert ctxt.pull["mergeable_state"] == "behind"
 
         await self.client_admin.put(
@@ -210,7 +210,7 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert ctxt.pull["mergeable_state"] != "behind"
         assert not await ctxt.is_behind
-        assert len(await ctxt.commits_behind) == 0
+        assert await ctxt.commits_behind_count == 0
 
     async def test_commits_behind_conditions_pr_open_after(self):
         await self.setup_repo()
@@ -238,7 +238,7 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert ctxt.pull["mergeable_state"] == "behind"
         assert await ctxt.is_behind
-        assert len(await ctxt.commits_behind) == 3
+        assert await ctxt.commits_behind_count == 3
 
         await self.client_admin.put(
             f"{self.repository_ctxt.base_url}/pulls/{p['number']}/update-branch",
@@ -253,7 +253,7 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert ctxt.pull["mergeable_state"] != "behind"
         assert not await ctxt.is_behind
-        assert len(await ctxt.commits_behind) == 0
+        assert await ctxt.commits_behind_count == 0
 
     async def test_updated_relative_match(self):
         rules = {
@@ -301,6 +301,9 @@ class TestAttributes(base.FunctionalTestBase):
 
         pr = await self.create_pr(draft=True)
 
+        pr_ahead = await self.create_pr()
+        await self.merge_pull(pr_ahead["number"])
+
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -335,6 +338,7 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert await ctxt.pull_request.items() == {
             "#commits": 1,
+            "#commits-behind": 2,
             "#files": 1,
             "number": pr["number"],
             "closed": False,
@@ -360,7 +364,6 @@ class TestAttributes(base.FunctionalTestBase):
             "changes-requested-reviews-by": [],
             "merged": False,
             "commits": ["test_draft: pull request n2 from fork"],
-            "commits-behind": [],
             "head": self.get_full_branch_name("fork/pr2"),
             "author": "mergify-test2",
             "dismissed-reviews-by": [],
