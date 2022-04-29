@@ -118,7 +118,7 @@ class QueueRule:
 
         return cls(name, conditions, d)
 
-    async def get_pull_request_rule(
+    async def get_evaluated_queue_rule(
         self,
         repository: context.Repository,
         ref: github_types.GitHubRefType,

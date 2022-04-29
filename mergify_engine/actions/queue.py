@@ -153,7 +153,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if car and car.creation_state == "updated" and not ctxt.closed:
             # NOTE(sileht): This car doesn't have tmp pull, so we have the
             # MERGE_QUEUE_SUMMARY and train reset here
-            queue_rule_evaluated = await self.queue_rule.get_pull_request_rule(
+            queue_rule_evaluated = await self.queue_rule.get_evaluated_queue_rule(
                 ctxt.repository,
                 ctxt.pull["base"]["ref"],
                 [ctxt.pull_request],

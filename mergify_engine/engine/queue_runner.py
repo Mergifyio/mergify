@@ -95,7 +95,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
         return
 
     pull_requests = await car.get_pull_requests_to_evaluate()
-    evaluated_queue_rule = await queue_rule.get_pull_request_rule(
+    evaluated_queue_rule = await queue_rule.get_evaluated_queue_rule(
         ctxt.repository,
         ctxt.pull["base"]["ref"],
         pull_requests,
