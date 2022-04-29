@@ -416,13 +416,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
         self, ctxt: context.Context, q: queue.QueueT
     ) -> check_api.Result:
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
-        manually_unqueued = (
+        if (
             check
             and check_api.Conclusion(check["conclusion"])
             == check_api.Conclusion.CANCELLED
-        )
-        if manually_unqueued:
-            reason = "The pull request has been manually removed from the queue by an `unqueue` command."
+        ):
+            # NOTE(sileht): already cancelled, keep the already reported reason
+            reason = check["output"]["summary"]
         else:
             reason = (
                 "The queue conditions cannot be satisfied due to failing checks or checks timeout. "
