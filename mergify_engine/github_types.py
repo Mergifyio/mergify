@@ -40,6 +40,10 @@ class GitHubAccount(typing.TypedDict):
     avatar_url: str
 
 
+class GitHubAuthor(typing.TypedDict):
+    name: str
+
+
 GitHubInstallationIdType = typing.NewType("GitHubInstallationIdType", int)
 
 GitHubInstallationPermissionsK = typing.Literal[
@@ -121,6 +125,7 @@ class GitHubBranchCommitVerification(typing.TypedDict):
 
 
 class GitHubBranchCommitCommit(typing.TypedDict):
+    author: GitHubAuthor
     message: str
     verification: GitHubBranchCommitVerification
 

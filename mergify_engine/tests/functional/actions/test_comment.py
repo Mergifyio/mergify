@@ -42,9 +42,12 @@ class TestCommentActionWithSub(base.FunctionalTestBase):
         await self.run_engine()
 
         p = await self.get_pull(p["number"])
+
         comments = await self.get_issue_comments(p["number"])
-        assert comments[-1]["body"] == "WTF?"
+        assert len(comments) == 1
+
         assert comments[-1]["user"]["login"] == "mergify-test4"
+        assert comments[-1]["body"] == "WTF?"
 
 
 class TestCommentAction(base.FunctionalTestBase):

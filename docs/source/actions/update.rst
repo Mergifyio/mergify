@@ -12,6 +12,8 @@ update
 The ``update`` action updates the pull request against its base branch. It
 works by merging the base branch into the head branch of the pull request.
 
+It is possible to use this action with a bot.
+
 .. image:: ../_static/update-branch.png
 
 Examples

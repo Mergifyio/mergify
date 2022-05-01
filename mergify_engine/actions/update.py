@@ -15,13 +15,19 @@
 # under the License.
 import typing
 
+import voluptuous
+
 from mergify_engine import actions
 from mergify_engine import branch_updater
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
 from mergify_engine import signals
+from mergify_engine.actions import utils as action_utils
+from mergify_engine.dashboard import subscription
+from mergify_engine.dashboard import user_tokens
 from mergify_engine.rules import conditions
+from mergify_engine.rules import types
 
 
 class UpdateAction(actions.Action):
@@ -32,10 +38,35 @@ class UpdateAction(actions.Action):
         | actions.ActionFlag.ALLOW_ON_CONFIGURATION_CHANGED
         | actions.ActionFlag.DISALLOW_RERUN_ON_OTHER_RULES
     )
-    validator: typing.ClassVar[typing.Dict[typing.Any, typing.Any]] = {}
+    validator = {
+        voluptuous.Required("bot_account", default=None): types.Jinja2WithNone,
+    }
 
-    @staticmethod
-    async def run(ctxt: context.Context, rule: rules.EvaluatedRule) -> check_api.Result:
+    async def run(
+        self, ctxt: context.Context, rule: rules.EvaluatedRule
+    ) -> check_api.Result:
+        try:
+            bot_account = await action_utils.render_bot_account(
+                ctxt,
+                self.config["bot_account"],
+                option_name="bot_account",
+                required_feature=subscription.Features.BOT_ACCOUNT,
+                missing_feature_message="Rebase with `update_bot_account` set is unavailable",
+            )
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if bot_account:
+            tokens = await ctxt.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(bot_account)
+            if not github_user:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    f"Unable to comment: user `{bot_account}` is unknown. ",
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+
         try:
             await branch_updater.update_with_api(ctxt)
         except branch_updater.BranchUpdateFailure as e:
@@ -46,12 +77,9 @@ class UpdateAction(actions.Action):
             )
         else:
             await signals.send(
-                ctxt.repository,
-                ctxt.pull["number"],
-                "action.update",
-                signals.EventNoMetadata(),
-                rule.get_signal_trigger(),
+                ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
             )
+
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 "Branch has been successfully updated",

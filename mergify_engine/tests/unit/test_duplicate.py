@@ -92,14 +92,22 @@ async def test_get_commits_to_cherry_pick_rebase(
         {
             "sha": github_types.SHAType("rebased_c1"),
             "parents": [base_branch],
-            "commit": {"message": "hello c1", "verification": {"verified": False}},
+            "commit": {
+                "message": "hello c1",
+                "verification": {"verified": False},
+                "author": {"name": "yves"},
+            },
         }
     )
     rebased_c2 = github_types.GitHubBranchCommit(
         {
             "sha": github_types.SHAType("rebased_c2"),
             "parents": [rebased_c1],
-            "commit": {"message": "hello c2", "verification": {"verified": False}},
+            "commit": {
+                "message": "hello c2",
+                "verification": {"verified": False},
+                "author": {"name": "yves"},
+            },
         }
     )
 

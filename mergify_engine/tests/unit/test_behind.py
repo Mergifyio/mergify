@@ -28,7 +28,11 @@ def create_commit(sha: github_types.SHAType) -> github_types.GitHubBranchCommit:
         {
             "sha": sha,
             "parents": [],
-            "commit": {"message": "", "verification": {"verified": False}},
+            "commit": {
+                "message": "",
+                "verification": {"verified": False},
+                "author": {"name": "yves"},
+            },
         }
     )
 
