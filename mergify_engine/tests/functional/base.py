@@ -558,7 +558,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     async def run_engine(self) -> None:
         LOG.log(42, "RUNNING ENGINE")
-        w = worker.Worker(enabled_services=set())
+        w = worker.Worker(
+            enabled_services=set(),
+            shared_stream_processes=1,
+            shared_stream_tasks_per_process=1,
+        )
         await w.start()
 
         while w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0:
