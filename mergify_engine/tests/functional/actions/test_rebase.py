@@ -89,3 +89,53 @@ class TestRebaseAction(base.FunctionalTestBase):
         checks = await ctxt.pull_engine_check_runs
         for check in checks:
             assert check["conclusion"] == "success", check
+
+    async def test_rebase_on_uptodate_pr_branch(self):
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "rebase",
+                    "conditions": [f"base={self.main_branch_name}", "label=rebase"],
+                    "actions": {"rebase": {}},
+                },
+                {
+                    "name": "merge",
+                    "conditions": [f"base={self.main_branch_name}", "label=merge"],
+                    "actions": {"merge": {}, "delete_head_branch": {}},
+                },
+                {
+                    "name": "update",
+                    "conditions": [f"base={self.main_branch_name}", "label=update"],
+                    "actions": {"update": {}},
+                },
+            ]
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        await self.add_label(p1["number"], "merge")
+        await self.run_engine()
+        p1 = await self.get_pull(p1["number"])
+        assert p1["merged"]
+        commits = await self.get_commits(p2["number"])
+        assert len(commits) == 1
+
+        # Now update p2 with a merge from the base branch
+        await self.add_label(p2["number"], "update")
+        await self.run_engine()
+        await self.remove_label(p2["number"], "update")
+        p2_updated = await self.get_pull(p2["number"])
+
+        # Now rebase p2
+        await self.add_label(p2["number"], "rebase")
+        await self.run_engine()
+        p2_rebased = await self.get_pull(p2["number"])
+
+        assert p2_updated["head"]["sha"] != p2_rebased["head"]["sha"]
+
+        ctxt = await context.Context.create(self.repository_ctxt, p2, [])
+        checks = await ctxt.pull_engine_check_runs
+        for check in checks:
+            assert check["conclusion"] == "success", check

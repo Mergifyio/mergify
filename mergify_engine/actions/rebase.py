@@ -86,9 +86,19 @@ class RebaseAction(actions.Action):
                 "-closed",
                 description=description,
             ),
-            conditions.RuleCondition(
-                "#commits-behind>0",
-                description=description,
+            conditions.RuleConditionGroup(
+                {
+                    "or": [
+                        conditions.RuleCondition(
+                            "#commits-behind>0",
+                            description=description,
+                        ),
+                        conditions.RuleCondition(
+                            "-linear-history",
+                            description=description,
+                        ),
+                    ],
+                }
             ),
         ]
 
