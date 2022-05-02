@@ -424,7 +424,7 @@ A ``queue_rules`` takes the following parameter:
        See :ref:`speculative checks`.
    * - ``allow_inplace_checks``
      - bool
-     - True
+     - True if ``speculative_checks: 1`` and ``batch_size: 1`` otherwise False.
      - Allow to update/rebase the original pull request if possible to check its mergeability.
        If ``False``, a draft pull request is always created.
    * - ``disallow_checks_interruption_from_queues``

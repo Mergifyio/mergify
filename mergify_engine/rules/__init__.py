@@ -116,6 +116,12 @@ class QueueRule:
         if allow_checks_interruption is False:
             d["disallow_checks_interruption_from_queues"].append(name)
 
+        # dynamic defaults
+        if d["allow_inplace_checks"] is None:
+            d["allow_inplace_checks"] = (
+                d["speculative_checks"] == 1 and d["batch_size"] == 1
+            )
+
         return cls(name, conditions, d)
 
     async def get_evaluated_queue_rule(
@@ -510,7 +516,10 @@ QueueRulesSchema = voluptuous.All(
                 voluptuous.Required(
                     "batch_max_wait_time", default="30 s"
                 ): voluptuous.All(str, voluptuous.Coerce(PositiveInterval)),
-                voluptuous.Required("allow_inplace_checks", default=True): bool,
+                voluptuous.Required(
+                    "allow_inplace_checks",
+                    default=None,
+                ): voluptuous.Any(bool, None),
                 voluptuous.Required(
                     "disallow_checks_interruption_from_queues", default=[]
                 ): [str],

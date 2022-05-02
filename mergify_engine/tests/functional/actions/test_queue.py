@@ -124,6 +124,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -305,6 +306,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                     "draft_bot_account": "mergify-test4",
                 }
             ],
@@ -570,6 +572,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -678,6 +681,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -863,6 +867,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 2,
+                    "allow_inplace_checks": True,
                     "batch_size": 2,
                     "batch_max_wait_time": "0 s",
                 }
@@ -1229,6 +1234,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 2,
+                    "allow_inplace_checks": True,
                     "batch_size": 3,
                     "batch_max_wait_time": "0 s",
                 }
@@ -1419,6 +1425,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     ],
                     "batch_max_wait_time": "0 s",
                     "speculative_checks": 2,
+                    "allow_inplace_checks": True,
                     "batch_size": 3,
                 }
             ],
@@ -1541,6 +1548,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "name": "default",
                     "conditions": ["label=queue"],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -1583,6 +1591,7 @@ class TestQueueAction(base.FunctionalTestBase):
                     "name": "default",
                     "conditions": ["label=queue"],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -1621,6 +1630,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "label=foobar",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -1741,6 +1751,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -1851,6 +1862,7 @@ class TestQueueAction(base.FunctionalTestBase):
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -1917,6 +1929,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2062,6 +2075,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2176,6 +2190,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2281,6 +2296,7 @@ DO NOT EDIT
                     ],
                     "batch_size": 2,
                     "speculative_checks": 1,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2363,6 +2379,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2454,6 +2471,7 @@ DO NOT EDIT
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "allow_inplace_checks": True,
                     "speculative_checks": 5,
                 }
             ],
@@ -2627,6 +2645,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -2754,6 +2773,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fast-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 },
                 {
                     "name": "default",
@@ -2761,6 +2781,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/slow-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 },
             ],
             "pull_request_rules": [
@@ -3004,6 +3025,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 },
             ],
             "pull_request_rules": [
@@ -3052,6 +3074,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -3166,6 +3189,7 @@ DO NOT EDIT
                         "status-success=continuous-integration/fake-ci",
                     ],
                     "speculative_checks": 5,
+                    "allow_inplace_checks": True,
                 }
             ],
             "pull_request_rules": [
@@ -3253,6 +3277,7 @@ DO NOT EDIT
                     "conditions": [
                         "status-success=continuous-integration/fake-ci",
                     ],
+                    "allow_inplace_checks": True,
                     "speculative_checks": 5,
                 }
             ],
