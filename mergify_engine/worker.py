@@ -314,8 +314,20 @@ class StreamProcessor:
             if isinstance(e, yaaredis.exceptions.ConnectionError):
                 statsd.increment("redis.client.connection.errors")
 
-            if isinstance(e, exceptions.MergeableStateUnknown):
-                if bucket_sources_key is None:
+            if exceptions.should_be_ignored(e):
+                if bucket_sources_key:
+                    await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
+                await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_org_key)
+                raise IgnoredException()
+
+            if isinstance(e, exceptions.MergeableStateUnknown) or (
+                isinstance(e, http.HTTPServerSideError)
+                and bucket_sources_key is not None
+            ):
+                if (
+                    isinstance(e, exceptions.MergeableStateUnknown)
+                    and bucket_sources_key is None
+                ):
                     bucket_sources_key = worker_lua.BucketSourcesKeyType(
                         f"bucket-sources~{e.ctxt.repository.repo['id']}~{e.ctxt.pull['number']}"
                     )
@@ -334,12 +346,6 @@ class StreamProcessor:
                     await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
                 await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_org_key)
                 raise OrgBucketUnused(bucket_org_key)
-
-            if exceptions.should_be_ignored(e):
-                if bucket_sources_key:
-                    await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
-                await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_org_key)
-                raise IgnoredException()
 
             if isinstance(e, exceptions.RateLimited):
                 retry_at = date.utcnow() + e.countdown
