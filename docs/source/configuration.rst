@@ -411,7 +411,7 @@ login is ``jd``.
 
 .. code-block:: jinja
 
-    Approved by: @{{ approved-reviews-by | join(', @') }}
+    Approved by: @{{ approved_reviews_by | join(', @') }}
 
 `Jinja2 string manipulation <https://jinja.palletsprojects.com/en/3.0.x/templates/#python-methods>`_ are also supported, you can split string for example with:
 
