@@ -1161,7 +1161,7 @@ class Context(object):
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
         pipe = await self.redis.cache.pipeline()
-        await self.redis.cache.set(
+        await pipe.set(
             self.redis_last_summary_head_sha_key(self.pull),
             sha,
             ex=SUMMARY_SHA_EXPIRATION,
