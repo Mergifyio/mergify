@@ -22,8 +22,8 @@ import voluptuous
 from mergify_engine import check_api
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine.actions import merge_base
 from mergify_engine.clients import http
+from mergify_engine.rules import checks_status
 from mergify_engine.tests.unit import conftest
 
 
@@ -274,7 +274,7 @@ async def test_get_rule_checks_status(
     match = await rules.get_pull_request_rule(ctxt)
     evaluated_rule = match.matching_rules[0]
     assert (
-        await merge_base.get_rule_checks_status(
+        await checks_status.get_rule_checks_status(
             ctxt.log, ctxt.repository, [ctxt.pull_request], evaluated_rule
         )
     ) == conclusion

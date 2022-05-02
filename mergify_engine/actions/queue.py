@@ -30,6 +30,7 @@ from mergify_engine.actions import utils as action_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.queue import freeze
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import checks_status
 from mergify_engine.rules import conditions
 from mergify_engine.rules import types
 
@@ -165,6 +166,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             )
 
             unexpected_changes: typing.Optional[merge_train.UnexpectedChange]
+            status: checks_status.ChecksCombinedStatus
             if await ctxt.has_been_synchronized_by_user() or await ctxt.is_behind:
                 unexpected_changes = merge_train.UnexpectedUpdatedPullRequestChange(
                     ctxt.pull["number"]
@@ -176,7 +178,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 await q.reset(unexpected_changes)
             else:
                 unexpected_changes = None
-                status = await merge_base.get_rule_checks_status(
+                status = await checks_status.get_rule_checks_status(
                     ctxt.log,
                     ctxt.repository,
                     [ctxt.pull_request],
@@ -478,7 +480,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         car = typing.cast(merge_train.Train, q).get_car(ctxt)
         if car and car.creation_state == "updated":
             # NOTE(sileht) check first if PR should be removed from the queue
-            pull_rule_checks_status = await merge_base.get_rule_checks_status(
+            pull_rule_checks_status = await checks_status.get_rule_checks_status(
                 ctxt.log, ctxt.repository, [ctxt.pull_request], rule
             )
             # NOTE(sileht): if the pull request rules are pending we wait their
