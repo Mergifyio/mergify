@@ -24,7 +24,7 @@ from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import rules
-from mergify_engine.actions import merge_base
+from mergify_engine.rules import checks_status
 from mergify_engine.rules import conditions
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
@@ -68,7 +68,7 @@ class FakeQueuePullRequest:
         self.attrs["status-failure"] = self.attrs.get("check-failure", [])  # type: ignore
 
 
-async def test_rules_conditions_update():
+async def test_rules_conditions_update() -> None:
     pulls = [
         FakeQueuePullRequest(
             {
@@ -79,10 +79,10 @@ async def test_rules_conditions_update():
                 "head": "feature-1",
                 "label": ["foo", "bar"],
                 "check-success": ["tests"],
-                "check-pending": [],
+                "check-pending": [],  # type: ignore
                 "check-failure": ["jenkins/fake-tests"],
-                "check-skipped": [],
-                "check-stale": [],
+                "check-skipped": [],  # type: ignore
+                "check-stale": [],  # type: ignore
             }
         ),
     ]
@@ -113,13 +113,20 @@ async def test_rules_conditions_update():
 """
     )
 
-    state = await merge_base.get_rule_checks_status(
-        mock.Mock(), FAKE_REPO, pulls, mock.Mock(conditions=c)
+    state = await checks_status.get_rule_checks_status(
+        mock.Mock(),
+        FAKE_REPO,
+        typing.cast(typing.List[context.BasePullRequest], pulls),
+        mock.Mock(conditions=c),
     )
     assert state == check_api.Conclusion.FAILURE
 
 
-async def assert_queue_rule_checks_status(conds, pull, expected_state):
+async def assert_queue_rule_checks_status(
+    conds: typing.List[typing.Collection[str]],
+    pull: FakeQueuePullRequest,
+    expected_state: checks_status.ChecksCombinedStatus,
+) -> None:
     pull.sync_checks()
     schema = voluptuous.Schema(
         voluptuous.All(
@@ -131,10 +138,10 @@ async def assert_queue_rule_checks_status(conds, pull, expected_state):
     c = schema(conds)
 
     await c([pull])
-    state = await merge_base.get_rule_checks_status(
+    state = await checks_status.get_rule_checks_status(
         mock.Mock(),
         FAKE_REPO,
-        [pull],
+        [typing.cast(context.BasePullRequest, pull)],
         mock.Mock(conditions=c),
         unmatched_conditions_return_failure=False,
         use_new_rule_checks_status=True,
@@ -192,7 +199,7 @@ async def test_rules_checks_basic(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-async def test_rules_checks_with_and_or(logger_checker):
+async def test_rules_checks_with_and_or(logger_checker: None) -> None:
     pull = FakeQueuePullRequest(
         {
             "number": 1,
@@ -200,13 +207,13 @@ async def test_rules_checks_with_and_or(logger_checker):
             "author": "me",
             "base": "main",
             "head": "feature-1",
-            "label": [],
-            "check-success": [],
-            "check-failure": [],
-            "check-pending": [],
-            "check-neutral": [],
-            "check-skipped": [],
-            "check-stale": [],
+            "label": [],  # type: ignore
+            "check-success": [],  # type: ignore
+            "check-failure": [],  # type: ignore
+            "check-pending": [],  # type: ignore
+            "check-neutral": [],  # type: ignore
+            "check-skipped": [],  # type: ignore
+            "check-stale": [],  # type: ignore
         }
     )
     conds = [
@@ -241,26 +248,26 @@ async def test_rules_checks_with_and_or(logger_checker):
 
     # label ok and nothing reported
     pull.attrs["label"] = ["skip-tests"]
-    pull.attrs["check-success"] = []
-    pull.attrs["check-failure"] = []
+    pull.attrs["check-success"] = []  # type: ignore
+    pull.attrs["check-failure"] = []  # type: ignore
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
     # label ok and failure
     pull.attrs["label"] = ["skip-tests"]
-    pull.attrs["check-success"] = []
+    pull.attrs["check-success"] = []  # type: ignore
     pull.attrs["check-failure"] = ["other-ci"]
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
     # label ok and failure
     pull.attrs["label"] = ["skip-tests"]
-    pull.attrs["check-success"] = []
+    pull.attrs["check-success"] = []  # type: ignore
     pull.attrs["check-failure"] = ["fake-ci"]
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
     # label ok and success
     pull.attrs["label"] = ["skip-tests"]
     pull.attrs["check-pending"] = ["fake-ci"]
-    pull.attrs["check-failure"] = []
+    pull.attrs["check-failure"] = []  # type: ignore
     pull.attrs["check-success"] = ["other-ci"]
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
@@ -771,7 +778,7 @@ async def test_rules_checks_status_depop(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.SUCCESS)
 
 
-async def test_rules_checks_status_ceph(logger_checker):
+async def test_rules_checks_status_ceph(logger_checker: None) -> None:
     pull = FakeQueuePullRequest(
         {
             "number": 1,
@@ -779,12 +786,12 @@ async def test_rules_checks_status_ceph(logger_checker):
             "author": "me",
             "base": "devel",
             "head": "feature-1",
-            "check-failure": [],
-            "check-neutral": [],
-            "check-skipped": [],
-            "check-stale": [],
+            "check-failure": [],  # type: ignore
+            "check-neutral": [],  # type: ignore
+            "check-skipped": [],  # type: ignore
+            "check-stale": [],  # type: ignore
             "approved-reviews-by": ["me", "other"],
-            "changes-requested-reviews-by": [],
+            "changes-requested-reviews-by": [],  # type: ignore
             "label": ["mergeit"],
             "check-success": ["Summary", "DCO", "build"],
             "check-success-or-neutral": ["Summary", "DCO", "build"],
@@ -837,12 +844,12 @@ async def test_rules_checks_status_ceph(logger_checker):
         }
     )
     pull.attrs["check"] = (
-        pull.attrs.get("check-success", [])
-        + pull.attrs.get("check-neutral", [])
-        + pull.attrs.get("check-pending", [])
-        + pull.attrs.get("check-stale", [])
-        + pull.attrs.get("check-failure", [])
-        + pull.attrs.get("check-skipped", [])
+        pull.attrs.get("check-success", [])  # type: ignore
+        + pull.attrs.get("check-neutral", [])  # type: ignore
+        + pull.attrs.get("check-pending", [])  # type: ignore
+        + pull.attrs.get("check-stale", [])  # type: ignore
+        + pull.attrs.get("check-failure", [])  # type: ignore
+        + pull.attrs.get("check-skipped", [])  # type: ignore
     )
 
     tree = {
@@ -873,7 +880,9 @@ async def test_rules_checks_status_ceph(logger_checker):
         ]
     }
     f = filter.IncompleteChecksFilter(
-        tree, pending_checks=pull.attrs["check-pending"], all_checks=pull.attrs["check"]
+        typing.cast(filter.TreeT, tree),
+        pending_checks=pull.attrs["check-pending"],  # type: ignore
+        all_checks=pull.attrs["check"],  # type: ignore
     )
 
     async def fake_get_team_members(*args):

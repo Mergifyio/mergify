@@ -19,8 +19,8 @@ from mergify_engine import context
 from mergify_engine import delayed_refresh
 from mergify_engine import github_types
 from mergify_engine import rules
-from mergify_engine.actions import merge_base
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import checks_status
 
 
 async def have_unexpected_draft_pull_request_changes(
@@ -125,7 +125,7 @@ async def handle(queue_rules: rules.QueueRules, ctxt: context.Context) -> None:
             )
 
     if unexpected_changes is None:
-        real_status = status = await merge_base.get_rule_checks_status(
+        real_status = status = await checks_status.get_rule_checks_status(
             ctxt.log,
             ctxt.repository,
             pull_requests,

@@ -43,6 +43,7 @@ from mergify_engine.dashboard import user_tokens
 
 if typing.TYPE_CHECKING:
     from mergify_engine import rules
+    from mergify_engine.rules import checks_status
 
 
 def build_pr_link(
@@ -884,7 +885,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
     async def update_state(
         self,
-        checks_conclusion: check_api.Conclusion,
+        checks_conclusion: "checks_status.ChecksCombinedStatus",
         evaluated_queue_rule: "rules.EvaluatedQueueRule",
     ) -> None:
         self.checks_conclusion = checks_conclusion
@@ -975,8 +976,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
     async def update_summaries(
         self,
-        conclusion: check_api.Conclusion,
-        *,
+        conclusion: "checks_status.ChecksCombinedStatus",
         unexpected_change: typing.Optional[UnexpectedChange] = None,
         force_refresh: bool = False,
     ) -> None:
