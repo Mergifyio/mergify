@@ -27,7 +27,7 @@ import daiquiri
 from mergify_engine import config
 from mergify_engine import crypto
 from mergify_engine import exceptions
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
@@ -77,7 +77,7 @@ class SubscriptionDict(typing.TypedDict):
 
 @dataclasses.dataclass  # type: ignore
 class SubscriptionBase(abc.ABC):
-    redis: utils.RedisCache
+    redis: redis_utils.RedisCache
     owner_id: int
     reason: str
     features: typing.FrozenSet[enum.Enum]
@@ -116,7 +116,7 @@ class SubscriptionBase(abc.ABC):
     @classmethod
     def from_dict(
         cls: typing.Type[SubscriptionT],
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner_id: int,
         sub: SubscriptionDict,
         ttl: int = -2,
@@ -146,7 +146,7 @@ class SubscriptionBase(abc.ABC):
 
     @classmethod
     async def get_subscription(
-        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[SubscriptionT], redis: redis_utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
         """Get a subscription."""
         cached_sub = await cls._retrieve_subscription_from_cache(redis, owner_id)
@@ -168,12 +168,14 @@ class SubscriptionBase(abc.ABC):
 
     @classmethod
     async def update_subscription(
-        cls, redis: utils.RedisCache, owner_id: int, sub: SubscriptionDict
+        cls, redis: redis_utils.RedisCache, owner_id: int, sub: SubscriptionDict
     ) -> None:
         await cls.from_dict(redis, owner_id, sub)._save_subscription_to_cache()
 
     @classmethod
-    async def delete_subscription(cls, redis: utils.RedisCache, owner_id: int) -> None:
+    async def delete_subscription(
+        cls, redis: redis_utils.RedisCache, owner_id: int
+    ) -> None:
         await redis.delete(cls._cache_key(owner_id))
 
     async def _save_subscription_to_cache(self) -> None:
@@ -188,13 +190,13 @@ class SubscriptionBase(abc.ABC):
     @classmethod
     @abc.abstractmethod
     async def _retrieve_subscription_from_db(
-        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[SubscriptionT], redis: redis_utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
         pass
 
     @classmethod
     async def _retrieve_subscription_from_cache(
-        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[SubscriptionT], redis: redis_utils.RedisCache, owner_id: int
     ) -> typing.Optional[SubscriptionT]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(owner_id))
@@ -216,7 +218,7 @@ class SubscriptionBase(abc.ABC):
 class SubscriptionDashboardSaas(SubscriptionBase):
     @classmethod
     async def _retrieve_subscription_from_db(
-        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[SubscriptionT], redis: redis_utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
         async with dashboard.AsyncDashboardSaasClient() as client:
             try:
@@ -233,7 +235,7 @@ class SubscriptionDashboardOnPremise(SubscriptionBase):
 
     @classmethod
     async def _retrieve_subscription_from_db(
-        cls: typing.Type[SubscriptionT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[SubscriptionT], redis: redis_utils.RedisCache, owner_id: int
     ) -> SubscriptionT:
         async with dashboard.AsyncDashboardOnPremiseClient() as client:
             try:

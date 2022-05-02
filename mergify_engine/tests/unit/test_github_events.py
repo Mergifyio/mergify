@@ -25,11 +25,11 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_events
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 
 
 async def _do_test_event_to_pull_check_run(
-    redis_cache: utils.RedisCache, filename: str, expected_pulls: typing.List[int]
+    redis_cache: redis_utils.RedisCache, filename: str, expected_pulls: typing.List[int]
 ) -> None:
     with open(
         os.path.join(os.path.dirname(__file__), "events", filename),
@@ -70,14 +70,16 @@ async def _do_test_event_to_pull_check_run(
 
 
 async def test_event_to_pull_check_run_forked_repo(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
 ) -> None:
     await _do_test_event_to_pull_check_run(
         redis_cache, "check_run.event_from_forked_repo.json", []
     )
 
 
-async def test_event_to_pull_check_run_same_repo(redis_cache: utils.RedisCache) -> None:
+async def test_event_to_pull_check_run_same_repo(
+    redis_cache: redis_utils.RedisCache,
+) -> None:
     await _do_test_event_to_pull_check_run(
         redis_cache, "check_run.event_from_same_repo.json", [409]
     )
@@ -97,14 +99,12 @@ async def test_filter_and_dispatch(
     worker_push: mock.Mock,
     event_type: github_types.GitHubEventType,
     event: github_types.GitHubEvent,
-    redis_cache: utils.RedisCache,
-    redis_stream: utils.RedisStream,
+    redis_links: redis_utils.RedisLinks,
 ) -> None:
     event_id = "my_event_id"
     try:
         await github_events.filter_and_dispatch(
-            redis_cache,
-            redis_stream,
+            redis_links,
             event_type,
             event_id,
             event,

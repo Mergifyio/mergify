@@ -10,7 +10,6 @@ import respx
 from mergify_engine import config
 from mergify_engine import logs
 from mergify_engine import redis_utils
-from mergify_engine import utils
 from mergify_engine.clients import github
 
 
@@ -64,28 +63,36 @@ def enable_api() -> None:
 
 
 @pytest.fixture()
-async def redis_cache() -> typing.AsyncGenerator[utils.RedisCache, None]:
-    with utils.yaaredis_for_cache() as client:
-        await client.flushdb()
-        try:
-            yield client
-        finally:
-            await client.flushdb()
-            client.connection_pool.disconnect()
-            await utils.stop_pending_yaaredis_tasks()
+async def redis_links() -> typing.AsyncGenerator[redis_utils.RedisLinks, None]:
+    links = redis_utils.RedisLinks()
+    await links.cache.flushdb()
+    await links.stream.flushdb()
+    await links.queue.flushdb()
+    await redis_utils.load_scripts(links.cache)
+    try:
+        yield links
+    finally:
+        await links.cache.flushdb()
+        await links.stream.flushdb()
+        await links.queue.flushdb()
+        links.cache.connection_pool.disconnect()
+        links.queue.connection_pool.disconnect()
+        links.stream.connection_pool.disconnect()
+        await redis_utils.stop_pending_yaaredis_tasks()
 
 
 @pytest.fixture()
-async def redis_stream() -> typing.AsyncGenerator[utils.RedisStream, None]:
-    with utils.yaaredis_for_stream() as client:
-        await client.flushdb()
-        await redis_utils.load_scripts(client)
-        try:
-            yield client
-        finally:
-            await client.flushdb()
-            client.connection_pool.disconnect()
-            await utils.stop_pending_yaaredis_tasks()
+async def redis_cache(
+    redis_links: redis_utils.RedisLinks,
+) -> typing.AsyncGenerator[redis_utils.RedisCache, None]:
+    return redis_links.cache
+
+
+@pytest.fixture()
+async def redis_stream(
+    redis_links: redis_utils.RedisLinks,
+) -> typing.AsyncGenerator[redis_utils.RedisStream, None]:
+    return redis_links.stream
 
 
 @pytest.fixture()

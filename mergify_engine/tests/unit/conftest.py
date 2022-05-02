@@ -21,14 +21,14 @@ import pytest
 
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.web import root as web_root
 
 
 @pytest.fixture
 def fake_subscription(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     request: pytest.FixtureRequest,
 ) -> subscription.Subscription:
     marker = request.node.get_closest_marker("subscription")
@@ -47,7 +47,7 @@ def fake_subscription(
 
 @pytest.fixture
 def fake_repository(
-    redis_cache: utils.RedisCache,
+    redis_links: redis_utils.RedisLinks,
     fake_subscription: subscription.Subscription,
 ) -> context.Repository:
     gh_owner = github_types.GitHubAccount(
@@ -81,11 +81,9 @@ def fake_repository(
         }
     )
 
-    fake_client = redis_queue = mock.Mock()
-    # NOTE(Syffe): Since redis_queue is not used in fake_repository, we simply mock it,
-    # otherwise a fixture is needed for it. This might change with future use of redis_queue.
+    fake_client = mock.Mock()
     installation = context.Installation(
-        installation_json, fake_subscription, fake_client, redis_cache, redis_queue
+        installation_json, fake_subscription, fake_client, redis_links
     )
     return context.Repository(installation, gh_repo)
 

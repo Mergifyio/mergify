@@ -21,7 +21,7 @@ from starlette import responses
 
 from mergify_engine import config
 from mergify_engine import github_events
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.web import auth
@@ -42,8 +42,8 @@ router = fastapi.APIRouter()
 @router.post("/marketplace", dependencies=[fastapi.Depends(auth.signature)])
 async def marketplace_handler(
     request: requests.Request,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     event_type = request.headers.get("X-GitHub-Event")
@@ -59,7 +59,7 @@ async def marketplace_handler(
     )
 
     await subscription.Subscription.delete_subscription(
-        redis_cache, data["marketplace_purchase"]["account"]["id"]
+        redis_links.cache, data["marketplace_purchase"]["account"]["id"]
     )
 
     if config.WEBHOOK_MARKETPLACE_FORWARD_URL:
@@ -92,11 +92,8 @@ async def marketplace_handler(
 @router.post("/event", dependencies=[fastapi.Depends(auth.signature)])
 async def event_handler(
     request: requests.Request,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
-    ),
-    redis_stream: utils.RedisStream = fastapi.Depends(  # noqa: B008
-        redis.get_redis_stream
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     event_type = request.headers.get("X-GitHub-Event")
@@ -104,9 +101,7 @@ async def event_handler(
     data = await request.json()
 
     try:
-        await github_events.filter_and_dispatch(
-            redis_cache, redis_stream, event_type, event_id, data
-        )
+        await github_events.filter_and_dispatch(redis_links, event_type, event_id, data)
     except github_events.IgnoredEvent as ie:
         status_code = 200
         reason = f"Event ignored: {ie.reason}"

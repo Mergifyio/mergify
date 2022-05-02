@@ -82,7 +82,9 @@ async def _do_squash(
         expected_sha = (await git("log", "-1", "--format=%H")).strip()
         # NOTE(sileht): We store this for dismissal action
         # FIXME(sileht): use a more generic name for the key
-        await ctxt.redis.setex(f"branch-update-{expected_sha}", 60 * 60, expected_sha)
+        await ctxt.redis.cache.setex(
+            f"branch-update-{expected_sha}", 60 * 60, expected_sha
+        )
     except gitter.GitMergifyNamespaceConflict as e:
         raise SquashFailure(
             "`Mergify uses `mergify/...` namespace for creating temporary branches. "

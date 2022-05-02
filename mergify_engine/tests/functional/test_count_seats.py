@@ -102,7 +102,7 @@ class TestCountSeats(base.FunctionalTestBase):
     async def test_get_collaborators(self) -> None:
         expected_seats = await self._prepare_repo()
         assert (
-            await count_seats.Seats.get(self.redis_cache)
+            await count_seats.Seats.get(self.redis_links.cache)
         ).seats == expected_seats.seats
 
     async def test_count_seats(self) -> None:
@@ -112,7 +112,7 @@ class TestCountSeats(base.FunctionalTestBase):
                 url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
             )
         ).json()
-        seats_count = (await count_seats.Seats.get(self.redis_cache)).count()
+        seats_count = (await count_seats.Seats.get(self.redis_links.cache)).count()
         assert seats_count.write_users >= len(members)
         assert seats_count.active_users == 2
 
@@ -209,7 +209,7 @@ class TestCountSeats(base.FunctionalTestBase):
         repository_name = self.RECORD_CONFIG["repository_name"]
         organization_name = self.RECORD_CONFIG["organization_name"]
         key = f"active-users~{organization_id}~{organization_name}~{repository_id}~{repository_name}"
-        active_users = await self.redis_cache.zrangebyscore(
+        active_users = await self.redis_links.cache.zrangebyscore(
             key, min="-inf", max="+inf", withscores=True
         )
         now = time.time()

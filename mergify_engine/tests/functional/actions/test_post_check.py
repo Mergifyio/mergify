@@ -19,7 +19,6 @@ import yaml
 
 from mergify_engine import config
 from mergify_engine import context
-from mergify_engine import utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.tests.functional import base
 
@@ -118,15 +117,15 @@ Rule list:
 
 
 class TestPostCheckActionNoSub(base.FunctionalTestBase):
-    async def test_checks_feature_disabled(self):
+    async def test_checks_feature_disabled(self) -> None:
         self.subscription = subscription.Subscription(
-            utils.create_yaaredis_for_cache(max_idle_time=0),
-            config.INSTALLATION_ID,
+            self.redis_links.cache,
+            config.TESTING_INSTALLATION_ID,
             "You're not nice",
             frozenset(
                 getattr(subscription.Features, f)
                 for f in subscription.Features.__members__
-                if f is not subscription.Features.CUSTOM_CHECKS
+                if f is not subscription.Features.CUSTOM_CHECKS.value
             )
             if self.SUBSCRIPTION_ACTIVE
             else frozenset([subscription.Features.PUBLIC_REPOSITORY]),

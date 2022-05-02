@@ -29,8 +29,8 @@ from mergify_engine import config
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import json
+from mergify_engine import redis_utils
 from mergify_engine import service
-from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.clients import http
@@ -88,7 +88,7 @@ def _get_active_users_key(
 
 
 async def get_active_users_keys(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     owner_id: typing.Union[typing.Literal["*"], github_types.GitHubAccountIdType] = "*",
     repo_id: typing.Union[
         typing.Literal["*"], github_types.GitHubRepositoryIdType
@@ -108,7 +108,7 @@ def _parse_user(user: str) -> ActiveUser:
 
 
 async def get_active_users(
-    redis_cache: utils.RedisCache, key: ActiveUserKeyT
+    redis_cache: redis_utils.RedisCache, key: ActiveUserKeyT
 ) -> typing.Set[ActiveUser]:
     one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
     return {
@@ -120,7 +120,9 @@ async def get_active_users(
 
 
 async def store_active_users(
-    redis_cache: utils.RedisCache, event_type: str, event: github_types.GitHubEvent
+    redis_cache: redis_utils.RedisCache,
+    event_type: str,
+    event: github_types.GitHubEvent,
 ) -> None:
     typed_event: typing.Optional[
         typing.Union[
@@ -223,7 +225,7 @@ class Seats:
     @classmethod
     async def get(
         cls,
-        redis_cache: utils.RedisCache,
+        redis_cache: redis_utils.RedisCache,
         write_users: bool = True,
         active_users: bool = True,
         owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
@@ -297,7 +299,7 @@ class Seats:
 
     async def populate_with_active_users(
         self,
-        redis_cache: utils.RedisCache,
+        redis_cache: redis_utils.RedisCache,
         owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> None:
         async for key in get_active_users_keys(
@@ -399,7 +401,7 @@ async def send_seats(seats: SeatsCountResultT) -> None:
                 raise
 
 
-async def count_and_send(redis_cache: utils.RedisCache) -> None:
+async def count_and_send(redis_cache: redis_utils.RedisCache) -> None:
     await asyncio.sleep(HOUR)
     while True:
         # NOTE(sileht): We loop even if SUBSCRIPTION_TOKEN is missing to not
@@ -423,16 +425,16 @@ async def count_and_send(redis_cache: utils.RedisCache) -> None:
 
 
 async def report(args: argparse.Namespace) -> None:
-    redis_cache = utils.create_yaaredis_for_cache()
+    redis_links = redis_utils.RedisLinks()
     if args.daemon:
         service.setup("count-seats")
-        await count_and_send(redis_cache)
+        await count_and_send(redis_links.cache)
     else:
         service.setup("count-seats", dump_config=False)
         if config.SUBSCRIPTION_TOKEN is None:
             LOG.error("on-premise subscription token missing")
         else:
-            seats = await Seats.get(redis_cache)
+            seats = await Seats.get(redis_links.cache)
             if args.json:
                 print(json.dumps(seats.jsonify()))
             else:

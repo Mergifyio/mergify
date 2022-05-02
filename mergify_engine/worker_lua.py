@@ -20,7 +20,6 @@ from ddtrace import tracer
 
 from mergify_engine import github_types
 from mergify_engine import redis_utils
-from mergify_engine import utils
 
 
 LOG = daiquiri.getLogger(__name__)
@@ -55,7 +54,7 @@ redis.call("ZADD", "streams", "NX", scheduled_at_timestamp, bucket_org_key)
 
 @tracer.wrap("stream_push_pull", span_type="worker")
 async def push_pull(
-    redis: utils.RedisStream,
+    redis: redis_utils.RedisStream,
     bucket_org_key: BucketOrgKeyType,
     bucket_sources_key: BucketSourcesKeyType,
     tracing_repo_name: github_types.GitHubRepositoryNameForTracing,
@@ -111,7 +110,7 @@ end
 
 @tracer.wrap("stream_remove_pull", span_type="worker")
 async def remove_pull(
-    redis: utils.RedisStream,
+    redis: redis_utils.RedisStream,
     bucket_org_key: BucketOrgKeyType,
     bucket_sources_key: BucketSourcesKeyType,
     message_ids: typing.Tuple[str, ...],
@@ -143,7 +142,7 @@ redis.call("DEL", bucket_org_key)
 
 @tracer.wrap("stream_drop_bucket", span_type="worker")
 async def drop_bucket(
-    redis: utils.RedisStream,
+    redis: redis_utils.RedisStream,
     bucket_org_key: BucketOrgKeyType,
 ) -> None:
     await redis_utils.run_script(redis, DROP_BUCKET_SCRIPT, (bucket_org_key,))
@@ -167,7 +166,7 @@ end
 
 @tracer.wrap("stream_clean_org_bucket", span_type="worker")
 async def clean_org_bucket(
-    redis: utils.RedisStream,
+    redis: redis_utils.RedisStream,
     bucket_org_key: BucketOrgKeyType,
     scheduled_at: datetime.datetime,
 ) -> None:

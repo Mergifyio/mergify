@@ -319,15 +319,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # update the associated transient pull request.
             # This is mandatory to filter out refresh to avoid loop
             # of refreshes between this PR and the transient one.
-            with utils.yaaredis_for_stream() as redis_stream:
-                await utils.send_pull_refresh(
-                    ctxt.repository.installation.redis,
-                    redis_stream,
-                    ctxt.pull["base"]["repo"],
-                    pull_request_number=new_car.queue_pull_request_number,
-                    action="internal",
-                    source="forward from queue action (run)",
-                )
+            await utils.send_pull_refresh(
+                ctxt.repository.installation.redis.stream,
+                ctxt.pull["base"]["repo"],
+                pull_request_number=new_car.queue_pull_request_number,
+                action="internal",
+                source="forward from queue action (run)",
+            )
         return result
 
     async def cancel(
@@ -382,15 +380,13 @@ Then, re-embark the pull request into the merge queue by posting the comment
             # update the associated transient pull request.
             # This is mandatory to filter out refresh to avoid loop
             # of refreshes between this PR and the transient one.
-            with utils.yaaredis_for_stream() as redis_stream:
-                await utils.send_pull_refresh(
-                    ctxt.repository.installation.redis,
-                    redis_stream,
-                    ctxt.pull["base"]["repo"],
-                    pull_request_number=newcar.queue_pull_request_number,
-                    action="internal",
-                    source="forward from queue action (cancel)",
-                )
+            await utils.send_pull_refresh(
+                ctxt.repository.installation.redis.stream,
+                ctxt.pull["base"]["repo"],
+                pull_request_number=newcar.queue_pull_request_number,
+                action="internal",
+                source="forward from queue action (cancel)",
+            )
         return result
 
     def validate_config(self, mergify_config: "rules.MergifyConfig") -> None:

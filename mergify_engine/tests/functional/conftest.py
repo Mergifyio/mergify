@@ -28,7 +28,7 @@ import vcr.stubs.urllib3_stubs
 
 from mergify_engine import config
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import github
 from mergify_engine.clients import github_app
 from mergify_engine.dashboard import application as application_mod
@@ -68,7 +68,7 @@ class DashboardFixture(typing.NamedTuple):
 
 @pytest.fixture
 async def dashboard(
-    redis_cache: utils.RedisCache, request: pytest.FixtureRequest
+    redis_cache: redis_utils.RedisCache, request: pytest.FixtureRequest
 ) -> DashboardFixture:
     is_unittest_class = request.cls is not None
     subscription_active = False

@@ -26,7 +26,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestDebugger(base.FunctionalTestBase):
-    async def test_debugger(self):
+    async def test_debugger(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -75,7 +75,7 @@ class TestDebugger(base.FunctionalTestBase):
             s2 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         with mock.patch("sys.stdout") as stdout:
-            await debug.report(p["base"]["user"]["html_url"])
+            await debug.report(p["base"]["user"]["html_url"])  # type: ignore[typeddict-item]
             s3 = "".join(call.args[0] for call in stdout.write.mock_calls)
 
         assert s1.startswith(s2)
@@ -86,7 +86,7 @@ class TestDebugger(base.FunctionalTestBase):
         ][0]["html_url"]
         assert (
             s1.strip()
-            == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
+            == f"""* INSTALLATION ID: {config.TESTING_INSTALLATION_ID}
 * Features (db):
   - priority_queues
   - public_repository
@@ -225,7 +225,7 @@ mergeable_state: clean
 
         assert (
             s3.strip()
-            == f"""* INSTALLATION ID: {config.INSTALLATION_ID}
+            == f"""* INSTALLATION ID: {config.TESTING_INSTALLATION_ID}
 * Features (db):
   - priority_queues
   - public_repository
