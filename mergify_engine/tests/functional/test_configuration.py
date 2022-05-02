@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import typing
 from unittest import mock
 
 import pytest
@@ -141,6 +142,56 @@ expected alphabetic or numeric character, but found"""
                 "raw_details": None,
             }
         ]
+
+    async def test_cached_config_changes_when_push_event_received(self) -> None:
+        rules = {
+            "pull_request_rules": [
+                {
+                    "name": "foobar",
+                    "conditions": ["base=main"],
+                    "actions": {
+                        "comment": {"message": "hello"},
+                    },
+                },
+            ],
+        }
+
+        rules_default: typing.Dict[str, typing.List[str]] = {"pull_request_rules": []}
+
+        await self.setup_repo(yaml.dump(rules_default))
+        assert self.git.repository is not None
+        await self.repository_ctxt.get_mergify_config_file()
+        await self.run_engine()
+
+        cached_config_file = await self.repository_ctxt.get_cached_config_file(
+            self.repository_ctxt.repo["id"]
+        )
+        assert cached_config_file is not None
+        assert cached_config_file["decoded_content"] == yaml.dump(rules_default)
+
+        with open(self.git.repository + "/.mergify.yml", "wb") as f:
+            f.write(yaml.dump(rules).encode())
+
+        await self.git("add", ".mergify.yml")
+        await self.git("commit", "--no-edit", "-m", "conf update")
+        await self.git("push", "--quiet", "origin", self.main_branch_name)
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
+
+        cached_config_file = await self.repository_ctxt.get_cached_config_file(
+            self.repository_ctxt.repo["id"]
+        )
+        assert cached_config_file is None
+
+        p = await self.create_pr()
+        await context.Context.create(self.repository_ctxt, p, [])
+        await self.run_engine()
+
+        cached_config_file = await self.repository_ctxt.get_cached_config_file(
+            self.repository_ctxt.repo["id"]
+        )
+        assert cached_config_file is not None
+        assert cached_config_file["decoded_content"] == yaml.dump(rules)
 
     async def test_no_configuration_changed_with_weird_base_sha(self) -> None:
         # Test special case where the configuration is changed around the a

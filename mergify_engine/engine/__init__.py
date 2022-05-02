@@ -423,8 +423,7 @@ async def create_initial_summary(
 
     if not await redis.exists(
         context.Repository.get_config_location_cache_key(
-            owner["login"],
-            repo["name"],
+            repo["id"],
         )
     ):
         # Mergify is probably not activated on this repo

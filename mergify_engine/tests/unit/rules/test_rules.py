@@ -528,6 +528,10 @@ pull_request_rules:
     fake_repository.installation.client = client
 
     fake_repository._caches.mergify_config_file.delete()
+    await fake_repository.clear_config_file_cache(
+        fake_repository.installation.redis,
+        fake_repository.repo["id"],
+    )
     config_file = await fake_repository.get_mergify_config_file()
     assert config_file is not None
 
@@ -538,6 +542,56 @@ pull_request_rules:
 
     comment = schema["pull_request_rules"].rules[0].actions["comment"].config
     assert comment == {"message": "I really love Mergify", "bot_account": "AutoBot"}
+
+
+async def test_get_mergify_config_file_content_from_cache(
+    fake_repository: context.Repository,
+) -> None:
+    config = """
+    defaults:
+      actions:
+        comment:
+          bot_account: foo-bot
+        rebase:
+          bot_account: test-bot-account
+    pull_request_rules:
+      - name: ahah
+        conditions:
+        - base=main
+        actions:
+          comment:
+            message: I love Mergify
+          rebase: {}
+    """
+    client = mock.AsyncMock()
+    client.item.side_effect = [
+        github_types.GitHubContentFile(
+            {
+                "content": encodebytes(config.encode()).decode(),
+                "type": "file",
+                "path": ".github/mergify.yml",
+                "sha": github_types.SHAType("zeazeaze"),
+            }
+        ),
+    ]
+
+    fake_repository.installation.client = client
+    await fake_repository.get_mergify_config_file()
+    cached_config_file = await fake_repository.get_cached_config_file(
+        fake_repository.repo["id"]
+    )
+    assert cached_config_file is not None
+    assert cached_config_file["content"] == encodebytes(config.encode()).decode()
+
+    await fake_repository.clear_config_file_cache(
+        fake_repository.installation.redis,
+        fake_repository.repo["id"],
+    )
+
+    cached_config_file = await fake_repository.get_cached_config_file(
+        fake_repository.repo["id"]
+    )
+    assert cached_config_file is None
 
 
 async def test_get_mergify_config_location_from_cache(
@@ -589,15 +643,7 @@ async def test_get_mergify_config_location_from_cache(
 
     fake_repository._caches = context.RepositoryCaches()
     await fake_repository.get_mergify_config_file()
-    assert client.item.call_count == 1
-    client.item.assert_has_calls(
-        [
-            mock.call(
-                "/repos/Mergifyio/mergify-engine/contents/.github/mergify.yml",
-                params={},
-            ),
-        ]
-    )
+    assert client.item.call_count == 0
 
 
 @pytest.mark.parametrize(
