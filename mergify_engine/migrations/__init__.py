@@ -17,7 +17,6 @@ import typing
 import pkg_resources
 
 from mergify_engine import redis_utils
-from mergify_engine import utils
 
 
 LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY = "MERGE_TRAIN_MIGRATION_DONE"
@@ -25,7 +24,7 @@ LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY = "MERGE_TRAIN_MIGRATION_DONE"
 MIGRATION_STAMPS_KEY = "migration-stamps"
 
 
-async def run(redis_cache: utils.RedisCache) -> None:
+async def run(redis_cache: redis_utils.RedisCache) -> None:
     # Convert old migration stamp key to new system
     if await redis_cache.exists(LEGACY_MERGE_TRAIN_MIRATION_STAMP_KEY):
         await redis_cache.set(MIGRATION_STAMPS_KEY, 1)
@@ -35,7 +34,7 @@ async def run(redis_cache: utils.RedisCache) -> None:
 
 
 async def _run_scripts(
-    dirname: str, redis: typing.Union[utils.RedisCache, utils.RedisStream]
+    dirname: str, redis: typing.Union[redis_utils.RedisCache, redis_utils.RedisStream]
 ) -> None:
     current_version = await redis.get(MIGRATION_STAMPS_KEY)
     if current_version is None:

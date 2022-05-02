@@ -20,7 +20,7 @@ from mergify_engine.tests.functional import base
 
 
 class TestRebaseAction(base.FunctionalTestBase):
-    async def test_rebase_ok(self):
+    async def test_rebase_ok(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -53,7 +53,7 @@ class TestRebaseAction(base.FunctionalTestBase):
 
         self.assertNotEqual(pr_initial_sha, final_sha)
 
-    async def test_rebase_on_closed_pr_deleted_branch(self):
+    async def test_rebase_on_closed_pr_deleted_branch(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -90,7 +90,7 @@ class TestRebaseAction(base.FunctionalTestBase):
         for check in checks:
             assert check["conclusion"] == "success", check
 
-    async def test_rebase_on_uptodate_pr_branch(self):
+    async def test_rebase_on_uptodate_pr_branch(self) -> None:
         rules = {
             "pull_request_rules": [
                 {

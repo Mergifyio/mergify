@@ -218,9 +218,9 @@ Schema = voluptuous.Schema(
             "TESTING_FORWARDER_ENDPOINT",
             default="https://test-forwarder.mergify.io/events",
         ): str,
-        voluptuous.Required("INSTALLATION_ID", default=15398551): voluptuous.Coerce(
-            int
-        ),
+        voluptuous.Required(
+            "TESTING_INSTALLATION_ID", default=15398551
+        ): voluptuous.Coerce(int),
         voluptuous.Required(
             "TESTING_REPOSITORY_ID", default=258840104
         ): voluptuous.Coerce(int),
@@ -318,6 +318,7 @@ TESTING_MERGIFY_TEST_1_ID: int
 TESTING_MERGIFY_TEST_2_ID: int
 TESTING_GPGKEY_SECRET: bytes
 TESTING_ID_GPGKEY_SECRET: str
+TESTING_INSTALLATION_ID: int
 SAAS_MODE: bool
 
 configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")

@@ -61,7 +61,7 @@ class QueueFreeze:
         cls, repository: context.Repository
     ) -> typing.AsyncGenerator["QueueFreeze", None]:
 
-        async for key, qf_raw in repository.installation.redis_queue.hscan_iter(
+        async for key, qf_raw in repository.installation.redis.queue.hscan_iter(
             name=cls._get_redis_hash(repository),
             match=cls._get_redis_key_match(repository),
         ):
@@ -80,7 +80,7 @@ class QueueFreeze:
         cls, repository: context.Repository, queue_name: str
     ) -> typing.Optional["QueueFreeze"]:
 
-        qf_raw = await repository.installation.redis_queue.hget(
+        qf_raw = await repository.installation.redis.queue.hget(
             cls._get_redis_hash(repository),
             cls._get_redis_key(repository, queue_name),
         )
@@ -115,7 +115,7 @@ class QueueFreeze:
 
     async def save(self) -> None:
 
-        await self.repository.installation.redis_queue.hset(
+        await self.repository.installation.redis.queue.hset(
             self._get_redis_hash(self.repository),
             self._get_redis_key(self.repository, self.name),
             msgpack.packb(
@@ -137,7 +137,7 @@ class QueueFreeze:
     async def delete(self) -> bool:
 
         result = bool(
-            await self.repository.installation.redis_queue.hdel(
+            await self.repository.installation.redis.queue.hdel(
                 self._get_redis_hash(self.repository),
                 self._get_redis_key(self.repository, self.name),
             )

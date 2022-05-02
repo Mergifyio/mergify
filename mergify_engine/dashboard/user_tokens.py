@@ -23,7 +23,7 @@ from mergify_engine import config
 from mergify_engine import crypto
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
@@ -52,7 +52,7 @@ UserTokensT = typing.TypeVar("UserTokensT", bound="UserTokensBase")
 
 @dataclasses.dataclass
 class UserTokensBase:
-    redis: utils.RedisCache
+    redis: redis_utils.RedisCache
     owner_id: int
     users: typing.List[UserTokensUser]
 
@@ -88,13 +88,13 @@ class UserTokensBase:
 
     @classmethod
     async def delete(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> None:
         raise NotImplementedError
 
     @classmethod
     async def get(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> UserTokensT:
         raise NotImplementedError
 
@@ -118,13 +118,13 @@ class UserTokensSaas(UserTokensBase):
 
     @classmethod
     async def delete(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> None:
         await redis.delete(typing.cast(UserTokensSaas, cls)._cache_key(owner_id))
 
     @classmethod
     async def get(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> UserTokensT:
         return typing.cast(
             UserTokensT,
@@ -132,7 +132,9 @@ class UserTokensSaas(UserTokensBase):
         )
 
     @classmethod
-    async def _get(cls, redis: utils.RedisCache, owner_id: int) -> "UserTokensSaas":
+    async def _get(
+        cls, redis: redis_utils.RedisCache, owner_id: int
+    ) -> "UserTokensSaas":
         cached_tokens = await cls._retrieve_from_cache(redis, owner_id)
         if cached_tokens is None or await cached_tokens._has_expired():
             try:
@@ -160,7 +162,7 @@ class UserTokensSaas(UserTokensBase):
 
     @classmethod
     async def _retrieve_from_cache(
-        cls, redis: utils.RedisCache, owner_id: int
+        cls, redis: redis_utils.RedisCache, owner_id: int
     ) -> typing.Optional["UserTokensSaas"]:
         async with await redis.pipeline() as pipe:
             await pipe.get(cls._cache_key(owner_id))
@@ -189,7 +191,7 @@ class UserTokensSaas(UserTokensBase):
 
     @classmethod
     async def _retrieve_from_db(
-        cls, redis: utils.RedisCache, owner_id: int
+        cls, redis: redis_utils.RedisCache, owner_id: int
     ) -> "UserTokensSaas":
         async with dashboard.AsyncDashboardSaasClient() as client:
             try:
@@ -205,13 +207,13 @@ class UserTokensSaas(UserTokensBase):
 class UserTokensOnPremise(UserTokensBase):
     @classmethod
     async def delete(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> None:
         pass
 
     @classmethod
     async def get(
-        cls: typing.Type[UserTokensT], redis: utils.RedisCache, owner_id: int
+        cls: typing.Type[UserTokensT], redis: redis_utils.RedisCache, owner_id: int
     ) -> UserTokensT:
         return cls(
             redis,

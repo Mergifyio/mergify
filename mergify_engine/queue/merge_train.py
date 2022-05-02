@@ -509,15 +509,13 @@ class TrainCar:
 
         else:
             # Already done, just refresh it to merge it
-            with utils.yaaredis_for_stream() as redis_stream:
-                await utils.send_pull_refresh(
-                    self.train.repository.installation.redis,
-                    redis_stream,
-                    ctxt.pull["base"]["repo"],
-                    pull_request_number=ctxt.pull["number"],
-                    action="internal",
-                    source="updated pull need to be merge",
-                )
+            await utils.send_pull_refresh(
+                self.train.repository.installation.redis.stream,
+                ctxt.pull["base"]["repo"],
+                pull_request_number=ctxt.pull["number"],
+                action="internal",
+                source="updated pull need to be merge",
+            )
 
         await self._set_initial_state(
             "updated",
@@ -857,15 +855,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 ),
             )
 
-            with utils.yaaredis_for_stream() as redis_stream:
-                await utils.send_pull_refresh(
-                    self.train.repository.installation.redis,
-                    redis_stream,
-                    original_ctxt.pull["base"]["repo"],
-                    pull_request_number=original_ctxt.pull["number"],
-                    action="internal",
-                    source="draft pull creation error",
-                )
+            await utils.send_pull_refresh(
+                self.train.repository.installation.redis.stream,
+                original_ctxt.pull["base"]["repo"],
+                pull_request_number=original_ctxt.pull["number"],
+                action="internal",
+                source="draft pull creation error",
+            )
 
     async def get_rule(
         self,
@@ -1186,15 +1182,13 @@ You don't need to do anything. Mergify will close this pull request automaticall
             ):
                 # NOTE(sileht): refresh it, so the queue action will merge it and delete the
                 # tmp_pull_ctxt branch
-                with utils.yaaredis_for_stream() as redis_stream:
-                    await utils.send_pull_refresh(
-                        self.train.repository.installation.redis,
-                        redis_stream,
-                        original_ctxt.pull["base"]["repo"],
-                        pull_request_number=original_ctxt.pull["number"],
-                        action="internal",
-                        source="draft pull request state change",
-                    )
+                await utils.send_pull_refresh(
+                    self.train.repository.installation.redis.stream,
+                    original_ctxt.pull["base"]["repo"],
+                    pull_request_number=original_ctxt.pull["number"],
+                    action="internal",
+                    source="draft pull request state change",
+                )
 
         if self.creation_state != "created":
             return
@@ -1263,7 +1257,7 @@ class Train(queue.QueueBase):
         installation: context.Installation,
     ) -> None:
         trains_key = f"merge-trains~{installation.owner_id}"
-        for key in await installation.redis.hkeys(trains_key):
+        for key in await installation.redis.cache.hkeys(trains_key):
             repo_id_str, ref_str = key.split("~")
             ref = github_types.GitHubRefType(ref_str)
             repo_id = github_types.GitHubRepositoryIdType(int(repo_id_str))
@@ -1275,7 +1269,7 @@ class Train(queue.QueueBase):
                     gh_owner=installation.owner_login,
                     gh_repo_id=repo_id,
                 )
-                await installation.redis.hdel(trains_key, key)
+                await installation.redis.cache.hdel(trains_key, key)
                 continue
             train = cls(repository, ref)
             await train.load()
@@ -1294,7 +1288,7 @@ class Train(queue.QueueBase):
         if repository is not None:
             repo_filter = repository.repo["id"]
 
-        async for key, train_raw in repository.installation.redis.hscan_iter(
+        async for key, train_raw in repository.installation.redis.cache.hscan_iter(
             f"merge-trains~{repository.installation.owner_id}",
             f"{repo_filter}~*",
             count=10000,
@@ -1310,7 +1304,7 @@ class Train(queue.QueueBase):
 
     async def load(self, train_raw: typing.Optional[bytes] = None) -> None:
         if train_raw is None:
-            train_raw = await self.repository.installation.redis.hget(
+            train_raw = await self.repository.installation.redis.cache.hget(
                 self._get_redis_key(), self._get_redis_hash_key()
             )
 
@@ -1356,11 +1350,11 @@ class Train(queue.QueueBase):
                 cars=[c.serialized() for c in self._cars],
             )
             raw = json.dumps(prepared)
-            await self.repository.installation.redis.hset(
+            await self.repository.installation.redis.cache.hset(
                 self._get_redis_key(), self._get_redis_hash_key(), raw
             )
         else:
-            await self.repository.installation.redis.hdel(
+            await self.repository.installation.redis.cache.hdel(
                 self._get_redis_key(), self._get_redis_hash_key()
             )
 
@@ -1791,15 +1785,13 @@ class Train(queue.QueueBase):
             # A earlier batch failed and it was the fault of the last PR of the batch
             # we refresh the draft PR, so it will set the final state
             if self._cars[0].queue_pull_request_number is not None:
-                with utils.yaaredis_for_stream() as redis_stream:
-                    await utils.send_pull_refresh(
-                        self.repository.installation.redis,
-                        redis_stream,
-                        self.repository.repo,
-                        pull_request_number=self._cars[0].queue_pull_request_number,
-                        action="internal",
-                        source="batch failed due to last pull",
-                    )
+                await utils.send_pull_refresh(
+                    self.repository.installation.redis.stream,
+                    self.repository.repo,
+                    pull_request_number=self._cars[0].queue_pull_request_number,
+                    action="internal",
+                    source="batch failed due to last pull",
+                )
             return
 
         # NOTE(sileht): Looks for batch failure and split if needed

@@ -21,7 +21,7 @@ from mergify_engine import config
 from mergify_engine import crypto
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import dashboard
 from mergify_engine.clients import http
 
@@ -54,7 +54,7 @@ ApplicationClassT = typing.TypeVar("ApplicationClassT", bound="ApplicationBase")
 
 @dataclasses.dataclass
 class ApplicationBase:
-    redis: utils.RedisCache
+    redis: redis_utils.RedisCache
     id: int
     name: str
     api_access_key: str
@@ -62,13 +62,13 @@ class ApplicationBase:
     account_scope: typing.Optional[ApplicationAccountScope]
 
     @classmethod
-    async def delete(cls, redis: utils.RedisCache, api_access_key: str) -> None:
+    async def delete(cls, redis: redis_utils.RedisCache, api_access_key: str) -> None:
         raise NotImplementedError
 
     @classmethod
     async def get(
         cls: typing.Type[ApplicationClassT],
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
@@ -77,7 +77,10 @@ class ApplicationBase:
 
     @classmethod
     async def update(
-        cls, redis: utils.RedisCache, api_access_key: str, app: ApplicationDashboardJSON
+        cls,
+        redis: redis_utils.RedisCache,
+        api_access_key: str,
+        app: ApplicationDashboardJSON,
     ) -> None:
         raise NotImplementedError
 
@@ -111,7 +114,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def delete(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
     ) -> None:
         pipe = await redis.pipeline()
@@ -124,7 +127,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def get(
         cls: typing.Type[ApplicationClassT],
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
@@ -139,7 +142,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def _get(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
@@ -198,7 +201,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def update(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         data: ApplicationDashboardJSON,
     ) -> None:
@@ -242,7 +245,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def _retrieve_from_cache(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
@@ -284,7 +287,7 @@ class ApplicationSaas(ApplicationBase):
     @classmethod
     async def _retrieve_from_db(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],
@@ -321,13 +324,13 @@ class ApplicationSaas(ApplicationBase):
 @dataclasses.dataclass
 class ApplicationOnPremise(ApplicationBase):
     @classmethod
-    async def delete(cls, redis: utils.RedisCache, api_access_key: str) -> None:
+    async def delete(cls, redis: redis_utils.RedisCache, api_access_key: str) -> None:
         pass
 
     @classmethod
     async def get(
         cls: typing.Type[ApplicationClassT],
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         api_access_key: str,
         api_secret_key: str,
         account_scope: typing.Optional[github_types.GitHubLogin],

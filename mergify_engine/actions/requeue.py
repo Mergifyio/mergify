@@ -63,15 +63,13 @@ class RequeueAction(actions.Action):
         )
 
         # NOTE(sileht): refresh it to maybe, retrigger the queue action.
-        with utils.yaaredis_for_stream() as redis_stream:
-            await utils.send_pull_refresh(
-                ctxt.redis,
-                redis_stream,
-                ctxt.pull["base"]["repo"],
-                pull_request_number=ctxt.pull["number"],
-                action="user",
-                source="action/command/requeue",
-            )
+        await utils.send_pull_refresh(
+            ctxt.redis.stream,
+            ctxt.pull["base"]["repo"],
+            pull_request_number=ctxt.pull["number"],
+            action="user",
+            source="action/command/requeue",
+        )
 
         await signals.send(ctxt, "action.requeue")
         return check_api.Result(

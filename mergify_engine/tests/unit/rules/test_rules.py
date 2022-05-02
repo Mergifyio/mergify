@@ -529,7 +529,7 @@ pull_request_rules:
 
     fake_repository._caches.mergify_config_file.delete()
     await fake_repository.clear_config_file_cache(
-        fake_repository.installation.redis,
+        fake_repository.installation.redis.cache,
         fake_repository.repo["id"],
     )
     config_file = await fake_repository.get_mergify_config_file()
@@ -584,7 +584,7 @@ async def test_get_mergify_config_file_content_from_cache(
     assert cached_config_file["content"] == encodebytes(config.encode()).decode()
 
     await fake_repository.clear_config_file_cache(
-        fake_repository.installation.redis,
+        fake_repository.installation.redis.cache,
         fake_repository.repo["id"],
     )
 

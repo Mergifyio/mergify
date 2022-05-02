@@ -22,7 +22,7 @@ from starlette import responses
 
 from mergify_engine import count_seats
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.dashboard import application
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
@@ -40,13 +40,13 @@ router = fastapi.APIRouter()
 )
 async def get_stats(
     owner_id: github_types.GitHubAccountIdType,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
-    last_seen_at = await last_seen.get(redis_cache, owner_id)
+    last_seen_at = await last_seen.get(redis_links.cache, owner_id)
     seats = await count_seats.Seats.get(
-        redis_cache, write_users=False, owner_id=owner_id
+        redis_links.cache, write_users=False, owner_id=owner_id
     )
     data = seats.jsonify()
     if data["organizations"]:
@@ -73,8 +73,8 @@ async def get_stats(
 async def subscription_cache_update(
     owner_id: github_types.GitHubAccountIdType,
     request: requests.Request,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     sub = await request.json()
@@ -82,7 +82,7 @@ async def subscription_cache_update(
         return responses.Response("Empty content", status_code=400)
     try:
         await subscription.Subscription.update_subscription(
-            redis_cache, int(owner_id), sub
+            redis_links.cache, int(owner_id), sub
         )
     except NotImplementedError:
         return responses.Response("Updating subscription is disabled", status_code=400)
@@ -96,12 +96,12 @@ async def subscription_cache_update(
 )
 async def subscription_cache_delete(
     owner_id: github_types.GitHubAccountIdType,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     try:
-        await subscription.Subscription.delete_subscription(redis_cache, owner_id)
+        await subscription.Subscription.delete_subscription(redis_links.cache, owner_id)
     except NotImplementedError:
         return responses.Response("Deleting subscription is disabled", status_code=400)
     return responses.Response("Cache cleaned", status_code=200)
@@ -113,12 +113,12 @@ async def subscription_cache_delete(
 )
 async def tokens_cache_delete(
     owner_id: github_types.GitHubAccountIdType,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     try:
-        await user_tokens.UserTokens.delete(redis_cache, owner_id)
+        await user_tokens.UserTokens.delete(redis_links.cache, owner_id)
     except NotImplementedError:
         return responses.Response("Deleting tokens is disabled", status_code=400)
     return responses.Response("Cache cleaned", status_code=200)
@@ -131,8 +131,8 @@ async def tokens_cache_delete(
 async def application_cache_update(
     api_access_key: str,
     request: requests.Request,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     data = typing.cast(
@@ -142,7 +142,7 @@ async def application_cache_update(
         return responses.Response("Empty content", status_code=400)
 
     try:
-        await application.Application.update(redis_cache, api_access_key, data)
+        await application.Application.update(redis_links.cache, api_access_key, data)
     except NotImplementedError:
         return responses.Response("Updating application is disabled", status_code=400)
 
@@ -155,12 +155,12 @@ async def application_cache_update(
 )
 async def application_cache_delete(
     api_access_key: str,
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> responses.Response:
     try:
-        await application.Application.delete(redis_cache, api_access_key)
+        await application.Application.delete(redis_links.cache, api_access_key)
     except NotImplementedError:
         return responses.Response("Deleting subscription is disabled", status_code=400)
     return responses.Response("Cache cleaned", status_code=200)

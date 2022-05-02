@@ -24,7 +24,7 @@ from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import application as application_mod
@@ -44,8 +44,8 @@ async def get_application(
     credentials: fastapi.security.HTTPAuthorizationCredentials = fastapi.Security(  # noqa: B008
         security
     ),
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
 ) -> application_mod.Application:
 
@@ -54,7 +54,7 @@ async def get_application(
     api_secret_key = credentials.credentials[config.API_ACCESS_KEY_LEN :]
     try:
         app = await application_mod.Application.get(
-            redis_cache, api_access_key, api_secret_key, scope
+            redis_links.cache, api_access_key, api_secret_key, scope
         )
     except application_mod.ApplicationUserNotFound:
         raise fastapi.HTTPException(status_code=403)
@@ -100,11 +100,8 @@ async def get_repository_context(
     repository: github_types.GitHubRepositoryName = fastapi.Path(  # noqa: B008
         ..., description="The name of the repository"
     ),
-    redis_cache: utils.RedisCache = fastapi.Depends(  # noqa: B008
-        redis.get_redis_cache
-    ),
-    redis_queue: utils.RedisQueue = fastapi.Depends(  # noqa: B008
-        redis.get_redis_queue
+    redis_links: redis_utils.RedisLinks = fastapi.Depends(  # noqa: B008
+        redis.get_redis_links
     ),
     installation_json: github_types.GitHubInstallation = fastapi.Depends(  # noqa: B008
         get_installation
@@ -121,12 +118,10 @@ async def get_repository_context(
             raise fastapi.HTTPException(status_code=404)
 
         sub = await subscription.Subscription.get_subscription(
-            redis_cache, installation_json["account"]["id"]
+            redis_links.cache, installation_json["account"]["id"]
         )
 
-        installation = context.Installation(
-            installation_json, sub, client, redis_cache, redis_queue
-        )
+        installation = context.Installation(installation_json, sub, client, redis_links)
 
         repository_ctxt = installation.get_repository_from_github_data(repo)
 

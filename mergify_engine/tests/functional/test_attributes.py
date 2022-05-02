@@ -58,7 +58,7 @@ class TestAttributes(base.FunctionalTestBase):
             pr = await self.get_pull(pr["number"])
             assert pr["merged"]
 
-    async def test_time(self):
+    async def test_time(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -77,7 +77,7 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
 
-            assert await self.redis_cache.zcard("delayed-refresh") == 1
+            assert await self.redis_links.cache.zcard("delayed-refresh") == 1
 
         with freeze_time("2021-05-30T14:00:00", tick=True):
             await self.run_full_engine()
@@ -85,7 +85,7 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])
 
-    async def test_disabled(self):
+    async def test_disabled(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -122,7 +122,7 @@ class TestAttributes(base.FunctionalTestBase):
         )
         assert expected == summary["output"]["summary"][: len(expected)]
 
-    async def test_schedule(self):
+    async def test_schedule(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -141,7 +141,7 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             assert len(comments) == 0
 
-            assert await self.redis_cache.zcard("delayed-refresh") == 1
+            assert await self.redis_links.cache.zcard("delayed-refresh") == 1
 
         with freeze_time("2021-06-02T14:00:00", tick=True):
             await self.run_full_engine()
@@ -149,7 +149,7 @@ class TestAttributes(base.FunctionalTestBase):
             comments = await self.get_issue_comments(pr["number"])
             self.assertEqual("it's time", comments[-1]["body"])
 
-    async def test_updated_relative_not_match(self):
+    async def test_updated_relative_not_match(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -167,9 +167,9 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         assert len(comments) == 0
 
-        assert await self.redis_cache.zcard("delayed-refresh") == 1
+        assert await self.redis_links.cache.zcard("delayed-refresh") == 1
 
-    async def test_commits_behind_conditions_pr_open_before(self):
+    async def test_commits_behind_conditions_pr_open_before(self) -> None:
         await self.setup_repo()
         protection = {
             "required_status_checks": {
@@ -212,7 +212,7 @@ class TestAttributes(base.FunctionalTestBase):
         assert not await ctxt.is_behind
         assert await ctxt.commits_behind_count == 0
 
-    async def test_commits_behind_conditions_pr_open_after(self):
+    async def test_commits_behind_conditions_pr_open_after(self) -> None:
         await self.setup_repo()
 
         protection = {
@@ -255,7 +255,7 @@ class TestAttributes(base.FunctionalTestBase):
         assert not await ctxt.is_behind
         assert await ctxt.commits_behind_count == 0
 
-    async def test_updated_relative_match(self):
+    async def test_updated_relative_match(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -272,7 +272,7 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("it's time", comments[-1]["body"])
 
-    async def test_draft(self):
+    async def test_draft(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -309,7 +309,7 @@ class TestAttributes(base.FunctionalTestBase):
 
         ctxt = await context.Context.create(
             self.repository_ctxt,
-            {
+            {  # type: ignore
                 "number": pr["number"],
                 "base": {
                     "user": {"login": pr["base"]["user"]["login"]},
@@ -381,7 +381,7 @@ class TestAttributes(base.FunctionalTestBase):
             "check-skipped": [],
         }
 
-    async def test_repo_name_full_right(self):
+    async def test_repo_name_full_right(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -412,7 +412,7 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("repository name full", comments[-1]["body"])
 
-    async def test_repo_name_full_wrong(self):
+    async def test_repo_name_full_wrong(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -443,7 +443,7 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("repository name full (wrong)", comments[-1]["body"])
 
-    async def test_repo_name_short_wrong(self):
+    async def test_repo_name_short_wrong(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -474,7 +474,7 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("repository name full (wrong)", comments[-1]["body"])
 
-    async def test_repo_name_short_right(self):
+    async def test_repo_name_short_right(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -505,7 +505,7 @@ class TestAttributes(base.FunctionalTestBase):
         comments = await self.get_issue_comments(pr["number"])
         self.assertEqual("repository name short", comments[-1]["body"])
 
-    async def test_and_or(self):
+    async def test_and_or(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -532,7 +532,7 @@ class TestAttributes(base.FunctionalTestBase):
 
         pr = await self.create_pr()
         await self.add_label(pr["number"], "foo")
-        await self.edit_pull(pr["number"], state="closed")
+        await self.edit_pull(pr["number"], state="closed")  # type: ignore
 
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})

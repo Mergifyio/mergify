@@ -3327,7 +3327,7 @@ DO NOT EDIT
 
         await self._assert_cars_contents(q, None, [])
 
-    async def test_queue_ci_timeout_inplace(self):
+    async def test_queue_ci_timeout_inplace(self) -> None:
         config = {
             "queue_rules": [
                 {
@@ -3373,11 +3373,12 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
@@ -3389,6 +3390,7 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request has been removed from the queue"
@@ -3397,9 +3399,10 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
+            assert check is not None
             assert "checks have timed out" in check["output"]["summary"]
 
-    async def test_queue_ci_timeout_draft_pr(self):
+    async def test_queue_ci_timeout_draft_pr(self) -> None:
         config = {
             "queue_rules": [
                 {
@@ -3446,11 +3449,12 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
@@ -3462,6 +3466,7 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request has been removed from the queue"
@@ -3470,9 +3475,10 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
+            assert check is not None
             assert "checks have timed out" in check["output"]["summary"]
 
-    async def test_queue_ci_timeout_outside_schedule_without_unqueuing(self):
+    async def test_queue_ci_timeout_outside_schedule_without_unqueuing(self) -> None:
         config = {
             "queue_rules": [
                 {
@@ -3526,15 +3532,18 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_cache.zrangebyscore(
+            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
-            tmp_pull = await self.get_pull(p["number"] + 1)
+            tmp_pull = await self.get_pull(
+                github_types.GitHubPullRequestNumber(p["number"] + 1)
+            )
             await self.create_status(tmp_pull)
 
         with freeze_time("2021-05-30T20:12:00", tick=True):
@@ -3544,6 +3553,7 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Rule: queue (queue)",
             )
+            assert check is not None
             assert (
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
@@ -3552,6 +3562,7 @@ DO NOT EDIT
                 await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
                 key=lambda c: c["name"] == "Queue: Embarked in merge train",
             )
+            assert check is not None
             assert "checks have timed out" not in check["output"]["summary"]
 
     async def test_queue_without_branch_protection_for_queueing(self):

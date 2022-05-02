@@ -177,15 +177,13 @@ class TestMergeAction(base.FunctionalTestBase):
         # NOTE(Syfe): We need to generate an event with send_pull_refresh() in order
         # to trigger the summary check update after resolve_review_thread() since GitHub doesn't
         # generate one after resolving a conversation (issue related MRGFY-907)
-        with utils.yaaredis_for_stream() as redis_stream:
-            await utils.send_pull_refresh(
-                ctxt.redis,
-                redis_stream,
-                ctxt.pull["base"]["repo"],
-                pull_request_number=p1["number"],
-                action="internal",
-                source="test",
-            )
+        await utils.send_pull_refresh(
+            ctxt.redis.stream,
+            ctxt.pull["base"]["repo"],
+            pull_request_number=p1["number"],
+            action="internal",
+            source="test",
+        )
 
         await self.run_engine()
 

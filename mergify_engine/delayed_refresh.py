@@ -19,15 +19,17 @@ import typing
 
 import daiquiri
 
-from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
-from mergify_engine import rules
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine import worker
 from mergify_engine.rules import filter
 from mergify_engine.rules import live_resolvers
 
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
+    from mergify_engine import rules
 
 LOG = daiquiri.getLogger(__name__)
 
@@ -35,16 +37,16 @@ DELAYED_REFRESH_KEY = "delayed-refresh"
 
 
 def _redis_key(
-    repository: context.Repository, pull_number: github_types.GitHubPullRequestNumber
+    repository: "context.Repository", pull_number: github_types.GitHubPullRequestNumber
 ) -> str:
     return f"{repository.installation.owner_id}~{repository.installation.owner_login}~{repository.repo['id']}~{repository.repo['name']}~{pull_number}"
 
 
 async def _get_current_refresh_datetime(
-    repository: context.Repository,
+    repository: "context.Repository",
     pull_number: github_types.GitHubPullRequestNumber,
 ) -> typing.Optional[datetime.datetime]:
-    score = await repository.installation.redis.zscore(
+    score = await repository.installation.redis.cache.zscore(
         DELAYED_REFRESH_KEY, _redis_key(repository, pull_number)
     )
     if score is not None:
@@ -53,22 +55,22 @@ async def _get_current_refresh_datetime(
 
 
 async def _set_current_refresh_datetime(
-    repository: context.Repository,
+    repository: "context.Repository",
     pull_number: github_types.GitHubPullRequestNumber,
     at: datetime.datetime,
 ) -> None:
-    await repository.installation.redis.zadd(
+    await repository.installation.redis.cache.zadd(
         DELAYED_REFRESH_KEY,
         **{_redis_key(repository, pull_number): at.timestamp()},
     )
 
 
 async def plan_next_refresh(
-    ctxt: context.Context,
+    ctxt: "context.Context",
     _rules: typing.Union[
-        typing.List[rules.EvaluatedRule], typing.List[rules.EvaluatedQueueRule]
+        typing.List["rules.EvaluatedRule"], typing.List["rules.EvaluatedQueueRule"]
     ],
-    pull_request: context.BasePullRequest,
+    pull_request: "context.BasePullRequest",
 ) -> None:
     best_bet = await _get_current_refresh_datetime(ctxt.repository, ctxt.pull["number"])
     if best_bet is not None and best_bet < date.utcnow():
@@ -86,7 +88,7 @@ async def plan_next_refresh(
 
     if best_bet is None or best_bet >= date.DT_MAX:
         zset_subkey = _redis_key(ctxt.repository, ctxt.pull["number"])
-        removed = await ctxt.redis.zrem(DELAYED_REFRESH_KEY, zset_subkey)
+        removed = await ctxt.redis.cache.zrem(DELAYED_REFRESH_KEY, zset_subkey)
         if removed is not None and removed > 0:
             ctxt.log.info("unplan to refresh pull request")
     else:
@@ -99,7 +101,7 @@ async def plan_next_refresh(
 
 
 async def plan_refresh_at_least_at(
-    repository: context.Repository,
+    repository: "context.Repository",
     pull_number: github_types.GitHubPullRequestNumber,
     at: datetime.datetime,
 ) -> None:
@@ -115,15 +117,14 @@ async def plan_refresh_at_least_at(
 
 
 async def send(
-    redis_stream: utils.RedisStream,
-    redis_cache: utils.RedisCache,
+    redis_links: redis_utils.RedisLinks,
 ) -> None:
     score = date.utcnow().timestamp()
-    keys = await redis_cache.zrangebyscore(DELAYED_REFRESH_KEY, "-inf", score)
+    keys = await redis_links.cache.zrangebyscore(DELAYED_REFRESH_KEY, "-inf", score)
     if not keys:
         return
 
-    pipe = await redis_stream.pipeline()
+    pipe = await redis_links.stream.pipeline()
     keys_to_delete = set()
     for subkey in keys:
         (
@@ -164,4 +165,4 @@ async def send(
         keys_to_delete.add(subkey)
 
     await pipe.execute()
-    await redis_cache.zrem(DELAYED_REFRESH_KEY, *keys_to_delete)
+    await redis_links.cache.zrem(DELAYED_REFRESH_KEY, *keys_to_delete)

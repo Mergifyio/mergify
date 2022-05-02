@@ -18,54 +18,32 @@ import daiquiri
 
 from mergify_engine import config
 from mergify_engine import redis_utils
-from mergify_engine import utils
 
 
-_AREDIS_STREAM: utils.RedisStream
-_AREDIS_CACHE: utils.RedisCache
-_AREDIS_QUEUE: utils.RedisQueue
+_REDIS_LINKS: redis_utils.RedisLinks
 
 LOG = daiquiri.getLogger(__name__)
 
 
 async def startup() -> None:
-    global _AREDIS_STREAM, _AREDIS_CACHE, _AREDIS_QUEUE
-    _AREDIS_STREAM = utils.create_yaaredis_for_stream(
-        max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS
+    global _REDIS_LINKS
+    _REDIS_LINKS = redis_utils.RedisLinks(
+        cache_max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS,
+        stream_max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS,
+        # FIXME(sileht): creates
+        queue_max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS,
     )
-    _AREDIS_CACHE = utils.create_yaaredis_for_cache(
-        max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
-    )
-    _AREDIS_QUEUE = utils.create_yaaredis_for_queue(
-        max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS
-    )
-    await redis_utils.load_scripts(_AREDIS_STREAM)
+    await redis_utils.load_scripts(_REDIS_LINKS.stream)
 
 
 async def shutdown() -> None:
     LOG.info("asgi: starting redis shutdown")
-    global _AREDIS_STREAM, _AREDIS_CACHE, _AREDIS_QUEUE
-    _AREDIS_CACHE.connection_pool.max_idle_time = 0
-    _AREDIS_CACHE.connection_pool.disconnect()
-    _AREDIS_STREAM.connection_pool.max_idle_time = 0
-    _AREDIS_STREAM.connection_pool.disconnect()
-    _AREDIS_QUEUE.connection_pool.max_idle_time = 0
-    _AREDIS_QUEUE.connection_pool.disconnect()
+    _REDIS_LINKS.shutdown_all()
     LOG.info("asgi: waiting redis pending tasks to complete")
-    await utils.stop_pending_yaaredis_tasks()
+    await redis_utils.stop_pending_yaaredis_tasks()
     LOG.info("asgi: finished redis shutdown")
 
 
-async def get_redis_stream() -> utils.RedisStream:
-    global _AREDIS_STREAM
-    return _AREDIS_STREAM
-
-
-async def get_redis_cache() -> utils.RedisCache:
-    global _AREDIS_CACHE
-    return _AREDIS_CACHE
-
-
-async def get_redis_queue() -> utils.RedisQueue:
-    global _AREDIS_QUEUE
-    return _AREDIS_QUEUE
+async def get_redis_links() -> redis_utils.RedisLinks:
+    global _REDIS_LINKS
+    return _REDIS_LINKS

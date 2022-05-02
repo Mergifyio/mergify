@@ -27,6 +27,7 @@ from pytest_httpserver import httpserver
 from mergify_engine import config
 from mergify_engine import count_seats
 from mergify_engine import github_types
+from mergify_engine import redis_utils
 from mergify_engine import signals
 from mergify_engine import utils
 from mergify_engine.tests.unit import conftest
@@ -203,7 +204,7 @@ async def test_get_usage_count_seats(event_type, event, redis_cache):
 
 @freeze_time("2011-11-11")
 async def test_get_usage_last_seen(
-    redis_cache: utils.RedisCache, context_getter: conftest.ContextGetterFixture
+    redis_cache: redis_utils.RedisCache, context_getter: conftest.ContextGetterFixture
 ) -> None:
     ctxt = await context_getter(number=1)
     await redis.startup()

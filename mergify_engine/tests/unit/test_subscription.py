@@ -4,7 +4,7 @@ import pytest
 from pytest_httpserver import httpserver
 
 from mergify_engine import exceptions
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
@@ -167,7 +167,7 @@ async def test_active_feature(redis_cache):
 
 
 async def test_subscription_on_premise_valid(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     httpserver: httpserver.HTTPServer,
 ) -> None:
 
@@ -200,7 +200,7 @@ async def test_subscription_on_premise_valid(
 
 
 async def test_subscription_on_premise_wrong_token(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     httpserver: httpserver.HTTPServer,
 ) -> None:
 
@@ -222,7 +222,7 @@ async def test_subscription_on_premise_wrong_token(
 
 
 async def test_subscription_on_premise_invalid_sub(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     httpserver: httpserver.HTTPServer,
 ) -> None:
 

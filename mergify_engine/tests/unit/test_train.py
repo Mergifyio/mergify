@@ -31,8 +31,8 @@ from mergify_engine import delayed_refresh
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
+from mergify_engine import redis_utils
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.queue import merge_train
 from mergify_engine.tests.unit import conftest
 
@@ -59,8 +59,8 @@ async def fake_train_car_delete_pull(
 
 
 @pytest.fixture(autouse=True)
-def autoload_redis(redis_stream: utils.RedisCache) -> None:
-    # Just always load redis_stream to load all redis scripts
+def autoload_redis(redis_cache: redis_utils.RedisCache) -> None:
+    # Just always load redis_cache to load all redis scripts
     pass
 
 
@@ -590,7 +590,7 @@ queue_rules:
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
         await repository.clear_config_file_cache(
-            repository.installation.redis, repository.repo["id"]
+            repository.installation.redis.cache, repository.repo["id"]
         )
         await t.refresh()
     assert [[1, 2], [1, 2, 3]] == get_cars_content(t)
@@ -624,7 +624,7 @@ queue_rules:
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
         await repository.clear_config_file_cache(
-            repository.installation.redis, repository.repo["id"]
+            repository.installation.redis.cache, repository.repo["id"]
         )
         await t.refresh()
     assert [[1]] == get_cars_content(t)
@@ -661,7 +661,7 @@ queue_rules:
         repository._caches.mergify_config.delete()
         repository._caches.mergify_config_file.delete()
         await repository.clear_config_file_cache(
-            repository.installation.redis, repository.repo["id"]
+            repository.installation.redis.cache, repository.repo["id"]
         )
         await t.refresh()
     assert [] == get_cars_content(t)

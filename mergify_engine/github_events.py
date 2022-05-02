@@ -29,7 +29,7 @@ from mergify_engine import date
 from mergify_engine import engine
 from mergify_engine import exceptions
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine import worker
 from mergify_engine.engine import commands_runner
 
@@ -38,7 +38,7 @@ LOG = daiquiri.getLogger(__name__)
 
 
 async def get_pull_request_head_sha_to_number_mapping(
-    redis_cache: utils.RedisCache,
+    redis_cache: redis_utils.RedisCache,
     owner_id: github_types.GitHubAccountIdType,
     repo_id: github_types.GitHubRepositoryIdType,
     sha: github_types.SHAType,
@@ -70,7 +70,7 @@ def meter_event(
     statsd.increment("github.events", tags=tags)
 
 
-def _extract_slim_event(event_type, data):
+def _extract_slim_event(event_type: str, data: typing.Any) -> typing.Any:
     slim_data = {
         "received_at": date.utcnow().isoformat(),
         "sender": {
@@ -114,7 +114,7 @@ def _extract_slim_event(event_type, data):
             ],
         }
         if event_type == "check_run":
-            slim_data["check_run"]["name"] = data["check_run"]["name"]
+            slim_data["check_run"]["name"] = data["check_run"]["name"]  # type: ignore
 
     elif event_type == "pull_request":
         # For pull_request opened/synchronize/closed
@@ -148,8 +148,7 @@ def _log_on_exception(exc: Exception, msg: str) -> None:
 
 
 async def push_to_worker(
-    redis_cache: utils.RedisCache,
-    redis_stream: utils.RedisStream,
+    redis_links: redis_utils.RedisLinks,
     event_type: github_types.GitHubEventType,
     event_id: str,
     event: github_types.GitHubEvent,
@@ -172,7 +171,7 @@ async def push_to_worker(
 
         elif event["action"] in ("opened", "synchronize"):
             try:
-                await engine.create_initial_summary(redis_cache, event)
+                await engine.create_initial_summary(redis_links.cache, event)
             except Exception as e:
                 _log_on_exception(e, "fail to create initial summary")
         elif (
@@ -252,7 +251,7 @@ async def push_to_worker(
             ignore_reason = "repository archived"
 
         pull_number = await get_pull_request_head_sha_to_number_mapping(
-            redis_cache, owner_id, repo_id, event["sha"]
+            redis_links.cache, owner_id, repo_id, event["sha"]
         )
 
     elif event_type == "push":
@@ -271,7 +270,7 @@ async def push_to_worker(
         elif event["repository"]["archived"]:  # pragma: no cover
             ignore_reason = "repository archived"
 
-        await context.Repository.clear_config_file_cache(redis_cache, repo_id)
+        await context.Repository.clear_config_file_cache(redis_links.cache, repo_id)
 
     elif event_type == "check_suite":
         event = typing.cast(github_types.GitHubEventCheckSuite, event)
@@ -294,7 +293,7 @@ async def push_to_worker(
             ignore_reason = f"mergify {event_type}"
 
         pull_number = await get_pull_request_head_sha_to_number_mapping(
-            redis_cache, owner_id, repo_id, event["check_suite"]["head_sha"]
+            redis_links.cache, owner_id, repo_id, event["check_suite"]["head_sha"]
         )
 
     elif event_type == "check_run":
@@ -315,7 +314,7 @@ async def push_to_worker(
             ignore_reason = f"mergify {event_type}"
 
         pull_number = await get_pull_request_head_sha_to_number_mapping(
-            redis_cache, owner_id, repo_id, event["check_run"]["head_sha"]
+            redis_links.cache, owner_id, repo_id, event["check_run"]["head_sha"]
         )
 
     elif event_type == "organization":
@@ -328,15 +327,15 @@ async def push_to_worker(
 
         if event["action"] == "deleted":
             await context.Installation.clear_team_members_cache_for_org(
-                redis_cache, event["organization"]
+                redis_links.cache, event["organization"]
             )
             await context.Repository.clear_team_permission_cache_for_org(
-                redis_cache, event["organization"]
+                redis_links.cache, event["organization"]
             )
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
             await context.Repository.clear_user_permission_cache_for_org(
-                redis_cache, event["organization"]
+                redis_links.cache, event["organization"]
             )
 
     elif event_type == "member":
@@ -348,7 +347,7 @@ async def push_to_worker(
         ignore_reason = "member event"
 
         await context.Repository.clear_user_permission_cache_for_user(
-            redis_cache,
+            redis_links.cache,
             event["repository"]["owner"],
             event["repository"],
             event["member"],
@@ -364,23 +363,23 @@ async def push_to_worker(
 
         if "slug" in event["team"]:
             await context.Installation.clear_team_members_cache_for_team(
-                redis_cache, event["organization"], event["team"]["slug"]
+                redis_links.cache, event["organization"], event["team"]["slug"]
             )
             await context.Repository.clear_team_permission_cache_for_team(
-                redis_cache, event["organization"], event["team"]["slug"]
+                redis_links.cache, event["organization"], event["team"]["slug"]
             )
         else:
             # Deleted team
             await context.Installation.clear_team_members_cache_for_org(
-                redis_cache,
+                redis_links.cache,
                 event["organization"],
             )
             await context.Repository.clear_team_permission_cache_for_org(
-                redis_cache, event["organization"]
+                redis_links.cache, event["organization"]
             )
 
         await context.Repository.clear_user_permission_cache_for_org(
-            redis_cache, event["organization"]
+            redis_links.cache, event["organization"]
         )
 
     elif event_type == "team":
@@ -393,10 +392,10 @@ async def push_to_worker(
 
         if event["action"] in ("edited", "deleted"):
             await context.Installation.clear_team_members_cache_for_team(
-                redis_cache, event["organization"], event["team"]["slug"]
+                redis_links.cache, event["organization"], event["team"]["slug"]
             )
             await context.Repository.clear_team_permission_cache_for_team(
-                redis_cache, event["organization"], event["team"]["slug"]
+                redis_links.cache, event["organization"], event["team"]["slug"]
             )
 
         if event["action"] in (
@@ -407,17 +406,17 @@ async def push_to_worker(
         ):
             if "repository" in event:
                 await context.Repository.clear_user_permission_cache_for_repo(
-                    redis_cache, event["organization"], event["repository"]
+                    redis_links.cache, event["organization"], event["repository"]
                 )
                 await context.Repository.clear_team_permission_cache_for_repo(
-                    redis_cache, event["organization"], event["repository"]
+                    redis_links.cache, event["organization"], event["repository"]
                 )
             else:
                 await context.Repository.clear_user_permission_cache_for_org(
-                    redis_cache, event["organization"]
+                    redis_links.cache, event["organization"]
                 )
                 await context.Repository.clear_team_permission_cache_for_org(
-                    redis_cache, event["organization"]
+                    redis_links.cache, event["organization"]
                 )
 
     elif event_type == "team_add":
@@ -429,10 +428,10 @@ async def push_to_worker(
         ignore_reason = "team_add event"
 
         await context.Repository.clear_user_permission_cache_for_repo(
-            redis_cache, event["repository"]["owner"], event["repository"]
+            redis_links.cache, event["repository"]["owner"], event["repository"]
         )
         await context.Repository.clear_team_permission_cache_for_repo(
-            redis_cache, event["organization"], event["repository"]
+            redis_links.cache, event["organization"], event["repository"]
         )
 
     else:
@@ -444,10 +443,10 @@ async def push_to_worker(
 
     if ignore_reason is None:
         msg_action = "pushed to worker"
-        slim_event = _extract_slim_event(event_type, event)  # type: ignore[no-untyped-call]
+        slim_event = _extract_slim_event(event_type, event)
 
         await worker.push(
-            redis_stream,
+            redis_links.stream,
             owner_id,
             owner_login,
             repo_id,
@@ -477,16 +476,15 @@ async def push_to_worker(
 
 
 async def filter_and_dispatch(
-    redis_cache: utils.RedisCache,
-    redis_stream: utils.RedisStream,
+    redis_links: redis_utils.RedisLinks,
     event_type: github_types.GitHubEventType,
     event_id: str,
     event: github_types.GitHubEvent,
     score: typing.Optional[str] = None,
 ) -> None:
     meter_event(event_type, event)
-    await count_seats.store_active_users(redis_cache, event_type, event)
-    await push_to_worker(redis_cache, redis_stream, event_type, event_id, event, score)
+    await count_seats.store_active_users(redis_links.cache, event_type, event)
+    await push_to_worker(redis_links, event_type, event_id, event, score)
 
 
 SHA_EXPIRATION = 60

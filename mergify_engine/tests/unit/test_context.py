@@ -21,13 +21,13 @@ import pytest
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 
 
-async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
+async def test_user_permission_cache(redis_links: redis_utils.RedisLinks) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
@@ -114,12 +114,10 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     )
 
     sub = subscription.Subscription(
-        redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
+        redis_links.cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        installation_json, sub, client, redis_cache, mock.Mock()
-    )
+    installation = context.Installation(installation_json, sub, client, redis_links)
     repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.has_write_permission(user_1)
@@ -153,9 +151,7 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     )
 
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        installation_json, sub, client, redis_cache, mock.Mock()
-    )
+    installation = context.Installation(installation_json, sub, client, redis_links)
     repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.has_write_permission(user_2)
@@ -171,14 +167,16 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert not await repository.has_write_permission(user_1)
     assert client.called == 2
     await context.Repository.clear_user_permission_cache_for_repo(
-        redis_cache, gh_owner, gh_repo
+        redis_links.cache, gh_owner, gh_repo
     )
     repository._caches.user_permissions.clear()
     assert not await repository.has_write_permission(user_1)
     assert client.called == 3
     assert not await repository.has_write_permission(user_3)
     assert client.called == 4
-    await context.Repository.clear_user_permission_cache_for_org(redis_cache, gh_owner)
+    await context.Repository.clear_user_permission_cache_for_org(
+        redis_links.cache, gh_owner
+    )
     repository._caches.user_permissions.clear()
     assert not await repository.has_write_permission(user_3)
     assert client.called == 5
@@ -192,14 +190,14 @@ async def test_user_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert await repository.has_write_permission(user_2)
     assert client.called == 6
     await context.Repository.clear_user_permission_cache_for_user(
-        redis_cache, gh_owner, gh_repo, user_2
+        redis_links.cache, gh_owner, gh_repo, user_2
     )
     repository._caches.user_permissions.clear()
     assert await repository.has_write_permission(user_2)
     assert client.called == 7
 
 
-async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
+async def test_team_members_cache(redis_links: redis_utils.RedisLinks) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
@@ -243,12 +241,10 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     team_slug3 = github_types.GitHubTeamSlug("team3")
 
     sub = subscription.Subscription(
-        redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
+        redis_links.cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
     client = FakeClient(gh_owner["login"])
-    installation = context.Installation(
-        installation_json, sub, client, redis_cache, mock.Mock()
-    )
+    installation = context.Installation(installation_json, sub, client, redis_links)
     assert client.called == 0
     assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
     assert client.called == 1
@@ -275,7 +271,7 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 3
 
     await installation.clear_team_members_cache_for_team(
-        redis_cache, gh_owner, github_types.GitHubTeamSlug(team_slug2)
+        redis_links.cache, gh_owner, github_types.GitHubTeamSlug(team_slug2)
     )
     installation._caches.team_members.clear()
 
@@ -289,7 +285,7 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     assert (await installation.get_team_members(team_slug2)) == ["member3", "member4"]
     assert client.called == 4
 
-    await installation.clear_team_members_cache_for_org(redis_cache, gh_owner)
+    await installation.clear_team_members_cache_for_org(redis_links.cache, gh_owner)
     installation._caches.team_members.clear()
 
     assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
@@ -322,7 +318,7 @@ async def test_team_members_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 7
 
 
-async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
+async def test_team_permission_cache(redis_links: redis_utils.RedisLinks) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
@@ -392,12 +388,10 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     team_slug3 = github_types.GitHubTeamSlug("team-also-nok")
 
     sub = subscription.Subscription(
-        redis_cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
+        redis_links.cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        installation_json, sub, client, redis_cache, mock.Mock()
-    )
+    installation = context.Installation(installation_json, sub, client, redis_links)
     repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert await repository.team_has_read_permission(team_slug1)
@@ -426,9 +420,7 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     )
 
     client = FakeClient(gh_owner["login"], gh_repo["name"])
-    installation = context.Installation(
-        installation_json, sub, client, redis_cache, mock.Mock()
-    )
+    installation = context.Installation(installation_json, sub, client, redis_links)
     repository = context.Repository(installation, gh_repo)
     assert client.called == 0
     assert not await repository.team_has_read_permission(team_slug2)
@@ -443,14 +435,16 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert await repository.team_has_read_permission(team_slug1)
     assert client.called == 2
     await context.Repository.clear_team_permission_cache_for_repo(
-        redis_cache, gh_owner, gh_repo
+        redis_links.cache, gh_owner, gh_repo
     )
     repository._caches.team_has_read_permission.clear()
     assert await repository.team_has_read_permission(team_slug1)
     assert client.called == 3
     assert not await repository.team_has_read_permission(team_slug3)
     assert client.called == 4
-    await context.Repository.clear_team_permission_cache_for_org(redis_cache, gh_owner)
+    await context.Repository.clear_team_permission_cache_for_org(
+        redis_links.cache, gh_owner
+    )
     repository._caches.team_has_read_permission.clear()
     assert not await repository.team_has_read_permission(team_slug3)
     assert client.called == 5
@@ -465,7 +459,7 @@ async def test_team_permission_cache(redis_cache: utils.RedisCache) -> None:
     assert client.called == 6
     repository._caches.team_has_read_permission.clear()
     await context.Repository.clear_team_permission_cache_for_team(
-        redis_cache, gh_owner, team_slug2
+        redis_links.cache, gh_owner, team_slug2
     )
     repository._caches.team_has_read_permission.clear()
     assert not await repository.team_has_read_permission(team_slug2)

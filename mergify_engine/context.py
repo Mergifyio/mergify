@@ -45,7 +45,7 @@ from mergify_engine import date
 from mergify_engine import exceptions
 from mergify_engine import github_graphql_types
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription as subscription_mod
@@ -99,8 +99,7 @@ class Installation:
     installation: github_types.GitHubInstallation
     subscription: subscription_mod.Subscription = dataclasses.field(repr=False)
     client: github.AsyncGithubInstallationClient = dataclasses.field(repr=False)
-    redis: utils.RedisCache = dataclasses.field(repr=False)
-    redis_queue: utils.RedisQueue = dataclasses.field(repr=False)
+    redis: redis_utils.RedisLinks = dataclasses.field(repr=False)
 
     repositories: "typing.Dict[github_types.GitHubRepositoryName, Repository]" = (
         dataclasses.field(default_factory=dict, repr=False)
@@ -132,7 +131,7 @@ class Installation:
 
         if self._user_tokens is None:
             self._user_tokens = await user_tokens.UserTokens.get(
-                self.redis, self.owner_id
+                self.redis.cache, self.owner_id
             )
         return self._user_tokens
 
@@ -141,14 +140,16 @@ class Installation:
     async def get_user(
         self, login: github_types.GitHubLogin
     ) -> github_types.GitHubAccount:
-        data = await self.redis.hget(self.USER_ID_MAPPING_CACHE_KEY, login)
+        data = await self.redis.cache.hget(self.USER_ID_MAPPING_CACHE_KEY, login)
         if data is not None:
             return typing.cast(github_types.GitHubAccount, json.loads(data))
 
         user = typing.cast(
             github_types.GitHubAccount, await self.client.item(f"/users/{login}")
         )
-        await self.redis.hset(self.USER_ID_MAPPING_CACHE_KEY, login, json.dumps(user))
+        await self.redis.cache.hset(
+            self.USER_ID_MAPPING_CACHE_KEY, login, json.dumps(user)
+        )
         return user
 
     async def get_pull_request_context(
@@ -223,7 +224,7 @@ class Installation:
     @classmethod
     async def clear_team_members_cache_for_team(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner: github_types.GitHubAccount,
         team_slug: github_types.GitHubTeamSlug,
     ) -> None:
@@ -234,7 +235,7 @@ class Installation:
 
     @classmethod
     async def clear_team_members_cache_for_org(
-        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
+        cls, redis: redis_utils.RedisCache, user: github_types.GitHubAccount
     ) -> None:
         await redis.delete(cls._team_members_cache_key_for_repo(user["id"]))
 
@@ -244,7 +245,7 @@ class Installation:
         members = self._caches.team_members.get(team_slug)
         if members is cache.Unset:
             key = self._team_members_cache_key_for_repo(self.owner_id)
-            members_raw = await self.redis.hget(key, team_slug)
+            members_raw = await self.redis.cache.hget(key, team_slug)
             if members_raw is None:
                 members = [
                     github_types.GitHubLogin(member["login"])
@@ -256,7 +257,7 @@ class Installation:
                 ]
                 # TODO(sileht): move to msgpack when we remove redis-cache connection
                 # from decode_responses=True (eg: MRGFY-285)
-                pipe = await self.redis.pipeline()
+                pipe = await self.redis.cache.pipeline()
                 await pipe.hset(key, team_slug, json.dumps(members))
                 await pipe.expire(key, self.TEAM_MEMBERS_EXPIRATION)
                 await pipe.execute()
@@ -425,8 +426,10 @@ class Repository(object):
 
         config_file_cache_key = self.get_config_file_cache_key(self.repo["id"])
         config_location_cache_key = self.get_config_location_cache_key(self.repo["id"])
-        cached_filename = await self.installation.redis.get(config_location_cache_key)
-        pipeline = await self.installation.redis.pipeline()
+        cached_filename = await self.installation.redis.cache.get(
+            config_location_cache_key
+        )
+        pipeline = await self.installation.redis.cache.pipeline()
 
         async for config_file in self.iter_mergify_config_files(
             preferred_filename=cached_filename
@@ -460,7 +463,7 @@ class Repository(object):
         self,
         repo_id: github_types.GitHubRepositoryIdType,
     ) -> typing.Optional[MergifyConfigFile]:
-        config_file = await self.installation.redis.get(
+        config_file = await self.installation.redis.cache.get(
             self.get_config_file_cache_key(repo_id),
         )
 
@@ -578,7 +581,7 @@ class Repository(object):
     @classmethod
     async def clear_config_file_cache(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         repo_id: github_types.GitHubRepositoryIdType,
     ) -> None:
         await redis.delete(
@@ -610,7 +613,7 @@ class Repository(object):
     @classmethod
     async def clear_user_permission_cache_for_user(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
         user: github_types.GitHubAccount,
@@ -623,7 +626,7 @@ class Repository(object):
     @classmethod
     async def clear_user_permission_cache_for_repo(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
@@ -633,7 +636,7 @@ class Repository(object):
 
     @classmethod
     async def clear_user_permission_cache_for_org(
-        cls, redis: utils.RedisCache, user: github_types.GitHubAccount
+        cls, redis: redis_utils.RedisCache, user: github_types.GitHubAccount
     ) -> None:
         pipeline = await redis.pipeline()
         async for key in redis.scan_iter(
@@ -652,7 +655,7 @@ class Repository(object):
             key = self._users_permission_cache_key
             cached_permission = typing.cast(
                 typing.Optional[github_types.GitHubRepositoryPermission],
-                await self.installation.redis.hget(key, user["id"]),
+                await self.installation.redis.cache.hget(key, user["id"]),
             )
             if cached_permission is None:
                 permission = typing.cast(
@@ -661,7 +664,7 @@ class Repository(object):
                         f"{self.base_url}/collaborators/{user['login']}/permission"
                     ),
                 )["permission"]
-                pipe = await self.installation.redis.pipeline()
+                pipe = await self.installation.redis.cache.pipeline()
                 await pipe.hset(key, user["id"], permission)
                 await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
                 await pipe.execute()
@@ -699,7 +702,7 @@ class Repository(object):
     @classmethod
     async def clear_team_permission_cache_for_team(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner: github_types.GitHubAccount,
         team: github_types.GitHubTeamSlug,
     ) -> None:
@@ -714,7 +717,7 @@ class Repository(object):
     @classmethod
     async def clear_team_permission_cache_for_repo(
         cls,
-        redis: utils.RedisCache,
+        redis: redis_utils.RedisCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
@@ -724,7 +727,7 @@ class Repository(object):
 
     @classmethod
     async def clear_team_permission_cache_for_org(
-        cls, redis: utils.RedisCache, org: github_types.GitHubAccount
+        cls, redis: redis_utils.RedisCache, org: github_types.GitHubAccount
     ) -> None:
         pipeline = await redis.pipeline()
         async for key in redis.scan_iter(
@@ -738,7 +741,7 @@ class Repository(object):
         read_permission = self._caches.team_has_read_permission.get(team)
         if read_permission is cache.Unset:
             key = self._teams_permission_cache_key
-            read_permission_raw = await self.installation.redis.hget(key, team)
+            read_permission_raw = await self.installation.redis.cache.hget(key, team)
             if read_permission_raw is None:
                 try:
                     # note(sileht) read permissions are not part of the permissions
@@ -750,7 +753,7 @@ class Repository(object):
                     read_permission = True
                 except http.HTTPNotFound:
                     read_permission = False
-                pipe = await self.installation.redis.pipeline()
+                pipe = await self.installation.redis.cache.pipeline()
                 await pipe.hset(key, team, str(int(read_permission)))
                 await pipe.expire(key, self.TEAMS_PERMISSION_EXPIRATION)
                 await pipe.execute()
@@ -920,7 +923,7 @@ class Context(object):
     )
 
     @property
-    def redis(self) -> utils.RedisCache:
+    def redis(self) -> redis_utils.RedisLinks:
         # TODO(sileht): remove me when context split if done
         return self.repository.installation.redis
 
@@ -1102,7 +1105,7 @@ class Context(object):
     @classmethod
     async def get_cached_last_summary_head_sha_from_pull(
         cls,
-        redis_cache: utils.RedisCache,
+        redis_cache: redis_utils.RedisCache,
         pull: github_types.GitHubPullRequest,
     ) -> typing.Optional[github_types.SHAType]:
         return typing.cast(
@@ -1113,7 +1116,7 @@ class Context(object):
     @classmethod
     async def summary_exists(
         cls,
-        redis_cache: utils.RedisCache,
+        redis_cache: redis_utils.RedisCache,
         owner_id: github_types.GitHubAccountIdType,
         repo_id: github_types.GitHubRepositoryIdType,
         pull: github_types.GitHubPullRequest,
@@ -1133,12 +1136,12 @@ class Context(object):
         self,
     ) -> typing.Optional[github_types.SHAType]:
         return await self.get_cached_last_summary_head_sha_from_pull(
-            self.redis,
+            self.redis.cache,
             self.pull,
         )
 
     async def clear_cached_last_summary_head_sha(self) -> None:
-        pipe = await self.redis.pipeline()
+        pipe = await self.redis.cache.pipeline()
         await pipe.delete(self.redis_last_summary_head_sha_key(self.pull))
         await pipe.delete(
             self.redis_last_summary_pulls_key(
@@ -1157,8 +1160,8 @@ class Context(object):
     ) -> None:
         # NOTE(sileht): We store it only for 1 month, if we lose it it's not a big deal, as it's just
         # to avoid race conditions when too many synchronize events occur in a short period of time
-        pipe = await self.redis.pipeline()
-        await self.redis.set(
+        pipe = await self.redis.cache.pipeline()
+        await self.redis.cache.set(
             self.redis_last_summary_head_sha_key(self.pull),
             sha,
             ex=SUMMARY_SHA_EXPIRATION,
@@ -1747,7 +1750,7 @@ class Context(object):
                 if event["action"] == "synchronize":
                     is_mergify = event["sender"][
                         "id"
-                    ] == config.BOT_USER_ID or await self.redis.get(
+                    ] == config.BOT_USER_ID or await self.redis.cache.get(
                         f"branch-update-{self.pull['head']['sha']}"
                     )
                     if not is_mergify:

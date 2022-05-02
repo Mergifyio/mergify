@@ -18,6 +18,7 @@ import msgpack
 import pytest
 
 from mergify_engine import github_types
+from mergify_engine import redis_utils
 from mergify_engine import utils
 
 
@@ -179,8 +180,7 @@ def test_split_list():
 
 
 async def test_refresh_with_pull_request_number(
-    redis_stream: utils.RedisStream,
-    redis_cache: utils.RedisCache,
+    redis_stream: redis_utils.RedisStream,
 ) -> None:
 
     gh_owner = github_types.GitHubAccount(
@@ -207,7 +207,6 @@ async def test_refresh_with_pull_request_number(
     )
 
     await utils.send_pull_refresh(
-        redis_cache,
         redis_stream,
         gh_repo,
         pull_request_number=github_types.GitHubPullRequestNumber(5),
@@ -215,7 +214,6 @@ async def test_refresh_with_pull_request_number(
         source="test",
     )
     await utils.send_branch_refresh(
-        redis_cache,
         redis_stream,
         gh_repo,
         ref=github_types.GitHubRefType("master"),

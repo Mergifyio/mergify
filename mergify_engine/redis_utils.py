@@ -13,16 +13,27 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
+import dataclasses
+import functools
 import hashlib
+import ssl
 import typing
 import uuid
 
 import daiquiri
+import yaaredis
 
-from mergify_engine import utils
+from mergify_engine import config
 
 
 LOG = daiquiri.getLogger(__name__)
+
+
+# NOTE(sileht): I wonder why mypy thinks `yaaredis.StrictRedis` is `typing.Any`...
+RedisCache = typing.NewType("RedisCache", yaaredis.StrictRedis)  # type: ignore
+RedisStream = typing.NewType("RedisStream", yaaredis.StrictRedis)  # type: ignore
+RedisQueue = typing.NewType("RedisQueue", yaaredis.StrictRedis)  # type: ignore
 
 ScriptIdT = typing.NewType("ScriptIdT", uuid.UUID)
 
@@ -43,7 +54,7 @@ def register_script(script: str) -> ScriptIdT:
     return script_id
 
 
-async def load_script(redis: utils.RedisStream, script_id: ScriptIdT) -> None:
+async def load_script(redis: RedisStream, script_id: ScriptIdT) -> None:
     global SCRIPTS
     sha, script = SCRIPTS[script_id]
     newsha = await redis.script_load(script)
@@ -57,7 +68,7 @@ async def load_script(redis: utils.RedisStream, script_id: ScriptIdT) -> None:
         SCRIPTS[script_id] = (newsha, script)
 
 
-async def load_scripts(redis: utils.RedisStream) -> None:
+async def load_scripts(redis: RedisStream) -> None:
     # TODO(sileht): cleanup unused script, this is tricky, because during
     # deployment we have running in parallel due to the rolling upgrade:
     # * an old version of the asgi server
@@ -72,7 +83,7 @@ async def load_scripts(redis: utils.RedisStream) -> None:
 
 
 async def run_script(
-    redis: utils.RedisStream,
+    redis: RedisStream,
     script_id: ScriptIdT,
     keys: typing.Tuple[str, ...],
     args: typing.Optional[typing.Tuple[typing.Union[str], ...]] = None,
@@ -84,3 +95,78 @@ async def run_script(
     else:
         args = keys + args
     return await redis.evalsha(sha, len(keys), *args)
+
+
+async def stop_pending_yaaredis_tasks() -> None:
+    tasks = [
+        task
+        for task in asyncio.all_tasks()
+        if (
+            getattr(task.get_coro(), "__qualname__", None)
+            == "ConnectionPool.disconnect_on_idle_time_exceeded"
+        )
+    ]
+
+    if tasks:
+        for task in tasks:
+            task.cancel()
+        await asyncio.wait(tasks)
+
+
+@dataclasses.dataclass
+class RedisLinks:
+    max_idle_time: int = 60
+    cache_max_connections: typing.Optional[int] = None
+    stream_max_connections: typing.Optional[int] = None
+    queue_max_connections: typing.Optional[int] = None
+
+    @functools.cached_property
+    def queue(self) -> RedisCache:
+        client = self.redis_from_url(
+            config.QUEUE_URL,
+            max_idle_time=self.max_idle_time,
+            max_connections=self.queue_max_connections,
+        )
+        return RedisQueue(client)
+
+    @functools.cached_property
+    def stream(self) -> RedisCache:
+        client = self.redis_from_url(
+            config.STREAM_URL,
+            max_idle_time=self.max_idle_time,
+            max_connections=self.stream_max_connections,
+        )
+        return RedisCache(client)
+
+    @functools.cached_property
+    def cache(self) -> RedisCache:
+        client = self.redis_from_url(
+            config.STORAGE_URL,
+            decode_responses=True,
+            max_idle_time=self.max_idle_time,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisCache(client)
+
+    @staticmethod
+    def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
+        ssl_scheme = "rediss://"
+        if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith(ssl_scheme):
+            final_url = f"redis://{url[len(ssl_scheme):]}"
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = (
+                ssl.CERT_NONE  # nosemgrep contrib.dlint.dlint-equivalent.insecure-ssl-use
+            )
+            options["ssl_context"] = ctx
+        else:
+            final_url = url
+        return yaaredis.StrictRedis.from_url(final_url, **options)
+
+    def shutdown_all(self) -> None:
+        self.cache.connection_pool.max_idle_time = 0
+        self.cache.connection_pool.disconnect()
+        self.stream.connection_pool.max_idle_time = 0
+        self.stream.connection_pool.disconnect()
+        self.queue.connection_pool.max_idle_time = 0
+        self.queue.connection_pool.disconnect()

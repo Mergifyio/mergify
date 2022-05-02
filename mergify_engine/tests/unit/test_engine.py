@@ -16,7 +16,6 @@
 
 import base64
 import typing
-from unittest import mock
 
 import pytest
 import respx
@@ -26,7 +25,7 @@ from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import engine
 from mergify_engine import github_types
-from mergify_engine import utils
+from mergify_engine import redis_utils
 from mergify_engine.clients import github
 from mergify_engine.dashboard import subscription
 
@@ -285,7 +284,7 @@ BASE_URL = f"/repos/{GH_OWNER['login']}/{GH_REPO['name']}"
 
 
 async def test_configuration_changed(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -370,15 +369,14 @@ async def test_configuration_changed(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -394,7 +392,7 @@ async def test_configuration_changed(
 
 
 async def test_configuration_duplicated(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -492,15 +490,14 @@ async def test_configuration_duplicated(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -516,7 +513,7 @@ async def test_configuration_duplicated(
 
 
 async def test_configuration_not_changed(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -598,15 +595,14 @@ async def test_configuration_not_changed(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -622,7 +618,7 @@ async def test_configuration_not_changed(
 
 
 async def test_configuration_initial(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -700,15 +696,14 @@ async def test_configuration_initial(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -723,7 +718,7 @@ async def test_configuration_initial(
 
 
 async def test_configuration_check_not_needed_with_configuration_not_changed(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -774,15 +769,14 @@ async def test_configuration_check_not_needed_with_configuration_not_changed(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -795,7 +789,7 @@ async def test_configuration_check_not_needed_with_configuration_not_changed(
 
 
 async def test_configuration_check_not_needed_with_configuration_changed(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -845,15 +839,14 @@ async def test_configuration_check_not_needed_with_configuration_changed(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(
@@ -866,7 +859,7 @@ async def test_configuration_check_not_needed_with_configuration_changed(
 
 
 async def test_configuration_check_not_needed_with_configuration_deleted(
-    github_server: respx.MockRouter, redis_cache: utils.RedisCache
+    github_server: respx.MockRouter, redis_links: redis_utils.RedisLinks
 ) -> None:
     github_server.get("/user/12345/installation").respond(
         200,
@@ -917,15 +910,14 @@ async def test_configuration_check_not_needed_with_configuration_deleted(
         installation = context.Installation(
             installation_json,
             subscription.Subscription(
-                redis_cache,
+                redis_links.cache,
                 0,
                 "",
                 frozenset([subscription.Features.PUBLIC_REPOSITORY]),
                 0,
             ),
             client,
-            redis_cache,
-            mock.Mock(),
+            redis_links,
         )
         repository = context.Repository(installation, GH_REPO)
         ctxt = await repository.get_pull_request_context(

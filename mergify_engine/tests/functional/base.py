@@ -40,6 +40,7 @@ from mergify_engine import duplicate_pull
 from mergify_engine import github_graphql_types
 from mergify_engine import github_types
 from mergify_engine import gitter
+from mergify_engine import redis_utils
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine import worker_lua
@@ -388,11 +389,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git.init()
         self.addAsyncCleanup(self.git.cleanup)
 
-        await self.clear_redis_cache()
-        self.redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
-
-        await self.clear_redis_queue()
-        self.redis_queue = utils.create_yaaredis_for_queue(max_idle_time=0)
+        self.redis_links = redis_utils.RedisLinks(max_idle_time=0)
+        await self.clear_redis()
 
         installation_json = await github.get_installation_from_account_id(
             config.TESTING_ORGANIZATION_ID
@@ -428,8 +426,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             installation_json,
             self.subscription,
             self.client_integration,
-            self.redis_cache,
-            self.redis_queue,
+            self.redis_links,
         )
         self.repository_ctxt = await self.installation_ctxt.get_repository_by_id(
             github_types.GitHubRepositoryIdType(self.RECORD_CONFIG["repository_id"])
@@ -449,11 +446,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self._event_reader = EventReader(self.app, self.RECORD_CONFIG["repository_id"])
         await self._event_reader.drain()
 
-        # NOTE(sileht): Prepare a fresh redis
-        await self.clear_redis_stream()
-
         # Track when worker work
-
         real_consume_method = worker.StreamProcessor.consume
 
         self.worker_concurrency_works = 0
@@ -478,21 +471,6 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             worker.StreamProcessor.consume = real_consume_method  # type: ignore[assignment]
 
         self.addCleanup(cleanup_consume)
-
-    @staticmethod
-    async def clear_redis_stream() -> None:
-        with utils.yaaredis_for_stream() as redis_stream:
-            await redis_stream.flushall()
-
-    @staticmethod
-    async def clear_redis_cache() -> None:
-        with utils.yaaredis_for_cache() as redis_stream:
-            await redis_stream.flushall()
-
-    @staticmethod
-    async def clear_redis_queue() -> None:
-        with utils.yaaredis_for_queue() as redis_queue:
-            await redis_queue.flushall()
 
     async def asyncTearDown(self):
         await super(FunctionalTestBase, self).asyncTearDown()
@@ -526,8 +504,13 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await root.shutdown()
 
         await self._event_reader.aclose()
-        await self.clear_redis_stream()
+        await self.clear_redis()
         mock.patch.stopall()
+
+    async def clear_redis(self) -> None:
+        await self.redis_links.cache.flushall()
+        await self.redis_links.stream.flushall()
+        await self.redis_links.queue.flushall()
 
     async def wait_for(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         return await self._event_reader.wait_for(*args, **kwargs)
@@ -547,10 +530,8 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(self.WORKER_HAS_WORK_INTERVAL_CHECK)
 
         while (
-            w._redis_stream is None
-            or (await w._redis_stream.zcard("streams")) > 0
-            or self.worker_concurrency_works > 0
-        ):
+            await w._redis_links.stream.zcard("streams")
+        ) > 0 or self.worker_concurrency_works > 0:
             await asyncio.sleep(self.WORKER_HAS_WORK_INTERVAL_CHECK)
 
         w.stop()
@@ -565,7 +546,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         )
         await w.start()
 
-        while w._redis_stream is None or (await w._redis_stream.zcard("streams")) > 0:
+        while (await w._redis_links.stream.zcard("streams")) > 0:
             await w.shared_stream_worker_task(0)
             await w.dedicated_stream_worker_task(config.TESTING_ORGANIZATION_ID)
 

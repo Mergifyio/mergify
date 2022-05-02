@@ -12,123 +12,26 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import asyncio
-import contextlib
 import hashlib
 import hmac
 import math
 import os
 import socket
-import ssl
 import typing
-import uuid
 
 import daiquiri
-import yaaredis
 
-from mergify_engine import config
 from mergify_engine import date
 from mergify_engine import github_types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import redis_utils
 
 
 LOG = daiquiri.getLogger()
 
 _PROCESS_IDENTIFIER = os.environ.get("DYNO") or socket.gethostname()
-
-# NOTE(sileht): I wonder with mypy thing yaaredis.StrictRedis is Any...
-RedisCache = typing.NewType("RedisCache", yaaredis.StrictRedis)  # type: ignore
-RedisStream = typing.NewType("RedisStream", yaaredis.StrictRedis)  # type: ignore
-RedisQueue = typing.NewType("RedisQueue", yaaredis.StrictRedis)  # type: ignore
-
-
-def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
-    ssl_scheme = "rediss://"
-    if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith(ssl_scheme):
-        final_url = f"redis://{url[len(ssl_scheme):]}"
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = (
-            ssl.CERT_NONE  # nosemgrep contrib.dlint.dlint-equivalent.insecure-ssl-use
-        )
-        options["ssl_context"] = ctx
-    else:
-        final_url = url
-    return yaaredis.StrictRedis.from_url(final_url, **options)
-
-
-def create_yaaredis_for_cache(
-    max_idle_time: int = 60, max_connections: typing.Optional[int] = None
-) -> RedisCache:
-    client = redis_from_url(
-        config.STORAGE_URL,
-        decode_responses=True,
-        max_idle_time=max_idle_time,
-        max_connections=max_connections,
-    )
-    return RedisCache(client)
-
-
-@contextlib.contextmanager
-def yaaredis_for_cache() -> typing.Iterator[RedisCache]:
-    client = create_yaaredis_for_cache(max_idle_time=0)
-    try:
-        yield client
-    finally:
-        client.connection_pool.disconnect()
-
-
-def create_yaaredis_for_stream(
-    max_idle_time: int = 60,
-    max_connections: typing.Optional[int] = None,
-) -> RedisStream:
-    r = redis_from_url(
-        config.STREAM_URL, max_idle_time=max_idle_time, max_connections=max_connections
-    )
-    return RedisStream(r)
-
-
-@contextlib.contextmanager
-def yaaredis_for_stream() -> typing.Iterator[RedisCache]:
-    client = create_yaaredis_for_stream(max_idle_time=0)
-    try:
-        yield client
-    finally:
-        client.connection_pool.disconnect()
-
-
-def create_yaaredis_for_queue(
-    max_idle_time: int = 60,
-    max_connections: typing.Optional[int] = None,
-) -> RedisQueue:
-    r = redis_from_url(
-        config.QUEUE_URL, max_idle_time=max_idle_time, max_connections=max_connections
-    )
-    return RedisQueue(r)
-
-
-@contextlib.contextmanager
-def yaaredis_for_queue() -> typing.Iterator[RedisQueue]:
-    client = create_yaaredis_for_queue(max_idle_time=0)
-    try:
-        yield client
-    finally:
-        client.connection_pool.disconnect()
-
-
-async def stop_pending_yaaredis_tasks() -> None:
-    tasks = [
-        task
-        for task in asyncio.all_tasks()
-        if (
-            getattr(task.get_coro(), "__qualname__", None)
-            == "ConnectionPool.disconnect_on_idle_time_exceeded"
-        )
-    ]
-
-    if tasks:
-        for task in tasks:
-            task.cancel()
-        await asyncio.wait(tasks)
 
 
 def unicode_truncate(
@@ -230,8 +133,7 @@ class FakePR:
 
 
 async def _send_refresh(
-    redis_cache: RedisCache,
-    redis_stream: RedisStream,
+    redis_stream: "redis_utils.RedisStream",
     repository: github_types.GitHubRepository,
     action: github_types.GitHubEventRefreshActionType,
     source: str,
@@ -239,8 +141,10 @@ async def _send_refresh(
     ref: typing.Optional[github_types.GitHubRefType] = None,
     score: typing.Optional[str] = None,
 ) -> None:
+    # TODO(sileht): move refresh stuff into it's own file
     # Break circular import
     from mergify_engine import github_events
+    from mergify_engine import worker
 
     data = github_types.GitHubEventRefresh(
         {
@@ -265,14 +169,22 @@ async def _send_refresh(
         }
     )
 
-    await github_events.filter_and_dispatch(
-        redis_cache, redis_stream, "refresh", str(uuid.uuid4()), data
+    slim_event = github_events._extract_slim_event("refresh", data)
+    await worker.push(
+        redis_stream,
+        repository["owner"]["id"],
+        repository["owner"]["login"],
+        repository["id"],
+        repository["name"],
+        pull_request_number,
+        "refresh",
+        slim_event,
+        None,
     )
 
 
 async def send_pull_refresh(
-    redis_cache: RedisCache,
-    redis_stream: RedisStream,
+    redis_stream: "redis_utils.RedisStream",
     repository: github_types.GitHubRepository,
     action: github_types.GitHubEventRefreshActionType,
     pull_request_number: github_types.GitHubPullRequestNumber,
@@ -289,7 +201,6 @@ async def send_pull_refresh(
     )
 
     await _send_refresh(
-        redis_cache,
         redis_stream,
         repository,
         action,
@@ -299,8 +210,7 @@ async def send_pull_refresh(
 
 
 async def send_repository_refresh(
-    redis_cache: RedisCache,
-    redis_stream: RedisStream,
+    redis_stream: "redis_utils.RedisStream",
     repository: github_types.GitHubRepository,
     action: github_types.GitHubEventRefreshActionType,
     source: str,
@@ -316,14 +226,11 @@ async def send_repository_refresh(
     )
 
     score = str(date.utcnow().timestamp() * 10)
-    await _send_refresh(
-        redis_cache, redis_stream, repository, action, source, score=score
-    )
+    await _send_refresh(redis_stream, repository, action, source, score=score)
 
 
 async def send_branch_refresh(
-    redis_cache: RedisCache,
-    redis_stream: RedisStream,
+    redis_stream: "redis_utils.RedisStream",
     repository: github_types.GitHubRepository,
     action: github_types.GitHubEventRefreshActionType,
     ref: github_types.GitHubRefType,
@@ -339,9 +246,7 @@ async def send_branch_refresh(
         source=source,
     )
     score = str(date.utcnow().timestamp() * 10)
-    await _send_refresh(
-        redis_cache, redis_stream, repository, action, source, ref=ref, score=score
-    )
+    await _send_refresh(redis_stream, repository, action, source, ref=ref, score=score)
 
 
 _T = typing.TypeVar("_T")

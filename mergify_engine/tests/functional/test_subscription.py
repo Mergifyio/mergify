@@ -19,15 +19,20 @@ from unittest import mock
 from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
+from mergify_engine import github_types
+from mergify_engine import redis_utils
 from mergify_engine.dashboard import subscription
 from mergify_engine.tests.functional import base
 
 
 class TestSubscription(base.FunctionalTestBase):
-    async def test_subscription(self):
-        async def fake_subscription(redis_cache, owner_id):
+    async def test_subscription(self) -> None:
+        async def fake_subscription(
+            redis_cache: redis_utils.RedisCache,
+            owner_id: github_types.GitHubAccountIdType,
+        ) -> subscription.Subscription:
             return subscription.Subscription(
-                self.redis_cache,
+                self.redis_links.cache,
                 config.TESTING_ORGANIZATION_ID,
                 "Abuse",
                 frozenset(

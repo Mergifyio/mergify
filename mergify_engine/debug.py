@@ -26,8 +26,8 @@ from mergify_engine import context
 from mergify_engine import exceptions
 from mergify_engine import github_types
 from mergify_engine import queue
+from mergify_engine import redis_utils
 from mergify_engine import rules
-from mergify_engine import utils
 from mergify_engine.clients import github
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
@@ -105,8 +105,10 @@ async def report_dashboard_synchro(
 
 async def report_worker_status(owner: github_types.GitHubLogin) -> None:
     stream_name = f"stream~{owner}".encode()
-    r = utils.create_yaaredis_for_stream()
-    streams = await r.zrangebyscore("streams", min=0, max="+inf", withscores=True)
+    redis_links = redis_utils.RedisLinks()
+    streams = await redis_links.stream.zrangebyscore(
+        "streams", min=0, max="+inf", withscores=True
+    )
 
     for pos, item in enumerate(streams):  # noqa: B007
         if item[0] == stream_name:
@@ -117,7 +119,7 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
 
     planned = datetime.datetime.utcfromtimestamp(streams[pos]).isoformat()
 
-    attempts = await r.hget("attempts", stream_name) or 0
+    attempts = await redis_links.stream.hget("attempts", stream_name) or 0
     print(
         "* WORKER: Installation queued, "
         f" pos: {pos}/{len(streams)},"
@@ -125,7 +127,7 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
         f" attempts: {attempts}"
     )
 
-    size = await r.xlen(stream_name)
+    size = await redis_links.stream.xlen(stream_name)
     print(f"* WORKER PENDING EVENTS for this installation: {size}")
 
 
@@ -194,8 +196,7 @@ def _url_parser(
 async def report(
     url: str,
 ) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
-    redis_cache = utils.create_yaaredis_for_cache(max_idle_time=0)
-    redis_queue = utils.create_yaaredis_for_queue(max_idle_time=0)
+    redis_links = redis_utils.RedisLinks(max_idle_time=0)
 
     try:
         owner_login, repo, pull_number = _url_parser(url)
@@ -221,16 +222,22 @@ async def report(
         slug = owner_login + "/" + repo
 
     owner_id = installation_json["account"]["id"]
-    cached_sub = await subscription.Subscription.get_subscription(redis_cache, owner_id)
+    cached_sub = await subscription.Subscription.get_subscription(
+        redis_links.cache, owner_id
+    )
     db_sub = await subscription.Subscription._retrieve_subscription_from_db(
-        redis_cache, owner_id
+        redis_links.cache, owner_id
     )
 
-    cached_tokens = await user_tokens.UserTokens.get(redis_cache, owner_id)
+    cached_tokens = await user_tokens.UserTokens.get(redis_links.cache, owner_id)
     if config.SAAS_MODE:
         db_tokens = typing.cast(
             user_tokens.UserTokens,
-            (await user_tokens.UserTokensSaas._retrieve_from_db(redis_cache, owner_id)),
+            (
+                await user_tokens.UserTokensSaas._retrieve_from_db(
+                    redis_links.cache, owner_id
+                )
+            ),
         )
     else:
         db_tokens = cached_tokens
@@ -243,7 +250,7 @@ async def report(
         print(f"  - {v}")
 
     installation = context.Installation(
-        installation_json, cached_sub, client, redis_cache, redis_queue
+        installation_json, cached_sub, client, redis_links
     )
 
     await report_dashboard_synchro(

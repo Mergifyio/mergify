@@ -135,15 +135,13 @@ class QueueBase(abc.ABC):
         if additional_pull_request:
             pulls.add(additional_pull_request)
 
-        with utils.yaaredis_for_stream() as redis_stream:
-            pipe = await redis_stream.pipeline()
-            for pull_number in pulls:
-                await utils.send_pull_refresh(
-                    self.repository.installation.redis,
-                    pipe,
-                    self.repository.repo,
-                    pull_request_number=pull_number,
-                    action="internal",
-                    source=source,
-                )
-            await pipe.execute()
+        pipe = await self.repository.installation.redis.stream.pipeline()
+        for pull_number in pulls:
+            await utils.send_pull_refresh(
+                pipe,
+                self.repository.repo,
+                pull_request_number=pull_number,
+                action="internal",
+                source=source,
+            )
+        await pipe.execute()
