@@ -60,6 +60,7 @@ IGNORED_HTTP_ERROR_MESSAGES: typing.Dict[int, typing.List[str]] = {
     ],
     422: [
         "Sorry, there was a problem generating this diff. The repository may be missing relevant data."
+        "The request could not be processed because too many files changed.",
     ],
     503: ["Sorry, this diff is taking too long to generate."],
 }
