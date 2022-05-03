@@ -234,6 +234,11 @@ class QueueCheck:
 
 
 @dataclasses.dataclass
+class DraftPullRequestCreationTemporaryFailure(Exception):
+    reason: str
+
+
+@dataclasses.dataclass
 class TrainCar:
     train: "Train" = dataclasses.field(repr=False)
     initial_embarked_pulls: typing.List[EmbarkedPull]
@@ -530,7 +535,9 @@ class TrainCar:
 
     @tracer.wrap("TrainCar._create_draft_pull_request", span_type="worker")
     @tenacity.retry(
-        retry=tenacity.retry_if_exception_type(tenacity.TryAgain),
+        retry=tenacity.retry_if_exception_type(
+            DraftPullRequestCreationTemporaryFailure
+        ),
         stop=tenacity.stop_after_attempt(2),
     )
     async def _create_draft_pull_request(
@@ -568,6 +575,7 @@ class TrainCar:
                     raise RuntimeError("Invalid merge-queue head branch")
 
                 head = f"{self.train.repository.installation.owner_login}:{branch_name}"
+                closed_pulls = set()
                 async for pull in typing.cast(
                     typing.AsyncIterator[github_types.GitHubPullRequest],
                     self.train.repository.installation.client.items(
@@ -577,8 +585,23 @@ class TrainCar:
                         page_limit=20,
                     ),
                 ):
+                    closed_pulls.add(pull["number"])
                     await self.train._close_pull_request(pull["number"])
-                raise tenacity.TryAgain
+
+                self.train.log.info(
+                    "fail to create a merge-queue pull request, because the pull request already exists.",
+                    head=branch_name,
+                    title=title,
+                    github_user=github_user["login"] if github_user else None,
+                    parent_pull_request_numbers=self.parent_pull_request_numbers,
+                    still_queued_embarked_pull_numbers=[
+                        ep.user_pull_request_number
+                        for ep in self.still_queued_embarked_pulls
+                    ],
+                    exc_info=True,
+                    closed_pulls=closed_pulls,
+                )
+                raise DraftPullRequestCreationTemporaryFailure(e.message)
 
             if "Draft pull requests are not supported" not in e.message:
                 self.train.log.error(
@@ -702,7 +725,11 @@ class TrainCar:
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
-        tmp_pull = await self._create_draft_pull_request(branch_name, github_user)
+        try:
+            tmp_pull = await self._create_draft_pull_request(branch_name, github_user)
+        except DraftPullRequestCreationTemporaryFailure as e:
+            await self._delete_branch()
+            raise TrainCarPullRequestCreationPostponed(self) from e
         await self._set_initial_state("created", queue_rule, tmp_pull["number"])
 
     async def _set_initial_state(
