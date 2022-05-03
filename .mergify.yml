@@ -13,6 +13,7 @@ defaults:
 
 queue_rules:
   - name: hotfix
+    allow_inplace_checks: true
     conditions:
       - and: &CheckRuns
           - check-success=requirements
@@ -22,12 +23,14 @@ queue_rules:
     speculative_checks: 5
 
   - name: default
+    allow_inplace_checks: true
     conditions:
       - and: *CheckRuns
       - schedule=Mon-Fri 09:00-17:30[Europe/Paris]
     speculative_checks: 5
 
   - name: lowprio
+    allow_inplace_checks: true
     conditions:
       - and: *CheckRuns
       - schedule=Mon-Fri 09:30-17:00[Europe/Paris]
