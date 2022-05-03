@@ -114,7 +114,11 @@ def _extract_slim_event(event_type: str, data: typing.Any) -> typing.Any:
             ],
         }
         if event_type == "check_run":
+            # NOTE(sileht): only used for logging purpose
             slim_data["check_run"]["name"] = data["check_run"]["name"]  # type: ignore
+            slim_data["check_run"]["id"] = data["check_run"]["id"]  # type: ignore
+            slim_data["check_run"]["conclusion"] = data["check_run"]["conclusion"]  # type: ignore
+            slim_data["check_run"]["status"] = data["check_run"]["status"]  # type: ignore
 
     elif event_type == "pull_request":
         # For pull_request opened/synchronize/closed
