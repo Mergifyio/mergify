@@ -83,10 +83,11 @@ REMOVE_PR_SCRIPT = redis_utils.register_script(
 local bucket_org_key = KEYS[1]
 local bucket_sources_key = KEYS[2]
 -- Delete all sources we have handled
--- Check if sources has been received in the meantime
-for idx, msg_id in ipairs(ARGV) do
-    redis.call("XDEL", bucket_sources_key, msg_id)
+local step = 1000
+for i = 1, #ARGV, step do
+    redis.call("XDEL", bucket_sources_key, unpack(ARGV, i, math.min(i + step - 1, #ARGV)))
 end
+-- Check if sources has been received in the meantime
 local sources = redis.call("XRANGE", bucket_sources_key, "-", "+", "COUNT", 1)
 if table.getn(sources) == 0 then
     redis.call("DEL", bucket_sources_key)
