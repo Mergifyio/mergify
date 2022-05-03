@@ -392,6 +392,11 @@ class StreamProcessor:
                 if sub.has_feature(subscription.Features.DEDICATED_WORKER):
                     if self.dedicated_owner_id is None:
                         # Spawn a worker
+                        LOG.info(
+                            "shared worker got an event for dedicated worker, adding org to Redis dedicated workers set",
+                            owner_id=owner_id,
+                            owner_login=owner_login_for_tracing,
+                        )
                         await self.redis_links.stream.sadd(
                             DEDICATED_WORKERS_KEY, owner_id
                         )
@@ -399,6 +404,11 @@ class StreamProcessor:
                 else:
                     if self.dedicated_owner_id is not None:
                         # Drop this worker
+                        LOG.info(
+                            "dedicated worker got an event for shared worker, removing org from Redis dedicated workers set",
+                            owner_id=owner_id,
+                            owner_login=owner_login_for_tracing,
+                        )
                         await self.redis_links.stream.srem(
                             DEDICATED_WORKERS_KEY, owner_id
                         )
@@ -1033,6 +1043,7 @@ class Worker:
                 github_types.GitHubAccountIdType(int(v)) for v in dedicated_workers_data
             }
 
+    @tracer.wrap("sync_dedicated_workers_cache", span_type="worker")
     async def _sync_dedicated_workers_cache(self) -> None:
         self._dedicated_workers_owners_cache = (
             await self.get_dedicated_worker_owner_ids(self._redis_links.stream)
@@ -1206,7 +1217,7 @@ class Worker:
             try:
                 await func()
             except asyncio.CancelledError:
-                LOG.debug("%s task killed", task_name)
+                LOG.info("%s task killed", task_name)
                 return
             except yaaredis.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
@@ -1220,7 +1231,10 @@ class Worker:
 
             try:
                 await asyncio.wait_for(self._stopping.wait(), timeout=sleep_time)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except asyncio.CancelledError:
+                LOG.info("%s task killed", task_name)
+                return
+            except asyncio.TimeoutError:
                 pass
 
         LOG.debug("%s task exited", task_name)
@@ -1240,6 +1254,7 @@ class Worker:
             task = self._dedicated_worker_tasks[owner_id]
             task.cancel(msg="dedicated worker shutdown")
             shutdown_tasks.append(task)
+
         if shutdown_tasks:
             await asyncio.wait(shutdown_tasks)
 
@@ -1253,6 +1268,11 @@ class Worker:
                 f"dedicated-{owner_id}",
                 self.idle_sleep_time,
                 functools.partial(self.dedicated_stream_worker_task, owner_id),
+            )
+
+        if to_start or to_stop:
+            LOG.info(
+                "new dedicated workers setup", workers=set(self._dedicated_worker_tasks)
             )
 
     async def _shutdown(self) -> None:
