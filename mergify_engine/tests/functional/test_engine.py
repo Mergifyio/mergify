@@ -864,6 +864,15 @@ DO NOT EDIT
                 check_api.Conclusion.CANCELLED, title="CANCELLED", summary="CANCELLED"
             ),
         )
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "completed"
+        assert checks[0]["conclusion"] == "cancelled"
+        assert checks[0]["completed_at"] is not None
+        assert checks[0]["output"]["title"] == "CANCELLED"
+        assert checks[0]["output"]["summary"] == "CANCELLED"
+
+        # clear cache and retry
         ctxt._caches = context.ContextCaches()
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
@@ -880,6 +889,70 @@ DO NOT EDIT
                 check_api.Conclusion.PENDING, title="PENDING", summary="PENDING"
             ),
         )
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "in_progress"
+        assert checks[0]["conclusion"] is None
+        assert checks[0]["completed_at"] is None
+        assert checks[0]["output"]["title"] == "PENDING"
+        assert checks[0]["output"]["summary"] == "PENDING"
+
+        # Clear cache and retry
+        ctxt._caches = context.ContextCaches()
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "in_progress"
+        assert checks[0]["conclusion"] is None
+        assert checks[0]["completed_at"] is None
+        assert checks[0]["output"]["title"] == "PENDING"
+        assert checks[0]["output"]["summary"] == "PENDING"
+
+        # same tests with skip_cache=True
+        ctxt._caches = context.ContextCaches()
+        await check_api.set_check_run(
+            ctxt,
+            "Test",
+            check_api.Result(
+                check_api.Conclusion.CANCELLED, title="CANCELLED", summary="CANCELLED"
+            ),
+            skip_cache=True,
+        )
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "completed"
+        assert checks[0]["conclusion"] == "cancelled"
+        assert checks[0]["completed_at"] is not None
+        assert checks[0]["output"]["title"] == "CANCELLED"
+        assert checks[0]["output"]["summary"] == "CANCELLED"
+
+        # clear cache and retry
+        ctxt._caches = context.ContextCaches()
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "completed"
+        assert checks[0]["conclusion"] == "cancelled"
+        assert checks[0]["completed_at"] is not None
+        assert checks[0]["output"]["title"] == "CANCELLED"
+        assert checks[0]["output"]["summary"] == "CANCELLED"
+
+        ctxt._caches = context.ContextCaches()
+        await check_api.set_check_run(
+            ctxt,
+            "Test",
+            check_api.Result(
+                check_api.Conclusion.PENDING, title="PENDING", summary="PENDING"
+            ),
+            skip_cache=True,
+        )
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 1
+        assert checks[0]["status"] == "in_progress"
+        assert checks[0]["conclusion"] is None
+        assert checks[0]["completed_at"] is None
+        assert checks[0]["output"]["title"] == "PENDING"
+        assert checks[0]["output"]["summary"] == "PENDING"
+
+        # Clear cache and retry
         ctxt._caches = context.ContextCaches()
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
