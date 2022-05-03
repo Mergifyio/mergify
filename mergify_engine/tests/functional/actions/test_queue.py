@@ -82,7 +82,7 @@ class TestQueueAction(base.FunctionalTestBase):
     async def _assert_cars_contents(
         cls,
         q: merge_train.Train,
-        expected_base_sha: github_types.SHAType,
+        expected_base_sha: typing.Optional[github_types.SHAType],
         expected_cars: typing.List[TrainCarMatcher],
         expected_waiting_pulls: typing.Optional[
             typing.List[github_types.GitHubPullRequestNumber]
