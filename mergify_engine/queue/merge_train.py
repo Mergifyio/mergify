@@ -39,6 +39,7 @@ from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
 from mergify_engine.dashboard import user_tokens
+from mergify_engine.queue import freeze
 
 
 if typing.TYPE_CHECKING:
@@ -1553,10 +1554,20 @@ class Train(queue.QueueBase):
 
         best_position = -1
         need_to_be_readded = False
+        frozen_queues = {
+            freeze.name async for freeze in freeze.QueueFreeze.get_all(self.repository)
+        }
+
         for position, (embarked_pull, car) in enumerate(self._iter_embarked_pulls()):
 
             car_can_be_interrupted = car is None or (
-                car.checks_conclusion == check_api.Conclusion.PENDING
+                (
+                    car.checks_conclusion == check_api.Conclusion.PENDING
+                    or (
+                        embarked_pull.config["name"] != config["name"]
+                        and embarked_pull.config["name"] in frozen_queues
+                    )
+                )
                 and config["queue_config"]["priority"]
                 >= embarked_pull.config["queue_config"]["priority"]
                 and config["name"]
