@@ -1452,12 +1452,14 @@ async def test_worker_stuck_shutdown(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_dedicated_worker_scaleup_scaledown(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.Mock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+    request: pytest.FixtureRequest,
+    event_loop: asyncio.BaseEventLoop,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
 
     w = worker.Worker(
@@ -1467,6 +1469,12 @@ async def test_dedicated_worker_scaleup_scaledown(
         dedicated_workers_syncer_idle_time=0.01,
     )
     await w.start()
+
+    async def cleanup() -> None:
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    request.addfinalizer(lambda: event_loop.run_until_complete(cleanup()))
 
     tracker = []
 
@@ -1489,39 +1497,39 @@ async def test_dedicated_worker_scaleup_scaledown(
         sub.has_feature.return_value = False
         return sub
 
-    async def push_and_wait():
+    async def push_and_wait() -> None:
         # worker hash == 2
         await worker.push(
             redis_links.stream,
-            4446,
-            "owner-4446",
-            4446,
-            "repo",
-            4446,
+            github_types.GitHubAccountIdType(4446),
+            github_types.GitHubLogin("owner-4446"),
+            github_types.GitHubRepositoryIdType(4446),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(4446),
             "pull_request",
-            {"payload": "whatever"},
+            {"payload": "whatever"},  # type: ignore
         )
         # worker hash == 1
         await worker.push(
             redis_links.stream,
-            123,
-            "owner-123",
-            123,
-            "repo",
-            123,
+            github_types.GitHubAccountIdType(123),
+            github_types.GitHubLogin("owner-123"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(123),
             "pull_request",
-            {"payload": "whatever"},
+            {"payload": "whatever"},  # type: ignore
         )
         # worker hash == 0
         await worker.push(
             redis_links.stream,
-            1,
-            "owner-1",
-            1,
-            "repo",
-            1,
+            github_types.GitHubAccountIdType(1),
+            github_types.GitHubLogin("owner-1"),
+            github_types.GitHubRepositoryIdType(1),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(1),
             "pull_request",
-            {"payload": "whatever"},
+            {"payload": "whatever"},  # type: ignore
         )
         started_at = time.monotonic()
         while (
@@ -1572,8 +1580,187 @@ async def test_dedicated_worker_scaleup_scaledown(
         "shared-2",
     ]
 
-    w.stop()
-    await w.wait_shutdown_complete()
+
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
+@mock.patch("mergify_engine.worker.run_engine")
+async def test_dedicated_worker_process_scaleup_scaledown(
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.Mock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+    request: pytest.FixtureRequest,
+    event_loop: asyncio.BaseEventLoop,
+) -> None:
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+
+    w_dedicated = worker.Worker(
+        enabled_services={"dedicated-stream"},
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        dedicated_workers_syncer_idle_time=0.01,
+    )
+    await w_dedicated.start()
+    w_shared = worker.Worker(
+        enabled_services={"shared-stream"},
+        shared_stream_tasks_per_process=3,
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        dedicated_workers_syncer_idle_time=0.01,
+    )
+    await w_shared.start()
+
+    async def cleanup() -> None:
+        w_dedicated.stop()
+        await w_dedicated.wait_shutdown_complete()
+        w_shared.stop()
+        await w_shared.wait_shutdown_complete()
+
+    request.addfinalizer(lambda: event_loop.run_until_complete(cleanup()))
+
+    tracker = []
+
+    async def track_context(*args, **kwargs):
+        tracker.append(logs.WORKER_ID.get(None))
+
+    run_engine.side_effect = track_context
+
+    async def fake_get_subscription_dedicated(redis, owner_id):
+        sub = mock.Mock()
+        # 123 is always shared
+        if owner_id == 123:
+            sub.has_feature.return_value = False
+        else:
+            sub.has_feature.return_value = True
+        return sub
+
+    async def fake_get_subscription_shared(redis, owner_id):
+        sub = mock.Mock()
+        sub.has_feature.return_value = False
+        return sub
+
+    async def push_and_wait() -> None:
+        # worker hash == 2
+        await worker.push(
+            redis_links.stream,
+            github_types.GitHubAccountIdType(4446),
+            github_types.GitHubLogin("owner-4446"),
+            github_types.GitHubRepositoryIdType(4446),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(4446),
+            "pull_request",
+            {"payload": "whatever"},  # type: ignore
+        )
+        # worker hash == 1
+        await worker.push(
+            redis_links.stream,
+            github_types.GitHubAccountIdType(123),
+            github_types.GitHubLogin("owner-123"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(123),
+            "pull_request",
+            {"payload": "whatever"},  # type: ignore
+        )
+        # worker hash == 0
+        await worker.push(
+            redis_links.stream,
+            github_types.GitHubAccountIdType(1),
+            github_types.GitHubLogin("owner-1"),
+            github_types.GitHubRepositoryIdType(1),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(1),
+            "pull_request",
+            {"payload": "whatever"},  # type: ignore
+        )
+        started_at = time.monotonic()
+        while (
+            (await w_shared._redis_links.stream.zcard("streams")) > 0
+            and (await w_shared._redis_links.stream.zcard("streams")) > 0
+        ) and time.monotonic() - started_at < 10:
+            await asyncio.sleep(0.5)
+
+    get_subscription.side_effect = fake_get_subscription_dedicated
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "dedicated-1",
+        "dedicated-4446",
+        "shared-1",
+    ]
+    assert w_shared._dedicated_workers_owners_cache == {1, 4446}
+    assert w_dedicated._dedicated_workers_owners_cache == {1, 4446}
+    assert set(w_shared._dedicated_worker_tasks.keys()) == set()
+    assert set(w_dedicated._dedicated_worker_tasks.keys()) == {1, 4446}
+    tracker.clear()
+
+    get_subscription.side_effect = fake_get_subscription_shared
+    await push_and_wait()
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "shared-0",
+        "shared-0",
+        "shared-1",
+        "shared-1",
+        "shared-2",
+        "shared-2",
+    ]
+    assert w_shared._dedicated_workers_owners_cache == set()
+    assert w_dedicated._dedicated_workers_owners_cache == set()
+    assert set(w_shared._dedicated_worker_tasks.keys()) == set()
+    assert set(w_dedicated._dedicated_worker_tasks.keys()) == set()
+    tracker.clear()
+
+    # scale up
+    get_subscription.side_effect = fake_get_subscription_dedicated
+    await push_and_wait()
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "dedicated-1",
+        "dedicated-1",
+        "dedicated-4446",
+        "dedicated-4446",
+        "shared-1",
+        "shared-1",
+    ]
+
+    assert w_shared._dedicated_workers_owners_cache == {1, 4446}
+    assert w_dedicated._dedicated_workers_owners_cache == {1, 4446}
+    assert set(w_shared._dedicated_worker_tasks.keys()) == set()
+    assert set(w_dedicated._dedicated_worker_tasks.keys()) == {1, 4446}
+    tracker.clear()
+
+    # scale down
+    get_subscription.side_effect = fake_get_subscription_shared
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "shared-0",
+        "shared-1",
+        "shared-2",
+    ]
+    assert w_shared._dedicated_workers_owners_cache == set()
+    assert w_dedicated._dedicated_workers_owners_cache == set()
+    assert set(w_shared._dedicated_worker_tasks.keys()) == set()
+    assert set(w_dedicated._dedicated_worker_tasks.keys()) == set()
+    tracker.clear()
+
+    # scale up
+    get_subscription.side_effect = fake_get_subscription_dedicated
+    await push_and_wait()
+    await push_and_wait()
+    assert sorted(tracker) == [
+        "dedicated-1",
+        "dedicated-1",
+        "dedicated-4446",
+        "dedicated-4446",
+        "shared-1",
+        "shared-1",
+    ]
+    assert w_shared._dedicated_workers_owners_cache == {1, 4446}
+    assert w_dedicated._dedicated_workers_owners_cache == {1, 4446}
+    assert set(w_shared._dedicated_worker_tasks.keys()) == set()
+    assert set(w_dedicated._dedicated_worker_tasks.keys()) == {1, 4446}
+    tracker.clear()
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
