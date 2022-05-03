@@ -1,9 +1,9 @@
 sources:
   python-version:
-    name: Get latest python version from heroku buildpack
+    name: Get latest Python version from Docker Hub
     kind: shell
     spec:
-      command: python3 ./.github/get-latest-python-version.py
+      command: bash .github/get-latest-python-version.sh
 
 targets:
   heroku_runtime.txt:
