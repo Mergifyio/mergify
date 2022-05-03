@@ -27,7 +27,7 @@ from mergify_engine.tests.functional.actions import test_queue
 class TestUnQueueCommand(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
-    async def test_unqueue(self):
+    async def test_unqueue(self) -> None:
         rules = {
             "queue_rules": [
                 {
@@ -70,6 +70,7 @@ class TestUnQueueCommand(base.FunctionalTestBase):
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == "Rule: Queue (queue)",
         )
+        assert check is not None
         assert (
             check["output"]["title"]
             == "The pull request is the 1st in the queue to be merged"
@@ -101,6 +102,7 @@ DO NOT EDIT
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == "Rule: Queue (queue)",
         )
+        assert check is not None
         assert (
             check["output"]["title"]
             == "The pull request is the 1st in the queue to be merged"
@@ -116,6 +118,7 @@ DO NOT EDIT
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == "Rule: Queue (queue)",
         )
+        assert check is not None
         assert check["conclusion"] == "cancelled"
         assert (
             check["output"]["title"]
@@ -130,6 +133,7 @@ DO NOT EDIT
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
         )
+        assert check is not None
         assert check["conclusion"] == "cancelled"
         assert (
             check["output"]["title"]
@@ -144,6 +148,7 @@ DO NOT EDIT
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == constants.MERGE_QUEUE_SUMMARY_NAME,
         )
+        assert check is not None
         assert check["conclusion"] is None
         assert check["output"]["title"].startswith("The pull request is embarked with")
 
@@ -151,6 +156,7 @@ DO NOT EDIT
             await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
             key=lambda c: c["name"] == "Rule: Queue (queue)",
         )
+        assert check is not None
         assert (
             check["output"]["title"]
             == "The pull request is the 1st in the queue to be merged"
