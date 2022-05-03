@@ -1022,3 +1022,73 @@ class TestQueueFreeze(base.FunctionalTestBase):
         assert r.json() == {
             "queue_freezes": [],
         }
+
+    async def test_queue_freeze_with_pr_just_about_to_merge(self):
+
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "urgent",
+                    "conditions": [],
+                },
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/slow-ci",
+                    ],
+                },
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue-urgent",
+                    ],
+                    "actions": {"queue": {"name": "urgent"}},
+                },
+                {
+                    "name": "Merge default",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+
+        await self.setup_repo(yaml.dump(rules))
+
+        r = await self.app.put(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/default/freeze",
+            json={"reason": "test freeze reason"},
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        # Everything is ready, but queue is frozen
+        await self.create_status(p1, context="continuous-integration/slow-ci")
+        await self.add_label(p1["number"], "queue")
+        await self.run_engine()
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge default (queue)",
+        )
+
+        assert (
+            check["output"]["title"]
+            == 'The queue "default" is currently frozen, for the following reason: test freeze reason'
+        )
+
+        # ensure p2 got queued before p1 and merged
+        await self.add_label(p2["number"], "queue-urgent")
+        await self.run_engine()
+        p2 = await self.get_pull(p2["number"])
+        assert p2["merged"]
