@@ -173,8 +173,6 @@ async def get_summary_check_result(
     summary_title, summary = await gen_summary(ctxt, pull_request_rules, match)
 
     summary = serialize_conclusions(conclusions) + "\n" + summary
-    summary_for_logging = summary
-
     summary += constants.MERGIFY_PULL_REQUEST_DOC
 
     summary_changed = (
@@ -190,11 +188,6 @@ async def get_summary_check_result(
     if summary_changed:
         ctxt.log.info(
             "summary changed",
-            summary={
-                "title": summary_title,
-                "name": constants.SUMMARY_NAME,
-                "summary": summary_for_logging,
-            },
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
@@ -205,11 +198,6 @@ async def get_summary_check_result(
     else:
         ctxt.log.info(
             "summary unchanged",
-            summary={
-                "title": summary_title,
-                "name": constants.SUMMARY_NAME,
-                "summary": summary_for_logging,
-            },
             conclusions=conclusions,
             previous_conclusions=previous_conclusions,
         )
@@ -421,9 +409,7 @@ async def run_actions(
 
             else:
                 with ddtrace.tracer.trace(
-                    f"action.{action}",
-                    span_type="worker",
-                    resource=str(ctxt),
+                    f"action.{action}", span_type="worker", resource=str(ctxt)
                 ) as span:
                     # NOTE(sileht): check state change so we have to run "run" or "cancel"
                     report = await exec_action(
@@ -485,6 +471,7 @@ async def run_actions(
                 previous_conclusion.value,
                 conclusions[check_name].value,
                 report=report,
+                rule_summary=rule.conditions.get_summary(),
                 previous_conclusion=previous_conclusion.value,
                 conclusion=conclusions[check_name].value,
                 action=action,
