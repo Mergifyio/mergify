@@ -489,7 +489,6 @@ async def run_actions(
                 conclusion=conclusions[check_name].value,
                 action=action,
                 check_name=check_name,
-                event_types=[se["event_type"] for se in ctxt.sources],
             )
 
     return conclusions
