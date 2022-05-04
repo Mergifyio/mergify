@@ -1574,7 +1574,6 @@ class Train(queue.QueueBase):
     async def add_pull(
         self, ctxt: context.Context, config: queue.PullQueueConfig
     ) -> None:
-        ctxt.log.info("adding to train", **self.log_queue_extras)
 
         # NOTE(sileht): first, ensure the pull is not in another branch
         await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
@@ -1668,16 +1667,12 @@ class Train(queue.QueueBase):
         )
 
     async def remove_pull(self, ctxt: context.Context) -> None:
-        ctxt.log.info("removing from train", **self.log_queue_extras)
-
         # NOTE(sileht): Remove the pull request from all trains, just in case
         # the base branch change in the meantime
         await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
         await self._remove_pull(ctxt)
 
     async def _remove_pull(self, ctxt: context.Context) -> None:
-        ctxt.log.info("removing from train", **self.log_queue_extras)
-
         if (
             ctxt.pull["merged"]
             and ctxt.pull["base"]["ref"] == self.ref
