@@ -280,6 +280,11 @@ async def set_check_run(
             reverse=True,
         )
 
+    if len(checks) >= 2:
+        ctxt.log.warning(
+            "pull requests with duplicacte checks", checks=checks, skip_cache=skip_cache
+        )
+
     # Only keep the newer checks, cancelled others
     for check_to_cancelled in checks[1:]:
         if Status(check_to_cancelled["status"]) != Status.COMPLETED:
