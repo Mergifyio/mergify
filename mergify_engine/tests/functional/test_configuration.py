@@ -113,7 +113,7 @@ class TestConfiguration(base.FunctionalTestBase):
             """Invalid YAML @ line 3, column 2
 ```
 while scanning an alias
-  in "<byte string>", line 3, column 1:
+  in "<unicode string>", line 3, column 1:
     *
     ^
 expected alphabetic or numeric character, but found"""
