@@ -168,6 +168,7 @@ is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:
 [Summary]: success | 1 potential rule | {summary_html_url}
+> <!-- J1J1bGU6IGNvbW1lbnQgKGNvbW1lbnQpJzogbmV1dHJhbAo= -->
 > ### Rule: comment (comment)
 > - [X] `base={self.main_branch_name}`
 > - [ ] any of:
@@ -204,7 +205,7 @@ mergeable_state: clean
 > 
 > Finally, you can contact us on https://mergify.com
 > </details>
-> <!-- J1J1bGU6IGNvbW1lbnQgKGNvbW1lbnQpJzogbmV1dHJhbAo= -->
+> 
 * MERGIFY LIVE MATCHES:
 [Summary]: success | 1 potential rule
 > ### Rule: comment (comment)
