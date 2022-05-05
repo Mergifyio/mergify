@@ -120,7 +120,7 @@ class TestAttributes(base.FunctionalTestBase):
         expected = (
             "### Rule: ~~merge (close)~~\n:no_entry_sign: **Disabled: code freeze**\n"
         )
-        assert expected == summary["output"]["summary"][: len(expected)]
+        assert expected in summary["output"]["summary"]
 
     async def test_schedule(self) -> None:
         rules = {
