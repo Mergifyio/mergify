@@ -131,6 +131,14 @@ class Queue:
 
 
 @pydantic.dataclasses.dataclass
+class QueuesConfig:
+    configuration: typing.List[QueueRule] = dataclasses.field(
+        default_factory=list,
+        metadata={"description": "The queues configuration of the repository"},
+    )
+
+
+@pydantic.dataclasses.dataclass
 class Queues:
     queues: typing.List[Queue] = dataclasses.field(
         default_factory=list, metadata={"description": "The queues of the repository"}
@@ -313,6 +321,38 @@ async def repository_queues(
         queues.queues.append(queue)
 
     return queues
+
+
+@router.get(
+    "/repos/{owner}/{repository}/queues/configuration",  # noqa: FS003
+    summary="Get merge queues configuration",
+    description="Get the list of all merge queues configuration sorted by processing order",
+    response_model=QueuesConfig,
+    responses={
+        **api.default_responses,  # type: ignore
+    },
+)
+async def repository_queues_configuration(
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context
+    ),
+) -> QueuesConfig:
+
+    config_file = await repository_ctxt.get_mergify_config_file()
+    if config_file is None:
+        return QueuesConfig()
+
+    config = get_mergify_config(config_file)
+
+    return QueuesConfig(
+        [
+            QueueRule(
+                config=rule.config,
+                name=rule.name,
+            )
+            for rule in config["queue_rules"]
+        ]
+    )
 
 
 @router.put(
