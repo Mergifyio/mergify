@@ -15,6 +15,7 @@
 # under the License.
 
 
+import logging
 import typing
 
 import voluptuous
@@ -102,11 +103,12 @@ class DismissReviewsAction(actions.Action):
                 check_api.Conclusion.SUCCESS, "Updated by Mergify, ignoring", ""
             )
 
-        requested_reviewers_login = [
+        requested_reviewers_login = {
             rr["login"] for rr in ctxt.pull["requested_reviewers"]
-        ]
+        }
 
         to_dismiss = set()
+        to_dismiss_user_from_requested_reviewers = set()
         for review in (await ctxt.consolidated_reviews())[1]:
             conf = self.config.get(review["state"].lower(), False)
             if conf is True:
@@ -114,6 +116,9 @@ class DismissReviewsAction(actions.Action):
             elif conf == FROM_REQUESTED_REVIEWERS:
                 if review["user"]["login"] in requested_reviewers_login:
                     to_dismiss.add(review["id"])
+                    to_dismiss_user_from_requested_reviewers.add(
+                        review["user"]["login"]
+                    )
             elif isinstance(conf, list):
                 if review["user"]["login"] in conf:
                     to_dismiss.add(review["id"])
@@ -121,6 +126,26 @@ class DismissReviewsAction(actions.Action):
         if not to_dismiss:
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Nothing to dismiss", ""
+            )
+
+        if self.config.get("approved") == FROM_REQUESTED_REVIEWERS:
+            updated_pull = await ctxt.client.item(
+                f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
+            )
+            updated_requested_reviewers_login = {
+                rr["login"] for rr in updated_pull["requested_reviewers"]
+            }
+            level = (
+                logging.ERROR
+                if updated_requested_reviewers_login != requested_reviewers_login
+                else logging.INFO
+            )
+            ctxt.log.log(
+                level,
+                "about to dismiss approval reviews from requested_reviewers",
+                requested_reviewers_login=requested_reviewers_login,
+                updated_requested_reviewers_login=updated_requested_reviewers_login,
+                to_dismiss_user_from_requested_reviewers=to_dismiss_user_from_requested_reviewers,
             )
 
         errors = set()
