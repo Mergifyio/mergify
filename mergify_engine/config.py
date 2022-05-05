@@ -194,6 +194,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "REDIS_CACHE_WEB_MAX_CONNECTIONS", default=None
         ): voluptuous.Any(None, voluptuous.Coerce(int)),
+        voluptuous.Required(
+            "REDIS_QUEUE_WEB_MAX_CONNECTIONS", default=None
+        ): voluptuous.Any(None, voluptuous.Coerce(int)),
         voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
         voluptuous.Required("QUEUE_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
@@ -298,6 +301,7 @@ WORKER_SHUTDOWN_TIMEOUT: float
 REDIS_SSL_VERIFY_MODE_CERT_NONE: bool
 REDIS_STREAM_WEB_MAX_CONNECTIONS: typing.Optional[int]
 REDIS_CACHE_WEB_MAX_CONNECTIONS: typing.Optional[int]
+REDIS_QUEUE_WEB_MAX_CONNECTIONS: typing.Optional[int]
 TESTING_ORGANIZATION_ID: github_types.GitHubAccountIdType
 TESTING_ORGANIZATION_NAME: github_types.GitHubLogin
 TESTING_REPOSITORY_ID: github_types.GitHubRepositoryIdType
