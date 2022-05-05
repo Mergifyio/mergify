@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Added a new API endpoint (``/api/repos/<owner>/<repo>/queues/configuration``) that allows to query
+    the list of queues configuration in a repository sorted by queue processing order.
