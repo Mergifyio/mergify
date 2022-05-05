@@ -28,7 +28,7 @@ def setup(service_name: str, dump_config: bool = True) -> None:
     _version = os.environ.get("HEROKU_RELEASE_VERSION")
 
     if config.SENTRY_URL:  # pragma: no cover
-        sentry_sdk.init(  # type: ignore[abstract]
+        sentry_sdk.init(
             config.SENTRY_URL,
             max_breadcrumbs=10,
             release=_version,
