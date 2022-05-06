@@ -80,7 +80,7 @@ GH_PULL = github_types.GitHubPullRequest(
         "state": "open",
         "html_url": "<html_url>",
         "base": {
-            "label": "",
+            "label": github_types.GitHubBaseBranchLabel(""),
             "sha": github_types.SHAType("base-sha"),
             "user": {
                 "login": github_types.GitHubLogin("owner"),
@@ -92,7 +92,7 @@ GH_PULL = github_types.GitHubPullRequest(
             "repo": GH_REPO,
         },
         "head": {
-            "label": "",
+            "label": github_types.GitHubHeadBranchLabel(""),
             "sha": github_types.SHAType("old-sha-one"),
             "ref": github_types.GitHubRefType("fork"),
             "user": {

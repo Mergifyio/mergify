@@ -91,9 +91,12 @@ async def test_pull_behind(
         # /branch/#foo
         return {"commit": {"sha": "base"}}
 
+    async def get_compare(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        return github_types.GitHubCompareCommits({"behind_by": 0 if expected else 100})
+
     client = mock.Mock()
     client.items.return_value = get_commits()
-    client.item.return_value = item()
+    client.item.side_effect = [item(), get_compare()]
 
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
     ctxt.repository.installation.client = client

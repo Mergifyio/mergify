@@ -146,7 +146,9 @@ async def build_fake_context(
         "changed_files": 1,
         "head": {
             "sha": github_types.SHAType("the-head-sha"),
-            "label": f"{pull_request_author['login']}:feature-branch",
+            "label": github_types.GitHubHeadBranchLabel(
+                f"{pull_request_author['login']}:feature-branch"
+            ),
             "ref": github_types.GitHubRefType("feature-branch"),
             "repo": {
                 "id": github_types.GitHubRepositoryIdType(123),
@@ -166,7 +168,7 @@ async def build_fake_context(
         "merged_at": None,
         "html_url": "https://...",
         "base": {
-            "label": "mergify_engine:main",
+            "label": github_types.GitHubBaseBranchLabel("mergify_engine:main"),
             "ref": github_types.GitHubRefType("main"),
             "repo": repository.repo,
             "sha": github_types.SHAType("the-base-sha"),
