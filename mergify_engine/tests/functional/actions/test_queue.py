@@ -651,7 +651,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self.run_engine()
         await assert_queued()
-        assert tmp_pull["commits"] in (5, 6)
+        assert tmp_pull["commits"] == 4
         assert tmp_pull["changed_files"] == 2
 
         await self.create_status(tmp_pull)
