@@ -22,6 +22,7 @@ from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import delayed_refresh
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import utils
@@ -217,24 +218,6 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     check_api.Conclusion.FAILURE,
                     "Commit message can't be changed with fast-forward merge method",
                     "`commit_message_template` must not be set if `method: fast-forward` is set.",
-                )
-            elif self.queue_rule.config["batch_size"] > 1:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "batch_size > 1 is not compatible with fast-forward merge method",
-                    "The merge `method` or the queue configuration must be updated.",
-                )
-            elif self.queue_rule.config["speculative_checks"] > 1:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "speculative_checks > 1 is not compatible with fast-forward merge method",
-                    "The merge `method` or the queue configuration must be updated.",
-                )
-            elif not self.queue_rule.config["allow_inplace_checks"]:
-                return check_api.Result(
-                    check_api.Conclusion.FAILURE,
-                    "allow_inplace_checks=False is not compatible with fast-forward merge method",
-                    "The merge `method` or the queue configuration must be updated.",
                 )
 
         # FIXME(sileht): we should use the computed update_bot_account in TrainCar.update_pull(),
@@ -562,3 +545,24 @@ Then, re-embark the pull request into the merge queue by posting the comment
             )
         depends_on_conditions = await conditions.get_depends_on_conditions(ctxt)
         return branch_protection_conditions + depends_on_conditions
+
+    async def get_sha_to_fastforward(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: typing.Optional[queue.QueueBase],
+    ) -> github_types.SHAType:
+        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        if car is None:
+            raise RuntimeError("pull request about to merge wihhout car...")
+        if car.queue_pull_request_number is None:
+            raise RuntimeError(
+                f"car state is {car.creation_state}, but queue_pull_request_number is None"
+            )
+        if car.creation_state == "updated":
+            return ctxt.pull["head"]["sha"]
+
+        pos = [ep.user_pull_request_number for ep in car.initial_embarked_pulls].index(
+            ctxt.pull["number"]
+        )
+        return car.fastforwarded_shas[pos]

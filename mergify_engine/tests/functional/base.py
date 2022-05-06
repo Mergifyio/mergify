@@ -476,7 +476,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await super(FunctionalTestBase, self).asyncTearDown()
 
         # NOTE(sileht): Wait a bit to ensure all remaining events arrive.
-        if RECORD:
+        if RECORD and False:
             await asyncio.sleep(self.WAIT_TIME_BEFORE_TEARDOWN)
 
             await self.client_admin.patch(

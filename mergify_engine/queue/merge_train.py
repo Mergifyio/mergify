@@ -33,6 +33,7 @@ from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import date
 from mergify_engine import github_types
+from mergify_engine import gitter
 from mergify_engine import json
 from mergify_engine import queue
 from mergify_engine import utils
@@ -245,6 +246,7 @@ class TrainCar:
     still_queued_embarked_pulls: typing.List[EmbarkedPull]
     parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
     initial_current_base_sha: github_types.SHAType
+    base_branch_sha: github_types.SHAType
     creation_date: datetime.datetime = dataclasses.field(default_factory=date.utcnow)
     creation_state: TrainCarState = "pending"
     checks_conclusion: check_api.Conclusion = check_api.Conclusion.PENDING
@@ -255,17 +257,22 @@ class TrainCar:
         default_factory=list, repr=False
     )
     head_branch: typing.Optional[str] = None
+    head_branch_sha: typing.Optional[github_types.SHAType] = None
     last_checks: typing.List[QueueCheck] = dataclasses.field(default_factory=list)
     last_evaluated_conditions: typing.Optional[str] = None
     has_timed_out: bool = False
     checks_ended_timestamp: typing.Optional[datetime.datetime] = None
     ci_has_passed: bool = False
+    fastforwarded_shas: typing.List[github_types.SHAType] = dataclasses.field(
+        default_factory=list
+    )
 
     class Serialized(typing.TypedDict):
         initial_embarked_pulls: typing.List[EmbarkedPull.Serialized]
         still_queued_embarked_pulls: typing.List[EmbarkedPull.Serialized]
         parent_pull_request_numbers: typing.List[github_types.GitHubPullRequestNumber]
         initial_current_base_sha: github_types.SHAType
+        base_branch_sha: github_types.SHAType
         checks_conclusion: check_api.Conclusion
         creation_date: datetime.datetime
         creation_state: TrainCarState
@@ -273,11 +280,13 @@ class TrainCar:
         # mymy can't parse recursive definition, yet
         failure_history: typing.List["TrainCar.Serialized"]  # type: ignore[misc]
         head_branch: typing.Optional[str]
+        head_branch_sha: typing.Optional[github_types.SHAType]
         last_checks: typing.List[QueueCheck.Serialized]
         last_evaluated_conditions: typing.Optional[str]
         has_timed_out: bool
         checks_ended_timestamp: typing.Optional[datetime.datetime]
         ci_has_passed: bool
+        fastforwarded_shas: typing.List[github_types.SHAType]
 
     def serialized(self) -> "TrainCar.Serialized":
         return self.Serialized(
@@ -289,6 +298,8 @@ class TrainCar:
             ],
             parent_pull_request_numbers=self.parent_pull_request_numbers,
             initial_current_base_sha=self.initial_current_base_sha,
+            base_branch_sha=self.base_branch_sha,
+            head_branch_sha=self.head_branch_sha,
             creation_date=self.creation_date,
             creation_state=self.creation_state,
             checks_conclusion=self.checks_conclusion,
@@ -306,6 +317,7 @@ class TrainCar:
             has_timed_out=self.has_timed_out,
             checks_ended_timestamp=self.checks_ended_timestamp,
             ci_has_passed=self.ci_has_passed,
+            fastforwarded_shas=self.fastforwarded_shas,
         )
 
     @classmethod
@@ -375,6 +387,12 @@ class TrainCar:
             still_queued_embarked_pulls=still_queued_embarked_pulls,
             parent_pull_request_numbers=data["parent_pull_request_numbers"],
             initial_current_base_sha=data["initial_current_base_sha"],
+            #
+            # FIXME(sileht): do something for backward compat!!!!
+            #
+            base_branch_sha=data["base_branch_sha"],
+            head_branch_sha=data["head_branch_sha"],
+            #
             creation_date=creation_date,
             creation_state=creation_state,
             checks_conclusion=data.get(
@@ -388,6 +406,7 @@ class TrainCar:
             has_timed_out=data.get("has_timed_out", False),
             checks_ended_timestamp=data.get("checks_ended_timestamp"),
             ci_has_passed=data.get("ci_has_passed", False),
+            fastforwarded_shas=data.get("fastforwarded_shas", []),
         )
 
     def _get_user_refs(
@@ -533,6 +552,7 @@ class TrainCar:
             "updated",
             queue_rule,
             embarked_pull.user_pull_request_number,
+            ctxt.pull["head"]["sha"],
         )
 
     @staticmethod
@@ -639,7 +659,7 @@ class TrainCar:
                 oauth_token=github_user["oauth_access_token"] if github_user else None,
                 json={
                     "ref": f"refs/heads/{branch_name}",
-                    "sha": self.initial_current_base_sha,
+                    "sha": self.base_branch_sha,
                 },
             )
         except http.HTTPClientSideError as exc:
@@ -655,33 +675,54 @@ class TrainCar:
                 await self._set_creation_failure(exc.message)
                 raise TrainCarPullRequestCreationFailure(self) from exc
 
-    @tracer.wrap("TrainCar.start_checking_with_draft", span_type="worker")
-    async def start_checking_with_draft(
-        self,
-        queue_rule: "rules.QueueRule",
+    async def _prepare_commits_on_draft_pr_branch_via_git(
+        self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
     ) -> None:
+        git = gitter.Gitter(self.train.log)
+        try:
+            await git.init()
 
-        self.head_branch = self._get_pulls_branch_ref(self.initial_embarked_pulls)
-
-        branch_name = (
-            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.head_branch}"
-        )
-
-        bot_account = queue_rule.config["draft_bot_account"]
-        github_user: typing.Optional[user_tokens.UserTokensUser] = None
-        if bot_account:
-            tokens = await self.train.repository.installation.get_user_tokens()
-            github_user = tokens.get_token_for(bot_account)
-            if not github_user:
-                await self._set_creation_failure(
-                    f"Unable to create draft pull request: user `{bot_account}` is unknown. "
-                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+            if github_user is None:
+                token = (
+                    await self.train.repository.installation.client.get_access_token()
                 )
-                raise TrainCarPullRequestCreationFailure(self)
+                await git.configure()
+                username = "x-access-token"
+                password = token
+            else:
+                await git.configure(github_user)
+                username = github_user["oauth_access_token"]
+                password = ""  # nosec
 
-        await self._prepare_empty_draft_pr_branch(branch_name, github_user)
+            await git.setup_remote(
+                "origin", self.train.repository.repo, username, password
+            )
+            await git("fetch", "--quiet", "origin", branch_name)
+            await git("checkout", "-q", "-b", branch_name, f"origin/{branch_name}")
 
-        for pull_number in self.parent_pull_request_numbers + [
+            for pull_number in [
+                ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
+            ]:
+                pull_branch = f"pull/{pull_number}/head:pull-{pull_number}"
+                await git("fetch", "--quiet", "origin", pull_branch)
+                await git("checkout", f"pull-{pull_number}")
+                await git("rebase", branch_name)
+                await git("checkout", branch_name)
+                await git("merge", "--ff-only", f"pull-{pull_number}")
+                self.fastforwarded_shas.append(
+                    github_types.SHAType(
+                        (await git("log", "-1", "--format=%H")).strip()
+                    )
+                )
+
+            await git("push", "--verbose", "origin", branch_name, "--force-with-lease")
+        finally:
+            await git.cleanup()
+
+    async def _prepare_commits_on_draft_pr_branch_via_api(
+        self, branch_name: str, github_user: typing.Optional[user_tokens.UserTokensUser]
+    ) -> None:
+        for pull_number in [
             ep.user_pull_request_number for ep in self.still_queued_embarked_pulls
         ]:
             try:
@@ -731,21 +772,54 @@ class TrainCar:
                     await self._delete_branch()
                     raise TrainCarPullRequestCreationFailure(self) from e
 
+    @tracer.wrap("TrainCar.start_checking_with_draft", span_type="worker")
+    async def start_checking_with_draft(
+        self,
+        queue_rule: "rules.QueueRule",
+    ) -> None:
+
+        self.head_branch = self._get_pulls_branch_ref(self.initial_embarked_pulls)
+
+        branch_name = (
+            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.train.ref}/{self.head_branch}"
+        )
+
+        bot_account = queue_rule.config["draft_bot_account"]
+        github_user: typing.Optional[user_tokens.UserTokensUser] = None
+        if bot_account:
+            tokens = await self.train.repository.installation.get_user_tokens()
+            github_user = tokens.get_token_for(bot_account)
+            if not github_user:
+                await self._set_creation_failure(
+                    f"Unable to create draft pull request: user `{bot_account}` is unknown. "
+                    f"Please make sure `{bot_account}` has logged in Mergify dashboard.",
+                )
+                raise TrainCarPullRequestCreationFailure(self)
+
+        await self._prepare_empty_draft_pr_branch(branch_name, github_user)
+        # TODO(sileht): Add option to avoid merge commit
+        # await self._prepare_commits_on_draft_pr_branch_via_api(branch_name, github_user)
+        await self._prepare_commits_on_draft_pr_branch_via_git(branch_name, github_user)
+
         try:
             tmp_pull = await self._create_draft_pull_request(branch_name, github_user)
         except DraftPullRequestCreationTemporaryFailure as e:
             await self._delete_branch()
             raise TrainCarPullRequestCreationPostponed(self) from e
-        await self._set_initial_state("created", queue_rule, tmp_pull["number"])
+        await self._set_initial_state(
+            "created", queue_rule, tmp_pull["number"], tmp_pull["head"]["sha"]
+        )
 
     async def _set_initial_state(
         self,
         state: typing.Literal["created", "updated"],
         queue_rule: "rules.QueueRule",
         pull_request_number: github_types.GitHubPullRequestNumber,
+        head_branch_sha: github_types.SHAType,
     ) -> None:
         self.creation_state = state
         self.queue_pull_request_number = pull_request_number
+        self.head_branch_sha = head_branch_sha
 
         queue_pull_requests = await self.get_pull_requests_to_evaluate()
         evaluated_queue_rule = await queue_rule.get_evaluated_queue_rule(
@@ -1710,12 +1784,10 @@ class Train(queue.QueueBase):
 
     async def _remove_pull(self, ctxt: context.Context) -> None:
         if (
-            ctxt.pull["merged"]
-            and ctxt.pull["base"]["ref"] == self.ref
+            ctxt.pull["base"]["ref"] == self.ref
             and self._cars
             and ctxt.pull["number"]
             == self._cars[0].still_queued_embarked_pulls[0].user_pull_request_number
-            and await self.is_synced_with_the_base_branch(await self.get_base_sha())
         ):
             # Head of the train was merged and the base_sha haven't changed, we can keep
             # other running cars
@@ -1728,7 +1800,11 @@ class Train(queue.QueueBase):
             if ctxt.pull["merge_commit_sha"] is None:
                 raise RuntimeError("merged pull request without merge_commit_sha set")
 
-            self._current_base_sha = ctxt.pull["merge_commit_sha"]
+            # FIXME(sileht): it's unsafe, we must use an information from the PR without API calls
+            # otherwise this introduce race condition in is_synced_with_the_base_branch()
+            # self._current_base_sha = ctxt.pull["merge_commit_sha"]  # no-ff
+            # self._current_base_sha = ctxt.pull["head"]["sha"]  # ff-only ?
+            self._current_base_sha = await self.get_base_sha()
 
             await self.save()
             ctxt.log.info(
@@ -1807,6 +1883,7 @@ class Train(queue.QueueBase):
                     parent_pull_request_numbers=car.parent_pull_request_numbers
                     + [ep.user_pull_request_number for ep in parents],
                     initial_current_base_sha=car.initial_current_base_sha,
+                    base_branch_sha=self._next_base_branch_sha(),
                     failure_history=car.failure_history + [car],
                 )
             )
@@ -1932,7 +2009,14 @@ class Train(queue.QueueBase):
                 queue_rules=queue_rules,
                 queue_name=head.config["name"],
             )
-            car = TrainCar(self, [head], [head], [], self._current_base_sha)
+            car = TrainCar(
+                self,
+                [head],
+                [head],
+                [],
+                initial_current_base_sha=self._current_base_sha,
+                base_branch_sha=self._next_base_branch_sha(),
+            )
             await car._set_creation_failure(
                 f"queue named `{head.config['name']}` does not exist anymore"
             )
@@ -2001,7 +2085,8 @@ class Train(queue.QueueBase):
                     pulls_to_check,
                     pulls_to_check.copy(),
                     parent_pull_request_numbers,
-                    self._current_base_sha,
+                    initial_current_base_sha=self._current_base_sha,
+                    base_branch_sha=self._next_base_branch_sha(),
                 )
 
                 self._cars.append(car)
@@ -2016,6 +2101,16 @@ class Train(queue.QueueBase):
                     # from the train soon. We don't need to create remaining cars now.
                     # When this car will be removed the remaining one will be created
                     return
+
+    def _next_base_branch_sha(self) -> github_types.SHAType:
+        if self._cars:
+            if self._cars[-1].head_branch_sha is None:
+                raise RuntimeError("previous car has head_branch_sha empty")
+            return self._cars[-1].head_branch_sha
+        else:
+            if self._current_base_sha is None:
+                raise RuntimeError("Train._current_base_sha not initialised")
+            return self._current_base_sha
 
     async def _start_checking_car(
         self,

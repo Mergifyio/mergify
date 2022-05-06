@@ -22,6 +22,7 @@ import voluptuous
 from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine import signals
@@ -164,3 +165,11 @@ class MergeAction(merge_base.MergeBaseAction):
         )
         conditions_requirements.extend(await conditions.get_depends_on_conditions(ctxt))
         return conditions_requirements
+
+    async def get_sha_to_fastforward(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: typing.Optional[queue.QueueBase],
+    ) -> github_types.SHAType:
+        return ctxt.pull["head"]["sha"]

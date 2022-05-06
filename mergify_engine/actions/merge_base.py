@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import abc
+import asyncio
 import re
 import typing
 
@@ -46,6 +47,15 @@ class MergeBaseAction(actions.Action, abc.ABC):
         rule: "rules.EvaluatedRule",
         q: typing.Optional[queue.QueueBase],
     ) -> check_api.Result:
+        pass
+
+    @abc.abstractmethod
+    async def get_sha_to_fastforward(
+        self,
+        ctxt: context.Context,
+        rule: "rules.EvaluatedRule",
+        q: typing.Optional[queue.QueueBase],
+    ) -> github_types.SHAType:
         pass
 
     async def _merge(
@@ -82,13 +92,31 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 )
 
         if method == "fast-forward":
+            sha_to_fastforward = await self.get_sha_to_fastforward(ctxt, rule, q)
+
             try:
+                # NOTE(sileht): Do our best, is the pr if from same repository update the head, so GitHub will it as merged
+                # otherwise, do nothing GitHub will close it instead.
+                if sha_to_fastforward != ctxt.pull["head"]["sha"]:
+                    if ctxt.pull_from_fork:
+                        # TODO(sileht): Maybe post a message that Mergify has merge the PR
+                        pass
+                    else:
+                        await ctxt.client.put(
+                            f"{ctxt.base_url}/git/refs/heads/{ctxt.pull['head']['ref']}",
+                            oauth_token=github_user["oauth_access_token"]
+                            if github_user
+                            else None,
+                            json={"sha": sha_to_fastforward, "force": True},
+                        )
+                        await asyncio.sleep(5)
+
                 await ctxt.client.put(
                     f"{ctxt.base_url}/git/refs/heads/{ctxt.pull['base']['ref']}",
                     oauth_token=github_user["oauth_access_token"]
                     if github_user
                     else None,
-                    json={"sha": ctxt.pull["head"]["sha"]},
+                    json={"sha": sha_to_fastforward},
                 )
             except http.HTTPClientSideError as e:  # pragma: no cover
                 await ctxt.update()
@@ -97,6 +125,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 else:
                     return await self._handle_merge_error(e, ctxt, rule, q)
             else:
+                await ctxt.update()
                 await self.send_signal(ctxt)
                 ctxt.log.info("merged")
 

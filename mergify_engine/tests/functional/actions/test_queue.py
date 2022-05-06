@@ -386,7 +386,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await assert_queued()
         assert tmp_pull_1["commits"] == 2
         assert tmp_pull_1["changed_files"] == 1
-        assert tmp_pull_2["commits"] == 5
+        assert tmp_pull_2["commits"] == 4
         assert tmp_pull_2["changed_files"] == 2
 
         await self.create_status(tmp_pull_2)
@@ -564,6 +564,205 @@ class TestQueueAction(base.FunctionalTestBase):
         assert p2["head"]["sha"] == branch["commit"]["sha"]
         await self._assert_cars_contents(q, None, [])
 
+    async def test_speculative_checks_fastforward(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 2,
+                    "batch_size": 2,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {
+                        "queue": {
+                            "name": "default",
+                            "priority": "high",
+                            "method": "fast-forward",
+                        }
+                    },
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1 = await self.create_pr(base_repo="origin")
+        p2 = await self.create_pr(base_repo="origin", two_commits=True)
+        p3 = await self.create_pr(base_repo="origin")
+        p4 = await self.create_pr(base_repo="origin")
+
+        # To force others to be rebased
+        p = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.add_label(p4["number"], "queue")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "opened"})
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 6
+
+        tmp_mq_p12 = await self.get_pull(p["number"] + 1)
+        tmp_mq_p34 = await self.get_pull(p["number"] + 2)
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p12["number"],
+                ),
+                TrainCarMatcher(
+                    [p3["number"], p4["number"]],
+                    [p1["number"], p2["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p34["number"],
+                ),
+            ],
+        )
+
+        await self.run_engine()
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        await self.create_status(tmp_mq_p12)
+        await self.run_engine()
+
+        p1 = await self.get_pull(p1["number"])
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p1['head']['sha']}*"
+        )
+
+        p2 = await self.get_pull(p2["number"])
+        check = first(
+            await context.Context(self.repository_ctxt, p2).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p2['head']['sha']}*"
+        )
+
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            await self.client_admin.item(
+                f"{self.url_origin}/branches/{self.main_branch_name}"
+            ),
+        )
+        assert p2["head"]["sha"] == branch["commit"]["sha"]
+
+        # Continue with the second draft PR
+        pulls = await self.get_pulls()
+        assert len(pulls) == 3
+
+        await self._assert_cars_contents(
+            q,
+            p2["head"]["sha"],
+            [
+                TrainCarMatcher(
+                    [p3["number"], p4["number"]],
+                    [p1["number"], p2["number"]],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p34["number"],
+                ),
+            ],
+        )
+
+        await self.run_engine()
+        check = first(
+            await context.Context(self.repository_ctxt, p3).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        await self.create_status(tmp_mq_p34)
+        await self.run_engine()
+
+        p3 = await self.get_pull(p3["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p3, [])
+        check = first(
+            await context.Context(self.repository_ctxt, p3).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p3['head']['sha']}*"
+        )
+        p4 = await self.get_pull(p4["number"])
+        ctxt = await context.Context.create(self.repository_ctxt, p4, [])
+        check = first(
+            await context.Context(self.repository_ctxt, p4).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p4['head']['sha']}*"
+        )
+
+        branch = typing.cast(
+            github_types.GitHubBranch,
+            await self.client_admin.item(
+                f"{self.url_origin}/branches/{self.main_branch_name}"
+            ),
+        )
+        assert p4["head"]["sha"] == branch["commit"]["sha"]
+        await self._assert_cars_contents(q, None, [])
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
@@ -646,9 +845,10 @@ class TestQueueAction(base.FunctionalTestBase):
 
         await self.run_engine()
         await assert_queued()
+
         assert tmp_pull_1["commits"] == 2
         assert tmp_pull_1["changed_files"] == 1
-        assert tmp_pull_2["commits"] == 5
+        assert tmp_pull_2["commits"] == 4
         assert tmp_pull_2["changed_files"] == 2
 
         await self.create_status(tmp_pull_2)
@@ -1808,7 +2008,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         assert tmp_mq_p1["commits"] == 2
         assert tmp_mq_p1["changed_files"] == 1
-        assert tmp_mq_p2["commits"] == 5
+        assert tmp_mq_p2["commits"] == 4
         assert tmp_mq_p2["changed_files"] == 2
         await self.create_status(tmp_mq_p2)
 
@@ -3141,7 +3341,7 @@ DO NOT EDIT
         assert tmp_mq_p1["commits"] == 7
         assert tmp_mq_p1["changed_files"] == 1
         assert tmp_mq_p2["commits"] == 7
-        assert tmp_mq_p2["changed_files"] == 5
+        assert tmp_mq_p2["changed_files"] == 4
         await self.create_status(tmp_mq_p2)
 
         await self.run_engine()
