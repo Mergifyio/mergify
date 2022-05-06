@@ -185,16 +185,22 @@ class GitHubBranch(typing.TypedDict):
     protection: GitHubBranchProtectionLight
 
 
+GitHubBaseBranchLabel = typing.NewType("GitHubBaseBranchLabel", str)
+
+
 class GitHubBaseBranchRef(typing.TypedDict):
-    label: str
+    label: GitHubBaseBranchLabel
     ref: GitHubRefType
     sha: SHAType
     repo: GitHubRepository
     user: GitHubAccount
 
 
+GitHubHeadBranchLabel = typing.NewType("GitHubHeadBranchLabel", str)
+
+
 class GitHubHeadBranchRef(typing.TypedDict):
-    label: str
+    label: GitHubHeadBranchLabel
     ref: GitHubRefType
     sha: SHAType
     repo: typing.Optional[GitHubRepository]

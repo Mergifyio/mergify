@@ -855,6 +855,27 @@ class Repository(object):
                 if cached_labels is not cache.Unset:
                     cached_labels.append(label)
 
+    async def get_commits_diff_count(
+        self,
+        base_ref: typing.Union[
+            github_types.GitHubBaseBranchLabel, github_types.SHAType
+        ],
+        head_ref: typing.Union[
+            github_types.GitHubHeadBranchLabel, github_types.SHAType
+        ],
+    ) -> typing.Optional[int]:
+        try:
+            data = typing.cast(
+                github_types.GitHubCompareCommits,
+                await self.installation.client.item(
+                    f"{self.base_url}/compare/{base_ref}...{head_ref}"
+                ),
+            )
+        except http.HTTPNotFound:
+            return None
+        else:
+            return data["behind_by"]
+
 
 @dataclasses.dataclass
 class ContextCaches:
@@ -1706,17 +1727,13 @@ class Context(object):
             if self.pull["merged"]:
                 commits_behind_count = 0
             else:
-                try:
-                    data = typing.cast(
-                        github_types.GitHubCompareCommits,
-                        await self.client.item(
-                            f"{self.repository.base_url}/compare/{self.pull['base']['label']}...{self.pull['head']['label']}"
-                        ),
-                    )
-                except http.HTTPNotFound:
+                commits_diff_count = await self.repository.get_commits_diff_count(
+                    self.pull["base"]["label"], self.pull["head"]["label"]
+                )
+                if commits_diff_count is None:
                     commits_behind_count = 1000000
                 else:
-                    commits_behind_count = data["behind_by"]
+                    commits_behind_count = commits_diff_count
             self._caches.commits_behind_count.set(commits_behind_count)
         return commits_behind_count
 
@@ -1735,6 +1752,20 @@ class Context(object):
             )
             external_parents_sha = await self._get_external_parents()
             is_behind = branch["commit"]["sha"] not in external_parents_sha
+            diff = await self.repository.get_commits_diff_count(
+                branch["commit"]["sha"], self.pull["head"]["sha"]
+            )
+            if diff is not None:
+                is_behind_testing = diff == 0
+                if is_behind_testing != is_behind:
+                    self.log.info(
+                        "is_behind_testing different from expected value",
+                        is_behind_testing=is_behind_testing,
+                        is_behind=is_behind,
+                    )
+            else:
+                self.log.info("is_behind_testing can't be computed")
+
             self._caches.is_behind.set(is_behind)
         return is_behind
 

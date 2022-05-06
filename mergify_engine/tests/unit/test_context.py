@@ -516,7 +516,7 @@ def a_pull_request() -> github_types.GitHubPullRequest:
             "changed_files": 1,
             "html_url": "<html_url>",
             "base": {
-                "label": "",
+                "label": github_types.GitHubBaseBranchLabel(""),
                 "sha": github_types.SHAType("sha"),
                 "user": {
                     "login": github_types.GitHubLogin("user"),
@@ -528,7 +528,7 @@ def a_pull_request() -> github_types.GitHubPullRequest:
                 "repo": gh_repo,
             },
             "head": {
-                "label": "",
+                "label": github_types.GitHubHeadBranchLabel(""),
                 "sha": github_types.SHAType("old-sha-one"),
                 "ref": github_types.GitHubRefType("fork"),
                 "user": {

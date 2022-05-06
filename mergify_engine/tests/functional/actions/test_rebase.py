@@ -131,8 +131,9 @@ class TestRebaseAction(base.FunctionalTestBase):
         # Now rebase p2
         await self.add_label(p2["number"], "rebase")
         await self.run_engine()
-        p2_rebased = await self.get_pull(p2["number"])
+        await self.wait_for("pull_request", {"action": "synchronize"})
 
+        p2_rebased = await self.get_pull(p2["number"])
         assert p2_updated["head"]["sha"] != p2_rebased["head"]["sha"]
 
         ctxt = await context.Context.create(self.repository_ctxt, p2, [])

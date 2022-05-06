@@ -133,7 +133,7 @@ _DUMMY_PR = DummyPullRequest(
                         "type": "User",
                         "avatar_url": "",
                     },
-                    "label": "",
+                    "label": github_types.GitHubBaseBranchLabel(""),
                     "ref": github_types.GitHubRefType(""),
                     "sha": github_types.SHAType(""),
                     "repo": {
@@ -160,7 +160,7 @@ _DUMMY_PR = DummyPullRequest(
                         "type": "User",
                         "avatar_url": "",
                     },
-                    "label": "",
+                    "label": github_types.GitHubHeadBranchLabel(""),
                     "ref": github_types.GitHubRefType(""),
                     "sha": github_types.SHAType(""),
                     "repo": {
