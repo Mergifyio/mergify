@@ -1861,6 +1861,8 @@ class Context(object):
                     ),
                 )
             ]
+            if len(commits) >= 250:
+                self.log.warning("more than 250 commits found, is_behind maybe wrong")
             self._caches.commits.set(commits)
         return commits
 
