@@ -387,6 +387,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
         await assert_queued()
         assert tmp_pull["commits"] in (5, 6)
+        assert tmp_pull["changed_files"] == 2
 
         await self.create_status(tmp_pull)
         await self.run_engine()
@@ -651,6 +652,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
         await assert_queued()
         assert tmp_pull["commits"] in (5, 6)
+        assert tmp_pull["changed_files"] == 2
 
         await self.create_status(tmp_pull)
         await self.run_engine()
@@ -768,6 +770,7 @@ class TestQueueAction(base.FunctionalTestBase):
             == "The pull request is the 1st in the queue to be merged"
         )
         assert tmp_pull["commits"] in (5, 6)
+        assert tmp_pull["changed_files"] == 2
 
         await self.create_status(p1)
         await self.run_engine()
@@ -823,6 +826,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         tmp_pull = await self.get_pull(pulls[0]["number"])
         assert tmp_pull["number"] not in [p1["number"]]
+        assert tmp_pull["changed_files"] == 1
 
         # No parent PR, but created instead updated
         ctxt = context.Context(self.repository_ctxt, p)
@@ -908,21 +912,11 @@ class TestQueueAction(base.FunctionalTestBase):
         pulls = await self.get_pulls()
         assert len(pulls) == 7
 
-        tmp_pulls = sorted(
-            [
-                tmp
-                for tmp in pulls
-                if tmp["number"]
-                not in (
-                    p1["number"],
-                    p2["number"],
-                    p3["number"],
-                    p4["number"],
-                    p5["number"],
-                    p["number"],
-                )
-            ],
-            key=operator.itemgetter("number"),
+        tmp_pull_1 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 1)
+        )
+        tmp_pull_2 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 2)
         )
 
         ctxt = context.Context(self.repository_ctxt, p)
@@ -936,40 +930,29 @@ class TestQueueAction(base.FunctionalTestBase):
                     [],
                     p["merge_commit_sha"],
                     "created",
-                    tmp_pulls[0]["number"],
+                    tmp_pull_1["number"],
                 ),
                 TrainCarMatcher(
                     [p3["number"], p4["number"]],
                     [p1["number"], p2["number"]],
                     p["merge_commit_sha"],
                     "created",
-                    tmp_pulls[1]["number"],
+                    tmp_pull_2["number"],
                 ),
             ],
             [p5["number"]],
         )
+        assert tmp_pull_1["changed_files"] == 2
+        assert tmp_pull_2["changed_files"] == 4
 
-        await self.create_status(tmp_pulls[0])
+        await self.create_status(tmp_pull_1)
         await self.run_engine()
 
         pulls = await self.get_pulls()
         assert len(pulls) == 5
 
-        tmp_pulls = sorted(
-            [
-                tmp
-                for tmp in pulls
-                if tmp["number"]
-                not in (
-                    p1["number"],
-                    p2["number"],
-                    p3["number"],
-                    p4["number"],
-                    p5["number"],
-                    p["number"],
-                )
-            ],
-            key=operator.itemgetter("number"),
+        tmp_pull_3 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 3)
         )
 
         p2 = await self.get_pull(p2["number"])
@@ -982,21 +965,23 @@ class TestQueueAction(base.FunctionalTestBase):
                     [p1["number"], p2["number"]],
                     p["merge_commit_sha"],
                     "created",
-                    tmp_pulls[0]["number"],
+                    tmp_pull_2["number"],
                 ),
                 TrainCarMatcher(
                     [p5["number"]],
                     [p3["number"], p4["number"]],
                     p2["merge_commit_sha"],
                     "created",
-                    tmp_pulls[1]["number"],
+                    tmp_pull_3["number"],
                 ),
             ],
         )
+        assert tmp_pull_2["changed_files"] == 4
+        assert tmp_pull_3["changed_files"] == 3
 
-        await self.create_status(tmp_pulls[0])
+        await self.create_status(tmp_pull_2)
         await self.run_engine()
-        await self.create_status(tmp_pulls[1])
+        await self.create_status(tmp_pull_3)
         await self.run_engine()
 
         pulls = await self.get_pulls()
@@ -1696,6 +1681,7 @@ class TestQueueAction(base.FunctionalTestBase):
         # Depending on the timing this can have 4 or 5 commits, because
         # the merge commit due to the update of the first PR may appear or not
         assert tmp_pull["commits"] >= 4
+        assert tmp_pull["changed_files"] == 2
         await self.create_status(tmp_pull)
         await self.run_engine()
 
@@ -1818,6 +1804,7 @@ class TestQueueAction(base.FunctionalTestBase):
         )
 
         assert tmp_pull["commits"] in (5, 6)
+        assert tmp_pull["changed_files"] == 2
         await self.create_status(tmp_pull)
 
         head_sha = p1["head"]["sha"]
@@ -2753,6 +2740,7 @@ DO NOT EDIT
         p1 = await self.get_pull(p1["number"])
         assert p1["head"]["sha"] != head_sha
         assert tmp_mq_p2_bis["commits"] in (5, 6)
+        assert tmp_mq_p2_bis["changed_files"] == 2
 
         # Merge the train
         await self.create_status(p1)
@@ -3155,6 +3143,7 @@ DO NOT EDIT
         )
 
         assert tmp_pull["commits"] == 7
+        assert tmp_pull["changed_files"] == 5
         await self.create_status(tmp_pull)
 
         head_sha = p1["head"]["sha"]
