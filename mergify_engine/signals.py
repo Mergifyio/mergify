@@ -13,8 +13,7 @@
 # under the License.
 
 import abc
-import importlib
-import pkgutil
+import importlib.metadata
 import typing
 
 import daiquiri
@@ -110,27 +109,29 @@ class SignalBase(abc.ABC):
         pass
 
 
+class NoopSignal(SignalBase):
+    async def __call__(
+        self,
+        repository: "context.Repository",
+        pull_request: github_types.GitHubPullRequestNumber,
+        event: EventName,
+        metadata: EventMetadata,
+    ) -> None:
+        pass
+
+
 global SIGNALS
 SIGNALS: typing.Dict[str, SignalT] = {}
 
 
 def setup() -> None:
-    try:
-        import mergify_engine_signals
-    except ImportError:
-        LOG.info("No signals found")
-        return
-
-    # Only support new native python >= 3.6 namespace packages
-    for mod in pkgutil.iter_modules(
-        mergify_engine_signals.__path__, mergify_engine_signals.__name__ + "."
-    ):
+    for ep in importlib.metadata.entry_points(group="mergify_signals"):
         try:
             # NOTE(sileht): literal import is safe here, we control installed signal packages
             # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
-            SIGNALS[mod.name] = importlib.import_module(mod.name).Signal()
+            SIGNALS[ep.name] = ep.load()()
         except ImportError:
-            LOG.error("failed to load signal: %s", mod.name, exc_info=True)
+            LOG.error("failed to load signal: %s", ep.name, exc_info=True)
 
 
 @typing.overload
