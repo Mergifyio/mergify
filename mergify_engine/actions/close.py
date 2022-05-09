@@ -75,7 +75,12 @@ class CloseAction(actions.Action):
                 e.message,
             )
 
-        await signals.send(ctxt, "action.close")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.close",
+            signals.EventNoMetadata(),
+        )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "The pull request has been closed", message
         )

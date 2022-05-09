@@ -52,7 +52,12 @@ class UnqueueAction(actions.Action):
             ),
         )
         await train.remove_pull(ctxt)
-        await signals.send(ctxt, "action.unqueue")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.unqueue",
+            signals.EventNoMetadata(),
+        )
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             title="The pull request has been removed from the queue",

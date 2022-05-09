@@ -45,7 +45,12 @@ class UpdateAction(actions.Action):
                 e.message,
             )
         else:
-            await signals.send(ctxt, "action.update")
+            await signals.send(
+                ctxt.repository,
+                ctxt.pull["number"],
+                "action.update",
+                signals.EventNoMetadata(),
+            )
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
                 "Branch has been successfully updated",

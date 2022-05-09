@@ -19,24 +19,28 @@ import typing
 
 import daiquiri
 
-from mergify_engine import context
+from mergify_engine import github_types
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 LOG = daiquiri.getLogger(__name__)
 
+# FIXME(sileht): edit is missing
 EventName = typing.Literal[
     "action.assign",
     "action.backport",
     "action.copy",
     "action.close",
     "action.comment",
-    "action.draft",
     "action.delete_head_branch",
     "action.dismiss_reviews",
     "action.label",
     "action.merge",
-    "action.queue",
     "action.post_check",
+    "action.queue.merged",
     "action.rebase",
     "action.refresh",
     "action.requeue",
@@ -47,9 +51,49 @@ EventName = typing.Literal[
     "action.update",
 ]
 
-SignalMetadata = typing.Dict[str, typing.Union[str, int, float, bool, typing.List[str]]]
+
+class EventMetadata(typing.TypedDict):
+    pass
+
+
+class EventReviewMetadata(EventMetadata):
+    type: str
+
+
+class EventCopyMetadata(EventMetadata):
+    to: str
+
+
+class EventAssignMetadata(EventMetadata):
+    added: typing.List[str]
+    removed: typing.List[str]
+
+
+class EventLabelMetadata(EventMetadata):
+    added: typing.List[str]
+    removed: typing.List[str]
+
+
+class EventRequestReviewsMetadata(EventMetadata):
+    reviewers: typing.List[str]
+    team_reviewers: typing.List[str]
+
+
+class EventDismissReviewMetadata(EventMetadata):
+    users: typing.List[str]
+
+
+class EventNoMetadata(EventMetadata):
+    pass
+
+
 SignalT = typing.Callable[
-    [context.Context, EventName, typing.Optional[SignalMetadata]],
+    [
+        "context.Repository",
+        github_types.GitHubPullRequestNumber,
+        EventName,
+        typing.Optional[EventMetadata],
+    ],
     typing.Coroutine[None, None, None],
 ]
 
@@ -58,9 +102,10 @@ class SignalBase(abc.ABC):
     @abc.abstractmethod
     async def __call__(
         self,
-        ctxt: context.Context,
+        repository: "context.Repository",
+        pull_request: github_types.GitHubPullRequestNumber,
         event: EventName,
-        metadata: typing.Optional[SignalMetadata],
+        metadata: EventMetadata,
     ) -> None:
         pass
 
@@ -88,13 +133,98 @@ def setup() -> None:
             LOG.error("failed to load signal: %s", mod.name, exc_info=True)
 
 
+@typing.overload
 async def send(
-    ctxt: context.Context,
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal[
+        "action.close",
+        "action.comment",
+        "action.delete_head_branch",
+        "action.merge",
+        "action.post_check",
+        "action.squash",
+        "action.rebase",
+        "action.refresh",
+        "action.requeue",
+        "action.unqueue",
+        "action.update",
+        # FIXME(sileht): More details should be added, enter/leave with the reason
+        "action.queue.merged",
+    ],
+    metadata: EventNoMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.review"],
+    metadata: EventReviewMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.assign"],
+    metadata: EventAssignMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.label"],
+    metadata: EventLabelMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.dismiss_reviews"],
+    metadata: EventDismissReviewMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.request_reviewers"],
+    metadata: EventRequestReviewsMetadata,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.backport", "action.copy"],
+    metadata: EventCopyMetadata,
+) -> None:
+    ...
+
+
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
     event: EventName,
-    metadata: typing.Optional[SignalMetadata] = None,
+    metadata: EventMetadata,
 ) -> None:
     for name, signal in SIGNALS.items():
         try:
-            await signal(ctxt, event, metadata)
+            await signal(repository, pull_request, event, metadata)
         except Exception:
             LOG.error("failed to run signal: %s", name, exc_info=True)

@@ -65,7 +65,10 @@ class RebaseAction(actions.Action):
             return check_api.Result(check_api.Conclusion.FAILURE, e.title, e.message)
 
         await signals.send(
-            ctxt, "action.rebase", {"bot_account": bool(self.config["bot_account"])}
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.rebase",
+            signals.EventNoMetadata(),
         )
 
         return check_api.Result(

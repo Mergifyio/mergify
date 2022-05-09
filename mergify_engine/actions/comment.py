@@ -93,7 +93,10 @@ class CommentAction(actions.Action):
                 f"GitHub error: [{e.status_code}] `{e.message}`",
             )
         await signals.send(
-            ctxt, "action.comment", {"bot_account": bool(self.config["bot_account"])}
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.comment",
+            signals.EventNoMetadata(),
         )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)
 

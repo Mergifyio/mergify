@@ -115,7 +115,12 @@ class SquashAction(actions.Action):
                 check_api.Conclusion.FAILURE, "Pull request squash failed", e.reason
             )
         else:
-            await signals.send(ctxt, "action.squash")
+            await signals.send(
+                ctxt.repository,
+                ctxt.pull["number"],
+                "action.squash",
+                signals.EventNoMetadata(),
+            )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "Pull request squashed successfully", ""
         )

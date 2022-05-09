@@ -14,15 +14,20 @@
 
 import typing
 
-from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import signals
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 class Signal(signals.SignalBase):
     async def __call__(
         self,
-        ctxt: context.Context,
+        repository: "context.Repository",
+        pull_request: github_types.GitHubPullRequestNumber,
         event: signals.EventName,
-        metadata: typing.Optional[signals.SignalMetadata],
+        metadata: signals.EventMetadata,
     ) -> None:
         pass

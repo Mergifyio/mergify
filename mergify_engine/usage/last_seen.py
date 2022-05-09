@@ -33,13 +33,13 @@ def get_last_seen_key(account_id: github_types.GitHubAccountIdType) -> str:
 
 
 async def update(
-    ctxt: "context.Context",
+    repository: "context.Repository",
     event: "signals.EventName",
-    metadata: typing.Optional["signals.SignalMetadata"],
+    metadata: "signals.EventMetadata",
 ) -> None:
-    key = get_last_seen_key(ctxt.repository.installation.owner_id)
+    key = get_last_seen_key(repository.installation.owner_id)
     now = date.utcnow().isoformat()
-    await ctxt.redis.cache.setex(key, RETENTION_SECONDS, now)
+    await repository.installation.redis.cache.setex(key, RETENTION_SECONDS, now)
 
 
 async def get(

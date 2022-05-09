@@ -135,11 +135,10 @@ class MergeAction(merge_base.MergeBaseAction):
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(
-            ctxt,
+            ctxt.repository,
+            ctxt.pull["number"],
             "action.merge",
-            {
-                "merge_bot_account": bool(self.config["merge_bot_account"]),
-            },
+            signals.EventNoMetadata({}),
         )
 
     async def get_conditions_requirements(

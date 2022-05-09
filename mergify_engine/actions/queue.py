@@ -519,16 +519,10 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
     async def send_signal(self, ctxt: context.Context) -> None:
         await signals.send(
-            ctxt,
-            "action.queue",
-            {
-                "speculative_checks": self.config["queue_config"]["speculative_checks"]
-                > 1,
-                "batch_size": self.config["queue_config"]["batch_size"] > 1,
-                "allow_inplace_checks": self.config["queue_config"][
-                    "allow_inplace_checks"
-                ],
-            },
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.queue.merged",
+            signals.EventNoMetadata(),
         )
 
     def need_draft_pull_request_refresh(self) -> bool:

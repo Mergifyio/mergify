@@ -19,7 +19,6 @@ import typing
 from mergify_engine import actions
 from mergify_engine import context
 from mergify_engine import duplicate_pull
-from mergify_engine import signals
 from mergify_engine.actions import copy
 from mergify_engine.rules import conditions
 
@@ -34,7 +33,9 @@ class BackportAction(copy.CopyAction):
     )
 
     KIND: duplicate_pull.KindT = "backport"
-    HOOK_EVENT_NAME: signals.EventName = "action.backport"
+    HOOK_EVENT_NAME: typing.Literal[
+        "action.backport", "action.copy"
+    ] = "action.backport"
     BRANCH_PREFIX: str = "bp"
     SUCCESS_MESSAGE: str = "Backports have been created"
     FAILURE_MESSAGE: str = "No backport have been created"
