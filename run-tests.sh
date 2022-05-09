@@ -2,8 +2,10 @@
 
 set -exo pipefail
 
-if [ "$CI" != "true" ]; then
-    docker-compose up -d --force-recreate --always-recreate-deps --remove-orphans
+if [ "$CI" == "true" ]; then
+    REDIS_PORT=6363
+else
+    docker compose up -d --force-recreate --always-recreate-deps --remove-orphans
 
     cleanup () {
         ret="$?"
@@ -12,9 +14,14 @@ if [ "$CI" != "true" ]; then
         exit "$ret"
     }
     trap cleanup EXIT
+
+    REDIS_PORT=$(docker compose ps redis --format=json | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['Publishers'][0]['PublishedPort'])")
 fi
 
-while ! docker run -t --net host --rm redis redis-cli -h localhost -p 6363 keys '*' ; do sleep 1 ; done
+while ! docker run -t --net host --rm redis redis-cli -h localhost -p "$REDIS_PORT" keys '*' ; do sleep 1 ; done
+
+export MERGIFYENGINE_STORAGE_URL="redis://localhost:${REDIS_PORT}?db=2"
+export MERGIFYENGINE_STREAM_URL="redis://localhost:${REDIS_PORT}?db=3"
 
 cmd="$1"
 shift
