@@ -75,32 +75,6 @@ async def report_dashboard_synchro(
     print(
         f"* {title} SUB NUMBER OF TOKENS: {len(uts.users)} ({', '.join(u['login'] for u in uts.users)})"
     )
-    for user in uts.users:
-        try:
-            repos = await get_repositories_setuped(
-                user["oauth_access_token"], install_id
-            )
-        except http.HTTPNotFound:
-            print(f"* {title} SUB: MERGIFY SEEMS NOT INSTALLED")
-            return
-        except http.HTTPClientSideError as e:
-            print(
-                f"* {title} SUB: token for {user['login']} is invalid "
-                f"({e.status_code}: {e.message})"
-            )
-        else:
-            if slug is not None:
-                if any((r["full_name"] == slug) for r in repos):
-                    print(
-                        f"* {title} SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY"
-                    )
-                else:
-                    print(
-                        f"* {title} SUB: MERGIFY INSTALLED BUT DISABLED ON THIS REPOSITORY"
-                    )
-            break
-    else:
-        print(f"* {title} SUB: MERGIFY DOESN'T HAVE ANY VALID OAUTH TOKENS")
 
 
 async def report_worker_status(owner: github_types.GitHubLogin) -> None:

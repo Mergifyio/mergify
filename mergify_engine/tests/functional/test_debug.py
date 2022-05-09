@@ -97,10 +97,8 @@ class TestDebugger(base.FunctionalTestBase):
   - show_sponsor
 * ENGINE-CACHE SUB DETAIL: You're not nice
 * ENGINE-CACHE SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test4)
-* ENGINE-CACHE SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
 * DASHBOARD SUB DETAIL: You're not nice
 * DASHBOARD SUB NUMBER OF TOKENS: 2 (mergify-test1, mergify-test4)
-* DASHBOARD SUB: MERGIFY INSTALLED AND ENABLED ON THIS REPOSITORY
 * WORKER: Installation not queued to process
 * REPOSITORY IS PUBLIC
 * DEFAULT BRANCH: {self.main_branch_name}
