@@ -14,8 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing
-
 import voluptuous
 
 from mergify_engine import actions
@@ -44,40 +42,18 @@ class AssignAction(actions.Action):
     async def run(
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
+
         # NOTE: "users" is deprecated, but kept as legacy code for old config
-        if self.config["users"]:
-            await self._add_assignees(ctxt, self.config["users"])
-
-        if self.config["add_users"]:
-            await self._add_assignees(ctxt, self.config["add_users"])
-
-        if self.config["remove_users"]:
-            await self._remove_assignees(ctxt, self.config["remove_users"])
-
-        return check_api.Result(
-            check_api.Conclusion.SUCCESS,
-            "Users added/removed from assignees",
-            "",
-        )
-
-    async def cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
-    ) -> check_api.Result:  # pragma: no cover
-        return actions.CANCELLED_CHECK_REPORT
-
-    async def _add_assignees(
-        self, ctxt: context.Context, users_to_add: typing.List[str]
-    ) -> check_api.Result:
-        users_to_add_parsed = await self.wanted_users(ctxt, users_to_add)
-        assignees = list(
+        add_users = self.config["users"] + self.config["add_users"]
+        users_to_add_parsed = await self.wanted_users(ctxt, add_users)
+        assignees_to_add = list(
             users_to_add_parsed - {a["login"] for a in ctxt.pull["assignees"]}
         )
-
-        if assignees:
+        if assignees_to_add:
             try:
                 await ctxt.client.post(
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
-                    json={"assignees": assignees},
+                    json={"assignees": assignees_to_add},
                 )
             except http.HTTPClientSideError as e:  # pragma: no cover
                 return check_api.Result(
@@ -86,32 +62,18 @@ class AssignAction(actions.Action):
                     f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
 
-            await signals.send(ctxt, "action.assign.added")
-            return check_api.Result(
-                check_api.Conclusion.SUCCESS,
-                "Assignees added",
-                ", ".join(assignees),
-            )
-        return check_api.Result(
-            check_api.Conclusion.SUCCESS,
-            "Empty users list",
-            "No user added to assignees",
+        users_to_remove_parsed = await self.wanted_users(
+            ctxt, self.config["remove_users"]
         )
-
-    async def _remove_assignees(
-        self, ctxt: context.Context, users_to_remove: typing.List[str]
-    ) -> check_api.Result:
-        users_to_remove_parsed = await self.wanted_users(ctxt, users_to_remove)
-        assignees = list(
+        assignees_to_remove = list(
             users_to_remove_parsed & {a["login"] for a in ctxt.pull["assignees"]}
         )
-
-        if assignees:
+        if assignees_to_remove:
             try:
                 await ctxt.client.request(
                     "DELETE",
                     f"{ctxt.base_url}/issues/{ctxt.pull['number']}/assignees",
-                    json={"assignees": assignees},
+                    json={"assignees": assignees_to_remove},
                 )
             except http.HTTPClientSideError as e:  # pragma: no cover
                 return check_api.Result(
@@ -120,14 +82,26 @@ class AssignAction(actions.Action):
                     f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
 
-            await signals.send(ctxt, "action.assign.removed")
+        if assignees_to_add or assignees_to_remove:
+            await signals.send(
+                ctxt,
+                "action.assign",
+                {"added": assignees_to_add, "removed": assignees_to_remove},
+            )
+
             return check_api.Result(
                 check_api.Conclusion.SUCCESS,
-                "Assignees removed",
-                ", ".join(assignees),
+                "Users added/removed from assignees",
+                "",
             )
-        return check_api.Result(
-            check_api.Conclusion.SUCCESS,
-            "Empty users list",
-            "No user removed from assignees",
-        )
+        else:
+            return check_api.Result(
+                check_api.Conclusion.SUCCESS,
+                "No users added/removed from assignees",
+                "",
+            )
+
+    async def cancel(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> check_api.Result:  # pragma: no cover
+        return actions.CANCELLED_CHECK_REPORT

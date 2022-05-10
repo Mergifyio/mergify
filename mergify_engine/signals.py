@@ -25,8 +25,7 @@ from mergify_engine import context
 LOG = daiquiri.getLogger(__name__)
 
 EventName = typing.Literal[
-    "action.assign.added",
-    "action.assign.removed",
+    "action.assign",
     "action.backport",
     "action.copy",
     "action.close",
@@ -48,7 +47,7 @@ EventName = typing.Literal[
     "action.update",
 ]
 
-SignalMetadata = typing.Dict[str, typing.Union[str, int, float, bool]]
+SignalMetadata = typing.Dict[str, typing.Union[str, int, float, bool, typing.List[str]]]
 SignalT = typing.Callable[
     [context.Context, EventName, typing.Optional[SignalMetadata]],
     typing.Coroutine[None, None, None],
