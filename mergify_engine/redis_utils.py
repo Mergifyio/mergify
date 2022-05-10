@@ -121,7 +121,7 @@ class RedisLinks:
     queue_max_connections: typing.Optional[int] = None
 
     @functools.cached_property
-    def queue(self) -> RedisCache:
+    def queue(self) -> RedisQueue:
         client = self.redis_from_url(
             config.QUEUE_URL,
             max_idle_time=self.max_idle_time,
