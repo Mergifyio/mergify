@@ -4,26 +4,26 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-      time: "09:00"
+      time: "08:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 10
   - package-ecosystem: npm
     directory: "/docs"
     schedule:
       interval: daily
-      time: "09:00"
+      time: "08:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 10
   - package-ecosystem: npm
     directory: "/installer"
     schedule:
       interval: daily
-      time: "09:00"
+      time: "08:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 10
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: daily
-      time: "09:00"
+      time: "08:00"
       timezone: Europe/Paris
