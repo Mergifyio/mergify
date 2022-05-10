@@ -17,9 +17,9 @@
 import daiquiri
 from datadog import statsd
 import fastapi
+from redis import exceptions as redis_exceptions
 from starlette import requests
 from starlette import responses
-import yaaredis
 
 from mergify_engine import exceptions as engine_exceptions
 
@@ -28,9 +28,9 @@ LOG = daiquiri.getLogger(__name__)
 
 
 def setup_exception_handlers(app: fastapi.FastAPI) -> None:
-    @app.exception_handler(yaaredis.exceptions.ConnectionError)
+    @app.exception_handler(redis_exceptions.ConnectionError)
     async def redis_errors(
-        request: requests.Request, exc: yaaredis.exceptions.ConnectionError
+        request: requests.Request, exc: redis_exceptions.ConnectionError
     ) -> responses.Response:
         statsd.increment("redis.client.connection.errors")
         LOG.warning("FastAPI lost Redis connection", exc_info=exc)

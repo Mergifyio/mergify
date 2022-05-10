@@ -181,7 +181,7 @@ async def store_active_users(
     transaction = await redis_cache.pipeline()
     for user_id, user_login in users.items():
         user_key = f"{user_id}~{user_login}"
-        await transaction.zadd(repo_key, **{user_key: time.time()})
+        await transaction.zadd(repo_key, {user_key: time.time()})
 
     await transaction.execute()
 
@@ -425,7 +425,7 @@ async def count_and_send(redis_cache: redis_utils.RedisCache) -> None:
 
 
 async def report(args: argparse.Namespace) -> None:
-    redis_links = redis_utils.RedisLinks()
+    redis_links = redis_utils.RedisLinks(name="report")
     if args.daemon:
         service.setup("count-seats")
         await count_and_send(redis_links.cache)

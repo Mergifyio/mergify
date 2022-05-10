@@ -3382,7 +3382,9 @@ DO NOT EDIT
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
+            pulls_to_refresh: typing.List[
+                typing.Tuple[str, str]
+            ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
@@ -3458,7 +3460,9 @@ DO NOT EDIT
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
+            pulls_to_refresh: typing.List[
+                typing.Tuple[str, str]
+            ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1
@@ -3541,7 +3545,9 @@ DO NOT EDIT
                 check["output"]["title"]
                 == "The pull request is the 1st in the queue to be merged"
             )
-            pulls_to_refresh = await self.redis_links.cache.zrangebyscore(
+            pulls_to_refresh: typing.List[
+                typing.Tuple[str, str]
+            ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
             assert len(pulls_to_refresh) == 1

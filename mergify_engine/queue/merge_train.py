@@ -1354,7 +1354,7 @@ class Train(queue.QueueBase):
             await train.load(train_raw)
             yield train
 
-    async def load(self, train_raw: typing.Optional[bytes] = None) -> None:
+    async def load(self, train_raw: typing.Optional[str] = None) -> None:
         if train_raw is None:
             train_raw = await self.repository.installation.redis.cache.hget(
                 self._get_redis_key(), self._get_redis_hash_key()

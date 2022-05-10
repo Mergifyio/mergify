@@ -598,7 +598,7 @@ class Repository(object):
     ) -> None:
         await redis.hdel(
             cls._users_permission_cache_key_for_repo(owner["id"], repo["id"]),
-            user["id"],
+            str(user["id"]),
         )
 
     @classmethod
@@ -633,7 +633,7 @@ class Repository(object):
             key = self._users_permission_cache_key
             cached_permission = typing.cast(
                 typing.Optional[github_types.GitHubRepositoryPermission],
-                await self.installation.redis.cache.hget(key, user["id"]),
+                await self.installation.redis.cache.hget(key, str(user["id"])),
             )
             if cached_permission is None:
                 permission = typing.cast(

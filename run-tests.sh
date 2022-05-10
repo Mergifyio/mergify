@@ -20,9 +20,9 @@ fi
 
 while ! docker run -t --net host --rm redis redis-cli -h localhost -p "$REDIS_PORT" keys '*' ; do sleep 1 ; done
 
-export MERGIFYENGINE_STORAGE_URL="redis://localhost:${REDIS_PORT}?db=2&idle_check_interval=0"
-export MERGIFYENGINE_STREAM_URL="redis://localhost:${REDIS_PORT}?db=3&idle_check_interval=0"
-export MERGIFYENGINE_QUEUE_URL="redis://localhost:${REDIS_PORT}?db=4&idle_check_interval=0"
+export MERGIFYENGINE_STORAGE_URL="redis://localhost:${REDIS_PORT}?db=2"
+export MERGIFYENGINE_STREAM_URL="redis://localhost:${REDIS_PORT}?db=3"
+export MERGIFYENGINE_QUEUE_URL="redis://localhost:${REDIS_PORT}?db=4"
 
 cmd="$1"
 shift
