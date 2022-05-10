@@ -130,13 +130,13 @@ class RedisLinks:
         return RedisQueue(client)
 
     @functools.cached_property
-    def stream(self) -> RedisCache:
+    def stream(self) -> RedisStream:
         client = self.redis_from_url(
             config.STREAM_URL,
             max_idle_time=self.max_idle_time,
             max_connections=self.stream_max_connections,
         )
-        return RedisCache(client)
+        return RedisStream(client)
 
     @functools.cached_property
     def cache(self) -> RedisCache:
