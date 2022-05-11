@@ -84,9 +84,12 @@ class AssignAction(actions.Action):
 
         if assignees_to_add or assignees_to_remove:
             await signals.send(
-                ctxt,
+                ctxt.repository,
+                ctxt.pull["number"],
                 "action.assign",
-                {"added": assignees_to_add, "removed": assignees_to_remove},
+                signals.EventAssignMetadata(
+                    {"added": assignees_to_add, "removed": assignees_to_remove}
+                ),
             )
 
             return check_api.Result(

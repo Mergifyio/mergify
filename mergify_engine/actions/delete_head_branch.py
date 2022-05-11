@@ -93,7 +93,12 @@ class DeleteHeadBranchAction(actions.Action):
                     "Unable to delete the head branch",
                     f"GitHub error: [{e.status_code}] `{e.message}`",
                 )
-        await signals.send(ctxt, "action.delete_head_branch")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.delete_head_branch",
+            signals.EventNoMetadata(),
+        )
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             f"Branch `{ctxt.pull['head']['ref']}` has been deleted",

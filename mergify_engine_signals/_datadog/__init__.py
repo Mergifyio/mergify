@@ -11,21 +11,25 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
 import typing
 
 from datadog import statsd
 
-from mergify_engine import context
+from mergify_engine import github_types
 from mergify_engine import signals
+
+
+if typing.TYPE_CHECKING:
+    from mergify_engine import context
 
 
 class Signal(signals.SignalBase):
     async def __call__(
         self,
-        ctxt: context.Context,
+        repository: "context.Repository",
+        pull_request: github_types.GitHubPullRequestNumber,
         event: signals.EventName,
-        metadata: typing.Optional[signals.SignalMetadata],
+        metadata: signals.EventMetadata,
     ) -> None:
         if event.startswith("action"):
             statsd.increment("engine.signals.action.count", tags=[f"event:{event[7:]}"])

@@ -68,7 +68,7 @@ class CopyAction(actions.Action):
     )
 
     KIND: duplicate_pull.KindT = "copy"
-    HOOK_EVENT_NAME: signals.EventName = "action.copy"
+    HOOK_EVENT_NAME: typing.Literal["action.backport", "action.copy"] = "action.copy"
     BRANCH_PREFIX: str = "copy"
     SUCCESS_MESSAGE: str = "Pull request copies have been created"
     FAILURE_MESSAGE: str = "No copy have been created"
@@ -150,9 +150,10 @@ class CopyAction(actions.Action):
                     branch_prefix=self.BRANCH_PREFIX,
                 )
                 await signals.send(
-                    ctxt,
+                    ctxt.repository,
+                    ctxt.pull["number"],
                     self.HOOK_EVENT_NAME,
-                    {"bot_account": bool(self.config["bot_account"])},
+                    signals.EventCopyMetadata({"to": branch_name}),
                 )
 
             except duplicate_pull.DuplicateAlreadyExists:

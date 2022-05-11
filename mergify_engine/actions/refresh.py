@@ -39,7 +39,12 @@ class RefreshAction(actions.Action):
             action="user",
             source="action/command",
         )
-        await signals.send(ctxt, "action.refresh")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.refresh",
+            signals.EventNoMetadata(),
+        )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""
         )

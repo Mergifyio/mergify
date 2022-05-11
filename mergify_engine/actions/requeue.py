@@ -71,7 +71,13 @@ class RequeueAction(actions.Action):
             source="action/command/requeue",
         )
 
-        await signals.send(ctxt, "action.requeue")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.requeue",
+            signals.EventNoMetadata(),
+        )
+
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             title="The queue state of this pull request has been cleaned. It can be re-embarked automatically",

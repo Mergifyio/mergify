@@ -108,19 +108,23 @@ class DismissReviewsAction(actions.Action):
         }
 
         to_dismiss = set()
+        to_dismiss_users = set()
         to_dismiss_user_from_requested_reviewers = set()
         for review in (await ctxt.consolidated_reviews())[1]:
             conf = self.config.get(review["state"].lower(), False)
             if conf is True:
                 to_dismiss.add(review["id"])
+                to_dismiss_users.add(review["user"]["login"])
             elif conf == FROM_REQUESTED_REVIEWERS:
                 if review["user"]["login"] in requested_reviewers_login:
                     to_dismiss.add(review["id"])
+                    to_dismiss_users.add(review["user"]["login"])
                     to_dismiss_user_from_requested_reviewers.add(
                         review["user"]["login"]
                     )
             elif isinstance(conf, list):
                 if review["user"]["login"] in conf:
+                    to_dismiss_users.add(review["user"]["login"])
                     to_dismiss.add(review["id"])
 
         if not to_dismiss:
@@ -165,7 +169,12 @@ class DismissReviewsAction(actions.Action):
                 "\n".join(errors),
             )
         else:
-            await signals.send(ctxt, "action.dismiss_reviews")
+            await signals.send(
+                ctxt.repository,
+                ctxt.pull["number"],
+                "action.dismiss_reviews",
+                signals.EventDismissReviewMetadata({"users": list(to_dismiss_users)}),
+            )
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Review dismissed", ""
             )

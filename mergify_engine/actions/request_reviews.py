@@ -258,7 +258,17 @@ class RequestReviewsAction(actions.Action):
                         "Unable to create review request",
                         f"GitHub error: [{e.status_code}] `{e.message}`",
                     )
-                await signals.send(ctxt, "action.request_reviewers")
+                await signals.send(
+                    ctxt.repository,
+                    ctxt.pull["number"],
+                    "action.request_reviewers",
+                    signals.EventRequestReviewsMetadata(
+                        {
+                            "reviewers": list(user_reviews_to_request),
+                            "team_reviewers": list(team_reviews_to_request),
+                        }
+                    ),
+                )
 
             if already_at_max or will_exceed_max:
                 return check_api.Result(

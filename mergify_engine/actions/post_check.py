@@ -111,7 +111,12 @@ class PostCheckAction(actions.Action):
             or check["output"]["title"] != title
             or check["output"]["summary"] != summary
         ):
-            await signals.send(ctxt, "action.post_check")
+            await signals.send(
+                ctxt.repository,
+                ctxt.pull["number"],
+                "action.post_check",
+                signals.EventNoMetadata(),
+            )
 
         return check_api.Result(conclusion, title, summary)
 

@@ -221,7 +221,12 @@ async def test_get_usage_last_seen(
         assert reply.status_code == 200, reply.content
         assert json.loads(reply.content) == {"repositories": [], "last_seen_at": None}
 
-        await signals.send(ctxt, "action.label")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.refresh",
+            signals.EventNoMetadata(),
+        )
 
         reply = await client.request(
             "GET", "/organization/0/usage", content=data, headers=headers

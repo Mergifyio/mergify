@@ -151,7 +151,12 @@ class ReviewAction(actions.Action):
                 )
             raise
 
-        await signals.send(ctxt, "action.review")
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.review",
+            signals.EventReviewMetadata({"type": self.config["type"]}),
+        )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
 
     async def cancel(
