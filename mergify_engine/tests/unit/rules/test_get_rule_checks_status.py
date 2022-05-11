@@ -673,7 +673,7 @@ async def test_rules_conditions_schedule():
     )
 
 
-async def test_rules_checks_status_depop(logger_checker):
+async def test_rules_checks_status_depop(logger_checker: None) -> None:
     pull = FakeQueuePullRequest(
         {
             "number": 1,
@@ -681,14 +681,14 @@ async def test_rules_checks_status_depop(logger_checker):
             "author": "me",
             "base": "main",
             "head": "feature-1",
-            "check-success": [],
-            "check-failure": [],
-            "check-pending": [],
-            "check-neutral": [],
-            "check-skipped": [],
-            "check-stale": [],
+            "check-success": [],  # type: ignore
+            "check-failure": [],  # type: ignore
+            "check-pending": [],  # type: ignore
+            "check-neutral": [],  # type: ignore
+            "check-skipped": [],  # type: ignore
+            "check-stale": [],  # type: ignore
             "approved-reviews-by": ["me"],
-            "changes-requested-reviews-by": [],
+            "changes-requested-reviews-by": [],  # type: ignore
             "label": ["mergeit"],
         }
     )
@@ -728,14 +728,14 @@ async def test_rules_checks_status_depop(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
     # Pending reported
-    pull.attrs["check-pending"] = []
-    pull.attrs["check-failure"] = []
+    pull.attrs["check-pending"] = []  # type: ignore
+    pull.attrs["check-failure"] = []  # type: ignore
     pull.attrs["check-success"] = ["Summary", "continuous-integration/jenkins/pr-head"]
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
     # Pending reported
     pull.attrs["check-pending"] = ["c-ci/status"]
-    pull.attrs["check-failure"] = []
+    pull.attrs["check-failure"] = []  # type: ignore
     pull.attrs["check-success"] = [
         "Summary",
         "continuous-integration/jenkins/pr-head",
@@ -754,7 +754,7 @@ async def test_rules_checks_status_depop(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.PENDING)
 
     # Failure reported
-    pull.attrs["check-pending"] = []
+    pull.attrs["check-pending"] = []  # type: ignore
     pull.attrs["check-failure"] = [
         "c-ci/s-c-t",
         "c-ci/g-validate",
@@ -767,7 +767,7 @@ async def test_rules_checks_status_depop(logger_checker):
     await assert_queue_rule_checks_status(conds, pull, check_api.Conclusion.FAILURE)
 
     # Success reported
-    pull.attrs["check-pending"] = []
+    pull.attrs["check-pending"] = []  # type: ignore
     pull.attrs["check-failure"] = ["c-ci/g-validate"]
     pull.attrs["check-success"] = [
         "Summary",
