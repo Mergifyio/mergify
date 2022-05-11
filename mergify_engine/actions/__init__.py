@@ -18,9 +18,9 @@
 import abc
 import dataclasses
 import enum
+import importlib.metadata
 import typing
 
-import pkg_resources
 import voluptuous
 
 from mergify_engine import check_api
@@ -72,7 +72,7 @@ def get_classes() -> typing.Dict[str, "Action"]:
     if _ACTIONS_CLASSES is None:
         _ACTIONS_CLASSES = {
             ep.name: ep.load()
-            for ep in pkg_resources.iter_entry_points("mergify_actions")
+            for ep in importlib.metadata.entry_points(group="mergify_actions")
         }
     return _ACTIONS_CLASSES
 
