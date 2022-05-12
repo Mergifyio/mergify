@@ -511,7 +511,11 @@ class TrainCar:
 
             # NOTE(sileht): We must update head_sha of the pull request otherwise
             # next temporary pull request may be created on a vanished reference.
+            old_sha = ctxt.pull["head"]["sha"]
             await ctxt.update()
+            new_sha = ctxt.pull["head"]["sha"]
+            if old_sha == new_sha:
+                ctxt.log.error("pull request updated via API but sha didn't change")
 
         else:
             # Already done, just refresh it to merge it
