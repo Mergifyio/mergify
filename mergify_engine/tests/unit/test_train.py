@@ -37,7 +37,7 @@ from mergify_engine.queue import merge_train
 from mergify_engine.tests.unit import conftest
 
 
-async def fake_train_car_create_pull(
+async def fake_train_car_start_checking_with_draft(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
     inner_self.creation_state = "created"
@@ -46,7 +46,7 @@ async def fake_train_car_create_pull(
     )
 
 
-async def fake_train_car_update_user_pull(
+async def fake_train_car_start_checking_inplace(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
     inner_self.creation_state = "updated"
@@ -71,13 +71,13 @@ def autoload_redis(redis_cache: redis_utils.RedisCache) -> None:
 @pytest.fixture(autouse=True)
 def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "mergify_engine.queue.merge_train.TrainCar.update_user_pull",
-        fake_train_car_update_user_pull,
+        "mergify_engine.queue.merge_train.TrainCar.start_checking_inplace",
+        fake_train_car_start_checking_inplace,
     )
 
     monkeypatch.setattr(
-        "mergify_engine.queue.merge_train.TrainCar.create_pull",
-        fake_train_car_create_pull,
+        "mergify_engine.queue.merge_train.TrainCar.start_checking_with_draft",
+        fake_train_car_start_checking_with_draft,
     )
     monkeypatch.setattr(
         "mergify_engine.queue.merge_train.TrainCar.delete_pull",
