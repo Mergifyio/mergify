@@ -53,7 +53,11 @@ async def fake_train_car_update_user_pull(
 
 
 async def fake_train_car_delete_pull(
-    inner_self: merge_train.TrainCar, reason: str
+    inner_self: merge_train.TrainCar,
+    reason: str,
+    not_reembarked_pull_request: typing.Optional[
+        github_types.GitHubPullRequestNumber
+    ] = None,
 ) -> None:
     pass
 
