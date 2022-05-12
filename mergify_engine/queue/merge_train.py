@@ -484,8 +484,8 @@ class TrainCar:
         )
         return await ctxt.is_behind
 
-    @tracer.wrap("TrainCar.update_user_pull", span_type="worker")
-    async def update_user_pull(self, queue_rule: "rules.QueueRule") -> None:
+    @tracer.wrap("TrainCar.start_inplace_checks", span_type="worker")
+    async def start_checking_inplace(self, queue_rule: "rules.QueueRule") -> None:
         if len(self.still_queued_embarked_pulls) != 1:
             raise RuntimeError("multiple embarked_pulls but state==updated")
 
@@ -655,8 +655,8 @@ class TrainCar:
                 await self._set_creation_failure(exc.message)
                 raise TrainCarPullRequestCreationFailure(self) from exc
 
-    @tracer.wrap("TrainCar.create_pull", span_type="worker")
-    async def create_pull(
+    @tracer.wrap("TrainCar.start_checking_with_draft", span_type="worker")
+    async def start_checking_with_draft(
         self,
         queue_rule: "rules.QueueRule",
     ) -> None:
@@ -2035,9 +2035,9 @@ class Train(queue.QueueBase):
             # get_next_batch() ensure all embarked_pulls has same config
             if must_be_updated:
                 # No need to create a pull request
-                await car.update_user_pull(queue_rule)
+                await car.start_checking_inplace(queue_rule)
             else:
-                await car.create_pull(queue_rule)
+                await car.start_checking_with_draft(queue_rule)
 
         except TrainCarPullRequestCreationPostponed:
             # NOTE(sileht): We can't create the tmp pull request, we will

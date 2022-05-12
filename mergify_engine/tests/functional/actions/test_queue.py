@@ -3850,7 +3850,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             conditions=conditions.QueueRuleConditions([]),
             config=queue_config,
         )
-        await car.create_pull(queue_rule)
+        await car.start_checking_with_draft(queue_rule)
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -3937,7 +3937,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             conditions=conditions.QueueRuleConditions([]),
             config=queue_config,
         )
-        await car.create_pull(queue_rule)
+        await car.start_checking_with_draft(queue_rule)
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -3955,7 +3955,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         assert len(pulls) == 2
 
         # Recreating it should works
-        await car.create_pull(queue_rule)
+        await car.start_checking_with_draft(queue_rule)
         assert car.queue_pull_request_number is not None
         pulls = await self.get_pulls()
         assert len(pulls) == 3
@@ -4073,9 +4073,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             base_sha2,
         )
 
-        await car1.create_pull(queue_rule)
-        await car2.create_pull(queue_rule)
-        await car_to_delete.create_pull(queue_rule)
+        await car1.start_checking_with_draft(queue_rule)
+        await car2.start_checking_with_draft(queue_rule)
+        await car_to_delete.start_checking_with_draft(queue_rule)
 
         assert 7 == len(await self.get_branches())
         assert 1 == len(q1._cars)
@@ -4201,10 +4201,10 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             config=queue_config,
         )
 
-        await car1.create_pull(queue_rule)
-        await car2.create_pull(queue_rule)
-        await car3.create_pull(queue_rule)
-        await car4.create_pull(queue_rule)
+        await car1.start_checking_with_draft(queue_rule)
+        await car2.start_checking_with_draft(queue_rule)
+        await car3.start_checking_with_draft(queue_rule)
+        await car4.start_checking_with_draft(queue_rule)
 
         assert 8 == len(await self.get_branches())
         assert 9 == len(await self.get_pulls())
@@ -4259,7 +4259,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             base_sha,
         )
         with pytest.raises(merge_train.TrainCarPullRequestCreationFailure) as exc_info:
-            await car.create_pull(
+            await car.start_checking_with_draft(
                 rules.QueueRule(
                     name="foo",
                     conditions=conditions.QueueRuleConditions([]),
