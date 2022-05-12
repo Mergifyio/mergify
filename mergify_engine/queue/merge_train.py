@@ -822,7 +822,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
             ):
                 reason = f"✨ {reason}."
                 if remaning_embarked_pulls:
-                    reason += f" The pull request {self._get_user_refs(embarked_pulls=remaning_embarked_pulls)} has been re-embarked. ✨"
+                    reason += f" The pull request {self._get_user_refs(embarked_pulls=remaning_embarked_pulls)} has been re-embarked."
+                reason += " ✨"
 
                 body = await self.generate_merge_queue_summary(
                     for_queue_pull_request=True,
