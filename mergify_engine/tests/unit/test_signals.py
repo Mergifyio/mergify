@@ -24,7 +24,7 @@ async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
     assert len(signals.SIGNALS) == 3
 
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
-    with mock.patch("mergify_engine_signals.noop.Signal.__call__") as signal_method:
+    with mock.patch("mergify_engine.signals.NoopSignal.__call__") as signal_method:
         await signals.send(
             ctxt.repository,
             ctxt.pull["number"],
