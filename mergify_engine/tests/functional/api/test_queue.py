@@ -108,7 +108,7 @@ class TestQueueApi(base.FunctionalTestBase):
                 {
                     "name": "urgent",
                     "config": {
-                        "allow_inplace_checks": False,
+                        "allow_inplace_checks": True,
                         "disallow_checks_interruption_from_queues": [],
                         "batch_size": 3,
                         "batch_max_wait_time": 15.0,
@@ -121,7 +121,7 @@ class TestQueueApi(base.FunctionalTestBase):
                 {
                     "name": "default",
                     "config": {
-                        "allow_inplace_checks": False,
+                        "allow_inplace_checks": True,
                         "disallow_checks_interruption_from_queues": [],
                         "batch_size": 2,
                         "batch_max_wait_time": 0.0,
