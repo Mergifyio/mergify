@@ -171,13 +171,16 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 unexpected_changes = merge_train.UnexpectedUpdatedPullRequestChange(
                     ctxt.pull["number"]
                 )
-                status = check_api.Conclusion.PENDING
-                ctxt.log.info(
-                    "train will be reset", unexpected_changes=unexpected_changes
-                )
-                await q.reset(unexpected_changes)
             else:
-                unexpected_changes = None
+                current_base_sha = await q.get_base_sha()
+                if await q.is_synced_with_the_base_branch(current_base_sha):
+                    unexpected_changes = None
+                else:
+                    unexpected_changes = merge_train.UnexpectedBaseBranchChange(
+                        current_base_sha
+                    )
+
+            if unexpected_changes is None:
                 status = await checks_status.get_rule_checks_status(
                     ctxt.log,
                     ctxt.repository,
@@ -185,6 +188,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     queue_rule_evaluated,
                     unmatched_conditions_return_failure=False,
                 )
+            else:
+                status = check_api.Conclusion.PENDING
+                ctxt.log.info(
+                    "train will be reset", unexpected_changes=unexpected_changes
+                )
+                await q.reset(unexpected_changes)
             await car.update_state(status, queue_rule_evaluated)
             await car.update_summaries(status, unexpected_change=unexpected_changes)
             await q.save()
