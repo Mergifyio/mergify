@@ -2027,14 +2027,21 @@ class Train(queue.QueueBase):
             and len(car.still_queued_embarked_pulls) == 1
             and len(car.parent_pull_request_numbers) == 0
         )
-        if can_be_updated:
-            must_be_updated = queue_rule.config["allow_inplace_checks"]
+        if can_be_updated and queue_rule.config["allow_inplace_checks"]:
+            # smart mode
+            if (
+                queue_rule.config["speculative_checks"] == 1
+                and queue_rule.config["batch_size"] == 1
+            ):
+                do_inplace_checks = True
+            else:
+                do_inplace_checks = not await car.is_behind()
         else:
-            must_be_updated = False
+            do_inplace_checks = False
 
         try:
             # get_next_batch() ensure all embarked_pulls has same config
-            if must_be_updated:
+            if do_inplace_checks:
                 # No need to create a pull request
                 await car.start_checking_inplace(queue_rule)
             else:
