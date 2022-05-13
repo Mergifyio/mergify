@@ -132,7 +132,10 @@ class DismissReviewsAction(actions.Action):
                 check_api.Conclusion.SUCCESS, "Nothing to dismiss", ""
             )
 
-        if self.config.get("approved") == FROM_REQUESTED_REVIEWERS:
+        if (
+            self.config.get("approved") == FROM_REQUESTED_REVIEWERS
+            and to_dismiss_user_from_requested_reviewers
+        ):
             updated_pull = await ctxt.client.item(
                 f"{ctxt.base_url}/pulls/{ctxt.pull['number']}"
             )
