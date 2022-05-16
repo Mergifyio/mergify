@@ -121,6 +121,29 @@ class TestQueueFreeze(base.FunctionalTestBase):
             ]
         }
 
+        freeze_payload = {"reason": "too long" * 100}
+
+        r = await self.app.put(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queue/default/freeze",
+            json=freeze_payload,
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.status_code == 422
+        assert r.json() == {
+            "detail": [
+                {
+                    "loc": ["body", "reason"],
+                    "msg": "ensure this value has at most 255 characters",
+                    "type": "value_error.any_str.max_length",
+                    "ctx": {"limit_value": 255},
+                }
+            ]
+        }
+
         freeze_payload = {"reason": "test freeze reason"}
 
         r = await self.app.put(
