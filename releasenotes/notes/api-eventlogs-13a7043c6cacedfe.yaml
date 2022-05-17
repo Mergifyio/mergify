@@ -1,0 +1,8 @@
+---
+features:
+  - |
+    A new API endpoint (``/api/repos/<owner>/<repo>/pulls/<pull>/events``) to
+    query the mergify action logs has been added.
+upgrade:
+  - |
+    Mergify engine now requires Redis server >= 6.2.

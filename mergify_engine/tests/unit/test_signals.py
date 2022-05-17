@@ -14,14 +14,19 @@
 
 from unittest import mock
 
+import pytest
+
 from mergify_engine import github_types
 from mergify_engine import signals
 from mergify_engine.tests.unit import conftest
 
 
-async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
-    signals.setup()
-    assert len(signals.SIGNALS) == 3
+async def test_signals(
+    context_getter: conftest.ContextGetterFixture, request: pytest.FixtureRequest
+) -> None:
+    signals.register()
+    request.addfinalizer(signals.unregister)
+    assert len(signals.SIGNALS) == 4
 
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
     with mock.patch("mergify_engine.signals.NoopSignal.__call__") as signal_method:
@@ -39,9 +44,12 @@ async def test_signals(context_getter: conftest.ContextGetterFixture) -> None:
         )
 
 
-async def test_datadog(context_getter: conftest.ContextGetterFixture) -> None:
-    signals.setup()
-    assert len(signals.SIGNALS) == 3
+async def test_datadog(
+    context_getter: conftest.ContextGetterFixture, request: pytest.FixtureRequest
+) -> None:
+    signals.register()
+    request.addfinalizer(signals.unregister)
+    assert len(signals.SIGNALS) == 4
 
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
 

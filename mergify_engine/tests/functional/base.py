@@ -41,6 +41,7 @@ from mergify_engine import github_graphql_types
 from mergify_engine import github_types
 from mergify_engine import gitter
 from mergify_engine import redis_utils
+from mergify_engine import signals
 from mergify_engine import utils
 from mergify_engine import worker
 from mergify_engine import worker_lua
@@ -382,6 +383,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
         # Web authentification always pass
         mock.patch("hmac.compare_digest", return_value=True).start()
+
+        signals.register()
+        self.addCleanup(signals.unregister)
 
         self.main_branch_name = self.get_full_branch_name("main")
 

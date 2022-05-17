@@ -1360,7 +1360,7 @@ def main(argv: typing.Optional[typing.List[str]] = None) -> None:
     args = parser.parse_args(argv)
 
     service.setup("worker")
-    signals.setup()
+    signals.register()
     return asyncio.run(run_forever(enabled_services=args.enabled_services))
 
 

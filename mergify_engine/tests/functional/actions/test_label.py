@@ -13,8 +13,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from unittest import mock
+
 import yaml
 
+from mergify_engine import config
 from mergify_engine.tests.functional import base
 
 
@@ -63,6 +66,35 @@ class TestLabelAction(base.FunctionalTestBase):
             sorted(label["name"] for label in pulls[0]["labels"]),
         )
 
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": [
+                {
+                    "timestamp": mock.ANY,
+                    "event": "action.label",
+                    "metadata": {
+                        "added": ["foobar", "unstable"],
+                        "removed": ["remove-me"],
+                    },
+                },
+                {
+                    "timestamp": mock.ANY,
+                    "event": "action.label",
+                    "metadata": {
+                        "added": ["unstable"],
+                        "removed": [],
+                    },
+                },
+            ]
+        }
+
     async def test_label_empty(self):
         rules = {
             "pull_request_rules": [
@@ -92,6 +124,16 @@ class TestLabelAction(base.FunctionalTestBase):
             sorted(label["name"] for label in pulls[0]["labels"]),
         )
 
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {"events": []}
+
     async def test_label_remove_all(self):
         rules = {
             "pull_request_rules": [
@@ -115,3 +157,21 @@ class TestLabelAction(base.FunctionalTestBase):
             [],
             pulls[0]["labels"],
         )
+
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": [
+                {
+                    "timestamp": mock.ANY,
+                    "event": "action.label",
+                    "metadata": {"added": [], "removed": ["stable"]},
+                }
+            ]
+        }
