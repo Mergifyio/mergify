@@ -282,20 +282,14 @@ async def set_check_run(
 
     if len(checks) >= 2:
         ctxt.log.warning(
-            "pull requests with duplicacte checks", checks=checks, skip_cache=skip_cache
+            "pull requests with duplicate checks",
+            checks=checks,
+            skip_cache=skip_cache,
+            all_checks=await ctxt.pull_engine_check_runs,
+            fresh_checks=await get_checks_for_ref(
+                ctxt, ctxt.pull["head"]["sha"], app_id=config.INTEGRATION_ID
+            ),
         )
-
-    # Only keep the newer checks, cancelled others
-    for check_to_cancelled in checks[1:]:
-        if Status(check_to_cancelled["status"]) != Status.COMPLETED:
-            await ctxt.client.patch(
-                f"{ctxt.base_url}/check-runs/{check_to_cancelled['id']}",
-                api_version="antiope",
-                json={
-                    "conclusion": Conclusion.CANCELLED.value,
-                    "status": Status.COMPLETED.value,
-                },
-            )
 
     if not checks or (
         Status(checks[0]["status"]) == Status.COMPLETED and status == Status.IN_PROGRESS
