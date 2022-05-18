@@ -248,27 +248,6 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         )
 
 
-async def _log_allow_inplace_checks_usage(
-    ctxt: context.Context, raw_config: typing.Any
-) -> None:
-    for rule in raw_config.get("queue_rules", []):
-        if "allow_inplace_checks" in rule:
-            ctxt.log.info(
-                "repository uses allow_inplace_checks",
-                allow_inplace_checks=rule["allow_inplace_checks"],
-                speculative_checks=rule.get("speculative_checks"),
-            )
-
-        if "allow_inplace_speculative_checks" in rule:
-            ctxt.log.info(
-                "repository uses allow_inplace_speculative_checks",
-                allow_inplace_speculative_checks=rule[
-                    "allow_inplace_speculative_checks"
-                ],
-                speculative_checks=rule.get("speculative_checks"),
-            )
-
-
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
     event_type: github_types.GitHubEventType
     data: github_types.GitHubEventIssueComment
@@ -361,8 +340,6 @@ async def run(
                         annotations=e.get_annotations(e.filename),
                     )
         return None
-
-    await _log_allow_inplace_checks_usage(ctxt, mergify_config["raw_config"])
 
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
