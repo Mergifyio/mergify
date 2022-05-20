@@ -145,9 +145,7 @@ class ReviewAction(actions.Action):
                     check_api.Conclusion.FAILURE,
                     "Review failed",
                     "GitHub returned an unexpected error:\n\n * "
-                    + "\n * ".join(
-                        map(lambda s: f"`{s}`", e.response.json()["errors"])
-                    ),
+                    + "\n * ".join(f"`{s}`" for s in e.response.json()["errors"]),
                 )
             raise
 

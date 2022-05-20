@@ -250,10 +250,7 @@ class CopyAction(actions.Action):
                         ),
                     )
                     if any(
-                        map(
-                            lambda regex: regex.match(branch["name"]),
-                            self.config["regexes"],
-                        )
+                        regex.match(branch["name"]) for regex in self.config["regexes"]
                     )
                 ]
             )
