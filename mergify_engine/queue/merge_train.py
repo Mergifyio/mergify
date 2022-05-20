@@ -1760,10 +1760,8 @@ class Train(queue.QueueBase):
         self, queue_rules: "rules.QueueRules", car: TrainCar
     ) -> None:
         current_queue_position = sum(
-            map(
-                lambda c: len(c.still_queued_embarked_pulls),
-                itertools.takewhile(lambda c: c is not car, self._cars),
-            )
+            len(c.still_queued_embarked_pulls)
+            for c in itertools.takewhile(lambda c: c is not car, self._cars)
         ) + len(car.still_queued_embarked_pulls)
         self.log.info("spliting failed car", position=current_queue_position, car=car)
 
