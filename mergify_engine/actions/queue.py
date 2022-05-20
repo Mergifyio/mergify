@@ -228,6 +228,27 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     "The merge `method` or the queue configuration must be updated.",
                 )
 
+        protection = await ctxt.repository.get_branch_protection(
+            ctxt.pull["base"]["ref"]
+        )
+        if (
+            protection
+            and "strict" in protection["required_status_checks"]
+            and protection["required_status_checks"]["strict"]
+        ):
+            if self.queue_rule.config["batch_size"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Merge queue configuration is not compatible with one of the branch protection settings",
+                    "The branch protection setting `Require branches to be up to date before merging` must be disabled when `batch_size > 1`.",
+                )
+            elif self.queue_rule.config["speculative_checks"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "Merge queue configuration is not compatible with one of the branch protection settings",
+                    "The branch protection setting `Require branches to be up to date before merging` must be disabled when `speculative_checks > 1`.",
+                )
+
         # FIXME(sileht): we should use the computed update_bot_account in TrainCar.update_pull(),
         # not the original one
         try:
