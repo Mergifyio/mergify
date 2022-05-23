@@ -23,6 +23,7 @@ CONFIGURATION_DELETED_CHECK_NAME = "Configuration has been deleted"
 CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE = (
     "Multiple Mergify configurations have been found in the repository"
 )
+INITIAL_SUMMARY_TITLE = "Your rules are under evaluation"
 
 CHECKS_TIMEOUT_CONDITION_LABEL = "checks-are-on-time"
 
