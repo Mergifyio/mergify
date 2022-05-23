@@ -6,7 +6,6 @@ defaults:
       update_method: rebase
       commit_message_template: |
         {{ title }} (#{{ number }})
-
         {{ body }}
     squash:
       commit_message: first-commit
