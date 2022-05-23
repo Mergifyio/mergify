@@ -56,16 +56,14 @@ class SimulatorPayload(pydantic.BaseModel):
                 )
             )
         except rules.InvalidRules as exc:
-            detail = list(
-                map(
-                    lambda e: {
-                        "loc": ("body", "mergify_yml"),
-                        "msg": rules.InvalidRules.format_error(e),
-                        "type": "mergify_config_error",
-                    },
-                    sorted(exc.errors, key=str),
-                )
-            )
+            detail = [
+                {
+                    "loc": ("body", "mergify_yml"),
+                    "msg": rules.InvalidRules.format_error(e),
+                    "type": "mergify_config_error",
+                }
+                for e in sorted(exc.errors, key=str)
+            ]
             raise fastapi.HTTPException(status_code=422, detail=detail)
 
 
