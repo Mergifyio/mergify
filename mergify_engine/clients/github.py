@@ -528,8 +528,7 @@ class AsyncGithubInstallationClient(AsyncGithubClient):
         exc_value: typing.Optional[BaseException] = None,
         traceback: typing.Optional[types.TracebackType] = None,
     ) -> None:
-        # NOTE(sileht): httpx typing set default as None, but missed typing.Optional
-        await super().__aexit__(exc_type, exc_value, traceback)  # type: ignore[arg-type]
+        await super().__aexit__(exc_type, exc_value, traceback)
         self._generate_metrics()
 
     def set_requests_ratio(self, ratio: int) -> None:
