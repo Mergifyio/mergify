@@ -184,7 +184,7 @@ class TestAttributes(base.FunctionalTestBase):
 
         p = await self.create_pr()
         pr_force_rebase = await self.create_pr(two_commits=True)
-        await self.merge_pull(pr_force_rebase["number"])
+        await self.merge_pull_as_admin(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.run_engine()
@@ -197,7 +197,7 @@ class TestAttributes(base.FunctionalTestBase):
         assert await ctxt.commits_behind_count == 3
         assert ctxt.pull["mergeable_state"] == "behind"
 
-        await self.client_admin.put(
+        await self.client_integration.put(
             f"{self.repository_ctxt.base_url}/pulls/{p['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": p["head"]["sha"]},
@@ -227,7 +227,7 @@ class TestAttributes(base.FunctionalTestBase):
         await self.branch_protection_protect(self.main_branch_name, protection)
 
         pr_force_rebase = await self.create_pr(two_commits=True)
-        await self.merge_pull(pr_force_rebase["number"])
+        await self.merge_pull_as_admin(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
 
         await self.git("reset", "--hard", "HEAD^^")
@@ -240,7 +240,7 @@ class TestAttributes(base.FunctionalTestBase):
         assert await ctxt.is_behind
         assert await ctxt.commits_behind_count == 3
 
-        await self.client_admin.put(
+        await self.client_integration.put(
             f"{self.repository_ctxt.base_url}/pulls/{p['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": p["head"]["sha"]},
@@ -302,7 +302,7 @@ class TestAttributes(base.FunctionalTestBase):
         pr = await self.create_pr(draft=True)
 
         pr_ahead = await self.create_pr()
-        await self.merge_pull(pr_ahead["number"])
+        await self.merge_pull_as_admin(pr_ahead["number"])
 
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
@@ -349,12 +349,12 @@ class TestAttributes(base.FunctionalTestBase):
             "check-neutral": [],
             "status-neutral": [],
             "commented-reviews-by": [],
-            "commits-unverified": ["test_draft: pull request n2 from fork"],
+            "commits-unverified": ["test_draft: pull request n2 from integration"],
             "milestone": "",
             "label": [],
             "linear-history": True,
-            "body": "test_draft: pull request n2 from fork",
-            "body-raw": "test_draft: pull request n2 from fork",
+            "body": "test_draft: pull request n2 from integration",
+            "body-raw": "test_draft: pull request n2 from integration",
             "base": self.main_branch_name,
             "review-requested": [],
             "review-threads-resolved": [],
@@ -363,9 +363,9 @@ class TestAttributes(base.FunctionalTestBase):
             "status-success": ["Summary"],
             "changes-requested-reviews-by": [],
             "merged": False,
-            "commits": ["test_draft: pull request n2 from fork"],
-            "head": self.get_full_branch_name("fork/pr2"),
-            "author": "mergify-test2",
+            "commits": ["test_draft: pull request n2 from integration"],
+            "head": self.get_full_branch_name("integration/pr2"),
+            "author": "mergify-test[bot]",
             "dismissed-reviews-by": [],
             "merged-by": "",
             "queue-position": -1,
@@ -373,7 +373,7 @@ class TestAttributes(base.FunctionalTestBase):
             "repository-name": self.repository_ctxt.repo["name"],
             "check-failure": [],
             "status-failure": [],
-            "title": "test_draft: pull request n2 from fork",
+            "title": "test_draft: pull request n2 from integration",
             "conflict": False,
             "check-pending": ["continuous-integration/fake-ci"],
             "check-stale": [],
@@ -583,7 +583,7 @@ class TestAttributes(base.FunctionalTestBase):
                 {
                     "name": "commits-unverified",
                     "conditions": [
-                        'commits-unverified="test_one_commit_unverified_message: pull request n1 from fork"'
+                        'commits-unverified="test_one_commit_unverified_message: pull request n1 from integration"'
                     ],
                     "actions": {"comment": {"message": "commits unverified"}},
                 }
@@ -871,8 +871,8 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         expected = f"""### Rule: merge (merge)
 - [X] `base={self.main_branch_name}`
 - [X] `label=automerge`
-- [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from fork** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]
-- [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from fork** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]
+- [ ] `depends-on=#{pr1['number']}` [⛓️ **test_depends_on: pull request n1 from integration** ([#{pr1['number']}]({repo_url}/pull/{pr1['number']}))]
+- [X] `depends-on=#{pr2['number']}` [⛓️ **test_depends_on: pull request n2 from integration** ([#{pr2['number']}]({repo_url}/pull/{pr2['number']}))]
 - [ ] `depends-on=#9999999` [⛓️ ⚠️ *pull request not found* (#9999999)]
 """
         assert expected in summary["output"]["summary"]
@@ -927,7 +927,7 @@ class TestAttributesWithSub(base.FunctionalTestBase):
         await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        await self.client_admin.put(
+        await self.client_integration.put(
             f"{self.repository_ctxt.base_url}/pulls/{p2['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": p2["head"]["sha"]},

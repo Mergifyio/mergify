@@ -26,7 +26,7 @@ class TestCommandCopy(base.FunctionalTestBase):
         )
         p = await self.create_pr()
 
-        await self.create_comment(
+        await self.create_comment_as_admin(
             p["number"], f"@mergifyio copy {stable_branch} {feature_branch}"
         )
         await self.run_engine()
@@ -45,7 +45,7 @@ class TestCommandCopy(base.FunctionalTestBase):
         assert len(comments) == 2
         reactions = [
             r
-            async for r in self.client_admin.items(
+            async for r in self.client_integration.items(
                 f"{self.url_origin}/issues/comments/{comments[0]['id']}/reactions",
                 api_version="squirrel-girl",
                 resource_name="reactions",

@@ -31,7 +31,8 @@ from mergify_engine.tests.functional import base
 class TestCountSeats(base.FunctionalTestBase):
     async def _prepare_repo(self) -> count_seats.Seats:
         await self.setup_repo()
-        await self.create_pr()
+        await self.create_pr(as_="admin")
+        await self.create_pr(as_="fork")
         await self.run_engine()
 
         # NOTE(sileht): we add active users only on the repository used for
@@ -118,7 +119,8 @@ class TestCountSeats(base.FunctionalTestBase):
 
     async def test_run_count_seats_report(self) -> None:
         await self.setup_repo()
-        await self.create_pr()
+        await self.create_pr(as_="admin")
+        await self.create_pr(as_="fork")
         await self.run_engine()
         if github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_1_ID) is None:
             raise RuntimeError("client_admin owner_id is None")
@@ -202,7 +204,8 @@ class TestCountSeats(base.FunctionalTestBase):
             ]
         }
         await self.setup_repo(yaml.dump(rules))
-        await self.create_pr()
+        await self.create_pr(as_="admin")
+        await self.create_pr(as_="fork")
         await self.run_engine()
         repository_id = self.RECORD_CONFIG["repository_id"]
         organization_id = self.RECORD_CONFIG["organization_id"]

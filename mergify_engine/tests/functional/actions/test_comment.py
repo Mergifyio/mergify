@@ -82,8 +82,8 @@ class TestCommentAction(base.FunctionalTestBase):
         await self.git(
             "push",
             "--quiet",
-            "fork",
-            self.get_full_branch_name(f"fork/pr{self.pr_counter}"),
+            "origin",
+            self.get_full_branch_name(f"integration/pr{self.pr_counter}"),
         )
 
         await self.wait_for("pull_request", {"action": "synchronize"})
@@ -113,7 +113,7 @@ class TestCommentAction(base.FunctionalTestBase):
         await self.run_engine()
 
         new_comments = await self.get_issue_comments(p["number"])
-        assert new_comments[-1]["body"] == "Thank you mergify-test2"
+        assert new_comments[-1]["body"] == "Thank you mergify-test[bot]"
 
     async def test_comment_with_none(self):
         rules = {

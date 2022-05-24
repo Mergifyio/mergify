@@ -247,7 +247,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # To force p1 to be rebased
         p2 = await self.create_pr()
-        await self.merge_pull(p2["number"])
+        await self.merge_pull_as_admin(p2["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
@@ -273,7 +273,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         # To force p1 to be rebased a second times
         p3 = await self.create_pr()
-        await self.merge_pull(p3["number"])
+        await self.merge_pull_as_admin(p3["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.run_engine()
@@ -499,7 +499,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         branch = typing.cast(
             github_types.GitHubBranch,
-            await self.client_admin.item(
+            await self.client_integration.item(
                 f"{self.url_origin}/branches/{self.main_branch_name}"
             ),
         )
@@ -557,7 +557,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         branch = typing.cast(
             github_types.GitHubBranch,
-            await self.client_admin.item(
+            await self.client_integration.item(
                 f"{self.url_origin}/branches/{self.main_branch_name}"
             ),
         )
@@ -655,7 +655,7 @@ class TestQueueAction(base.FunctionalTestBase):
         await self.run_engine()
         await assert_queued()
 
-        await self.create_comment(p1["number"], "@mergifyio refresh")
+        await self.create_comment_as_admin(p1["number"], "@mergifyio refresh")
         await self.run_engine()
         await assert_queued()
 
@@ -1879,7 +1879,7 @@ class TestQueueAction(base.FunctionalTestBase):
 
         mq_pr_number = q._cars[1].queue_pull_request_number
 
-        await self.create_comment(mq_pr_number, "@mergifyio update")
+        await self.create_comment_as_admin(mq_pr_number, "@mergifyio update")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(mq_pr_number)
@@ -1887,7 +1887,7 @@ class TestQueueAction(base.FunctionalTestBase):
             "Command not allowed on merge queue pull request." == comments[-1]["body"]
         )
 
-        await self.create_comment(mq_pr_number, "@mergifyio refresh")
+        await self.create_comment_as_admin(mq_pr_number, "@mergifyio refresh")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         comments = await self.get_issue_comments(mq_pr_number)
@@ -2575,7 +2575,7 @@ DO NOT EDIT
         # refresh to add it back in queue
         check = typing.cast(
             github_types.GitHubCheckRun,
-            await self.client_admin.items(
+            await self.client_integration.items(
                 f"{self.url_origin}/commits/{p2['head']['sha']}/check-runs",
                 resource_name="check runs",
                 page_limit=5,
@@ -3093,7 +3093,7 @@ DO NOT EDIT
         p = await self.get_pull(p["number"])
 
         # Merge base branch into p2
-        await self.client_admin.put(
+        await self.client_integration.put(
             f"{self.url_origin}/pulls/{p2['number']}/update-branch",
             api_version="lydian",
             json={"expected_head_sha": p2["head"]["sha"]},
@@ -3615,7 +3615,7 @@ DO NOT EDIT
 
         # To force others to be rebased
         p = await self.create_pr()
-        await self.merge_pull(p["number"])
+        await self.merge_pull_as_admin(p["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
         p = await self.get_pull(p["number"])
@@ -3715,7 +3715,7 @@ pull_request_rules:
 
         # To force others to be rebased
         p_other = await self.create_pr()
-        await self.merge_pull(p_other["number"])
+        await self.merge_pull_as_admin(p_other["number"])
         await self.wait_for("pull_request", {"action": "closed"})
         await self.run_engine()
         p_other = await self.get_pull(p_other["number"])
@@ -3849,7 +3849,7 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         assert tmp_pull["draft"]
 
         pull_url_prefix = f"/{self.installation_ctxt.owner_login}/{self.repository_ctxt.repo['name']}/pull"
-        expected_table = f"| 1 | test_create_pull_basic: pull request n2 from fork ([#{p2['number']}]({pull_url_prefix}/{p2['number']})) | foo/0 | [#{tmp_pull['number']}]({pull_url_prefix}/{tmp_pull['number']}) | <fake_pretty_datetime()>|"
+        expected_table = f"| 1 | test_create_pull_basic: pull request n2 from integration ([#{p2['number']}]({pull_url_prefix}/{p2['number']})) | foo/0 | [#{tmp_pull['number']}]({pull_url_prefix}/{tmp_pull['number']}) | <fake_pretty_datetime()>|"
         assert expected_table in await car.generate_merge_queue_summary()
 
         await car.delete_pull(reason="testing deleted reason")
@@ -3964,12 +3964,12 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         ctxt = context.Context(self.repository_ctxt, p1)
         q = await merge_train.Train.from_context(ctxt)
 
-        assert 4 == len(await self.get_branches())
+        assert 5 == len(await self.get_branches())
         assert 0 == len(q._cars)
 
         await q._clean_unsused_merge_queue_branches()
 
-        assert 4 == len(await self.get_branches())
+        assert 5 == len(await self.get_branches())
         assert 0 == len(q._cars)
 
     async def test_delete_unused_merge_queue_branch_multiple_queue(self):
@@ -4067,20 +4067,20 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await car2.start_checking_with_draft(queue_rule)
         await car_to_delete.start_checking_with_draft(queue_rule)
 
-        assert 7 == len(await self.get_branches())
+        assert 10 == len(await self.get_branches())
         assert 1 == len(q1._cars)
         assert 1 == len(q2._cars)
 
         await q1._clean_unsused_merge_queue_branches()
 
         # Ensure q1 don't cleanup q2
-        assert 7 == len(await self.get_branches())
+        assert 10 == len(await self.get_branches())
         assert 1 == len(q1._cars)
         assert 1 == len(q2._cars)
 
         await q2._clean_unsused_merge_queue_branches()
 
-        assert 6 == len(await self.get_branches())
+        assert 9 == len(await self.get_branches())
         assert 1 == len(q1._cars)
         assert 1 == len(q2._cars)
 
@@ -4196,12 +4196,12 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         await car3.start_checking_with_draft(queue_rule)
         await car4.start_checking_with_draft(queue_rule)
 
-        assert 8 == len(await self.get_branches())
+        assert 13 == len(await self.get_branches())
         assert 9 == len(await self.get_pulls())
         assert 3 == len(q._cars)
         await q._clean_unsused_merge_queue_branches()
 
-        assert 6 == len(await self.get_branches())
+        assert 11 == len(await self.get_branches())
         assert 7 == len(await self.get_pulls())
         assert 3 == len(q._cars)
 
