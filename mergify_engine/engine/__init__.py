@@ -398,7 +398,7 @@ async def create_initial_summary(
     repo = event["pull_request"]["base"]["repo"]
 
     if not await redis.exists(
-        context.Repository.get_config_location_cache_key(
+        context.Repository.get_config_file_cache_key(
             repo["id"],
         )
     ):
