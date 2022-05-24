@@ -49,9 +49,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         second_branch = self.get_full_branch_name("#2-second-pr")
         third_branch = self.get_full_branch_name("#3-second-pr")
         fourth_branch = self.get_full_branch_name("#4-second-pr")
-        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
-        p2 = await self.create_pr(base_repo="origin", branch=second_branch)
-        await self.create_pr(base_repo="origin", branch=third_branch)
+        p1 = await self.create_pr(branch=first_branch)
+        p2 = await self.create_pr(branch=second_branch)
+        await self.create_pr(branch=third_branch)
         await self.create_pr(branch=fourth_branch)
         await self.add_label(p1["number"], "merge")
         await self.add_label(p2["number"], "close")
@@ -70,11 +70,11 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         self.assertEqual(4, len(pulls))
 
         branches = await self.get_branches()
-        print(branches)
-        self.assertEqual(3, len(branches))
+        self.assertEqual(4, len(branches))
         self.assertEqual(self.main_branch_name, branches[0]["name"])
         self.assertEqual(third_branch, branches[1]["name"])
-        self.assertEqual("main", branches[2]["name"])
+        self.assertEqual(fourth_branch, branches[2]["name"])
+        self.assertEqual("main", branches[3]["name"])
 
     async def test_delete_branch_with_dep_no_force(self):
         rules = {
@@ -95,10 +95,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
-        await self.create_pr(
-            base_repo="origin", branch=second_branch, base=first_branch
-        )
+        p1 = await self.create_pr(branch=first_branch)
+        await self.create_pr(branch=second_branch, base=first_branch)
 
         await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
@@ -133,9 +131,9 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
         another_branch = self.get_full_branch_name("another")
         await self.setup_repo(yaml.dump(rules), test_branches=[another_branch])
 
-        p1 = await self.create_pr(base_repo="origin")
+        p1 = await self.create_pr()
         p2 = (
-            await self.client_admin.post(
+            await self.client_integration.post(
                 f"{self.url_origin}/pulls",
                 json={
                     "base": another_branch,
@@ -188,10 +186,8 @@ class TestDeleteHeadBranchAction(base.FunctionalTestBase):
 
         first_branch = self.get_full_branch_name("#1-first-pr")
         second_branch = self.get_full_branch_name("#2-second-pr")
-        p1 = await self.create_pr(base_repo="origin", branch=first_branch)
-        await self.create_pr(
-            base_repo="origin", branch=second_branch, base=first_branch
-        )
+        p1 = await self.create_pr(branch=first_branch)
+        await self.create_pr(branch=second_branch, base=first_branch)
 
         await self.merge_pull(p1["number"])
         await self.wait_for(

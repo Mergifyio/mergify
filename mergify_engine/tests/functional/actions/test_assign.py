@@ -41,7 +41,7 @@ class TestAssignAction(base.FunctionalTestBase):
             sorted(user["login"] for user in p["assignees"]),
         )
 
-        await self.client_admin.request(
+        await self.client_integration.request(
             "DELETE",
             f"{self.repository_ctxt.base_url}/issues/{p['number']}/assignees",
             json={"assignees": ["mergify-test1"]},
@@ -94,7 +94,7 @@ class TestAssignAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        await self.create_pr()
+        await self.create_pr(as_="fork")
 
         await self.run_engine()
 

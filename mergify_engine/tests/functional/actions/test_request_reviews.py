@@ -95,7 +95,7 @@ class TestRequestReviewsAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p = await self.create_pr()
+        p = await self.create_pr(as_="fork")
         await self.run_engine()
 
         pulls = await self.get_pulls(params={"base": self.main_branch_name})

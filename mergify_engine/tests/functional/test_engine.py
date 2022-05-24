@@ -227,7 +227,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "Commit Message:\n",
             "merge",
             msg="{{title}}\n\nThanks to {{author}}",
-            commit_msg="test_merge_custom_msg_template: pull request n1 from fork\n\nThanks to mergify-test2",
+            commit_msg="test_merge_custom_msg_template: pull request n1 from integration\n\nThanks to mergify-test[bot]",
         )
 
     async def test_merge_invalid_custom_msg(self) -> None:
@@ -328,7 +328,9 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert p["number"] == pulls[0]["number"]
         assert "closed" == pulls[0]["state"]
 
-        issue = await self.client_admin.item(f"{self.url_origin}/issues/{i['number']}")
+        issue = await self.client_integration.item(
+            f"{self.url_origin}/issues/{i['number']}"
+        )
         assert "closed" == issue["state"]
 
     async def test_rebase(self) -> None:
@@ -481,7 +483,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
 
         check = typing.cast(
             github_types.GitHubCheckRun,
-            await self.client_admin.items(
+            await self.client_integration.items(
                 f"{self.url_origin}/commits/{p['head']['sha']}/check-runs",
                 api_version="antiope",
                 list_items="check_runs",
@@ -596,7 +598,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
         assert summary is not None
         completed_at = summary["completed_at"]
 
-        await self.create_comment(p["number"], "@mergifyio refresh")
+        await self.create_comment_as_admin(p["number"], "@mergifyio refresh")
 
         await self.run_engine()
 

@@ -45,7 +45,7 @@ class TestReviewAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p = await self.create_pr()
+        p = await self.create_pr(as_="fork")
         await self.run_engine()
         await self.wait_for("pull_request_review", {}),
 
@@ -84,7 +84,7 @@ class TestReviewAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p = await self.create_pr()
+        p = await self.create_pr(as_="fork")
         await self.run_engine()
 
         await self.wait_for("pull_request_review", {}),
@@ -111,7 +111,7 @@ class TestReviewAction(base.FunctionalTestBase):
 
         await self.setup_repo(yaml.dump(rules))
 
-        p = await self.create_pr()
+        p = await self.create_pr(as_="fork")
         await self.run_engine()
 
         ctxt = await context.Context.create(self.repository_ctxt, p, [])
@@ -176,7 +176,7 @@ Unknown pull request attribute: hello
 
         await self.setup_repo(yaml.dump(rules))
 
-        p = await self.create_pr(message="mergify-test4")
+        p = await self.create_pr(as_="fork", message="mergify-test4")
         await self.run_engine()
 
         await self.wait_for("pull_request_review", {}),

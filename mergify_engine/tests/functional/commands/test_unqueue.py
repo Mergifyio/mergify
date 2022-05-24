@@ -76,7 +76,7 @@ class TestUnQueueCommand(base.FunctionalTestBase):
             == "The pull request is the 1st in the queue to be merged"
         )
 
-        await self.create_comment(p1["number"], "@mergifyio requeue")
+        await self.create_comment_as_admin(p1["number"], "@mergifyio requeue")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -108,7 +108,7 @@ DO NOT EDIT
             == "The pull request is the 1st in the queue to be merged"
         )
 
-        await self.create_comment(p1["number"], "@mergifyio unqueue")
+        await self.create_comment_as_admin(p1["number"], "@mergifyio unqueue")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 
@@ -140,7 +140,7 @@ DO NOT EDIT
             == "The pull request has been removed from the queue by an `unqueue` command"
         )
 
-        await self.create_comment(p1["number"], "@mergifyio requeue")
+        await self.create_comment_as_admin(p1["number"], "@mergifyio requeue")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
 

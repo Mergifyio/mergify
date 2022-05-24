@@ -262,7 +262,7 @@ class TestMergeAction(base.FunctionalTestBase):
         self.assertEqual(True, p["merged"])
         c = await self.get_commit(p["merge_commit_sha"])
         assert (
-            f"""test_merge_template_with_empty_body: pull request n1 from fork (#{p['number']})"""
+            f"""test_merge_template_with_empty_body: pull request n1 from integration (#{p['number']})"""
             == c["commit"]["message"]
         )
 
@@ -293,7 +293,7 @@ superRP!
         self.assertEqual(True, p2["merged"])
         p3 = await self.get_commit(p2["merge_commit_sha"])
         assert (
-            f"""test_merge_template: pull request n1 from fork (#{p2['number']})
+            f"""test_merge_template: pull request n1 from integration (#{p2['number']})
 
 mergify-test4
 superRP!"""
@@ -356,7 +356,7 @@ superRP!"""
         assert summary is not None
         assert "[ ] `#commits-behind=0`" in summary["output"]["summary"]
 
-        await self.create_comment(p2["number"], "@mergifyio update")
+        await self.create_comment_as_admin(p2["number"], "@mergifyio update")
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         await self.wait_for("pull_request", {"action": "synchronize"})
@@ -399,7 +399,7 @@ superRP!"""
 
         branch = typing.cast(
             github_types.GitHubBranch,
-            await self.client_admin.item(
+            await self.client_integration.item(
                 f"{self.url_origin}/branches/{self.main_branch_name}"
             ),
         )
@@ -446,7 +446,7 @@ superRP!"""
 
         branch = typing.cast(
             github_types.GitHubBranch,
-            await self.client_admin.item(
+            await self.client_integration.item(
                 f"{self.url_origin}/branches/{self.main_branch_name}"
             ),
         )

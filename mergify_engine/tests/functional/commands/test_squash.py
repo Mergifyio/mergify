@@ -55,7 +55,7 @@ class TestCommandSquash(base.FunctionalTestBase):
         await self.run_engine()
 
         # do the squash
-        await self.create_comment(pr["number"], "@mergifyio squash")
+        await self.create_comment_as_admin(pr["number"], "@mergifyio squash")
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
@@ -135,7 +135,7 @@ Awesome body
         await self.run_engine()
 
         # do the squash
-        await self.create_comment(pr["number"], "@mergifyio squash")
+        await self.create_comment_as_admin(pr["number"], "@mergifyio squash")
         await self.run_engine()
 
         # wait after the update & get the PR
@@ -231,7 +231,7 @@ Awesome body
         await self.run_engine()
 
         # do the squash
-        await self.create_comment(pr["number"], "@mergifyio squash")
+        await self.create_comment_as_admin(pr["number"], "@mergifyio squash")
         await self.run_engine()
 
         # wait after the update & get the PR
