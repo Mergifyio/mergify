@@ -215,7 +215,7 @@ def raise_for_status(resp: httpx.Response) -> None:
 class AsyncClient(httpx.AsyncClient):
     def __init__(
         self,
-        auth: httpx_types.AuthTypes = None,
+        auth: typing.Optional[httpx_types.AuthTypes] = None,
         headers: typing.Optional[httpx_types.HeaderTypes] = None,
         timeout: httpx_types.TimeoutTypes = DEFAULT_TIMEOUT,
         base_url: httpx_types.URLTypes = "",
