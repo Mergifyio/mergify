@@ -233,6 +233,24 @@ Then, re-embark the pull request into the merge queue by posting the comment
         )
         if (
             protection
+            and "required_linear_history" in protection
+            and protection["required_linear_history"]["enabled"]
+        ):
+            if self.queue_rule.config["batch_size"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "batch_size > 1 is not compatible with branch protection setting",
+                    "The branch protection setting `Require linear history` must be unset.",
+                )
+            elif self.queue_rule.config["speculative_checks"] > 1:
+                return check_api.Result(
+                    check_api.Conclusion.FAILURE,
+                    "speculative_checks > 1 is not compatible with branch protection setting",
+                    "The branch protection setting `Require linear history` must be unset.",
+                )
+
+        if (
+            protection
             and "required_status_checks" in protection
             and "strict" in protection["required_status_checks"]
             and protection["required_status_checks"]["strict"]
