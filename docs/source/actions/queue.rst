@@ -186,9 +186,8 @@ disembarked and re-embarked.
 
    With speculative checks, pull requests are tested against the base branch
    within another temporary pull request. This requires the branch protection
-   settings ``Require branches to be up to date before merging`` and ``Require
-   linear history`` to be disabled. If you require a linear history, just set
-   the queue option ``merge: rebase``.
+   settings ``Require branches to be up to date before merging`` to be
+   disabled. If you require a linear history, just set the queue option ``merge: rebase``.
 
 Batch Size
 ----------
@@ -218,9 +217,8 @@ your CI time is 10 min, you can merge those 15 pull requests in only 10 minutes.
 
    With batch mode, pull requests are tested against the base branch
    within another temporary pull request. This requires the branch protection
-   settings ``Require branches to be up to date before merging`` and `` Require
-   linear history`` to be disabled. If you require a linear history, just set
-   the queue option ``merge: rebase``.
+   settings ``Require branches to be up to date before merging`` to be
+   disabled. If you require a linear history, just set the queue option ``merge: rebase``.
 
 Queue Freeze
 ------------
