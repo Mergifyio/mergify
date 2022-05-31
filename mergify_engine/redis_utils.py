@@ -33,6 +33,13 @@ LOG = daiquiri.getLogger(__name__)
 RedisCache = typing.NewType("RedisCache", "redispy.Redis[str]")
 RedisStream = typing.NewType("RedisStream", "redispy.Redis[bytes]")
 RedisQueue = typing.NewType("RedisQueue", "redispy.Redis[bytes]")
+RedisUserPermissionsCache = typing.NewType(
+    "RedisUserPermissionsCache", "redispy.Redis[bytes]"
+)
+RedisTeamPermissionsCache = typing.NewType(
+    "RedisTeamPermissionsCache", "redispy.Redis[bytes]"
+)
+RedisTeamMembersCache = typing.NewType("RedisTeamMembersCache", "redispy.Redis[bytes]")
 
 ScriptIdT = typing.NewType("ScriptIdT", uuid.UUID)
 
@@ -133,10 +140,40 @@ class RedisLinks:
         return RedisStream(client)
 
     @functools.cached_property
+    def team_members_cache(self) -> RedisTeamMembersCache:
+        client = self.redis_from_url(
+            "team_members_cache",
+            config.TEAM_MEMBERS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisTeamMembersCache(client)
+
+    @functools.cached_property
+    def team_permissions_cache(self) -> RedisTeamPermissionsCache:
+        client = self.redis_from_url(
+            "team_permissions_cache",
+            config.TEAM_PERMISSIONS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisTeamPermissionsCache(client)
+
+    @functools.cached_property
+    def user_permissions_cache(self) -> RedisUserPermissionsCache:
+        client = self.redis_from_url(
+            "user_permissions_cache",
+            config.USER_PERMISSIONS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisUserPermissionsCache(client)
+
+    @functools.cached_property
     def cache(self) -> RedisCache:
         client = self.redis_from_url(
             "cache",
-            config.STORAGE_URL,
+            config.LEGACY_CACHE_URL,
             decode_responses=True,
             max_connections=self.cache_max_connections,
         )
@@ -186,9 +223,21 @@ class RedisLinks:
         return client
 
     async def shutdown_all(self) -> None:
-        if "cache" in self.__dict__:
-            await self.cache.close(close_connection_pool=True)
-        if "stream" in self.__dict__:
-            await self.stream.close(close_connection_pool=True)
-        if "queue" in self.__dict__:
-            await self.queue.close(close_connection_pool=True)
+        for db in (
+            "cache",
+            "stream",
+            "queue",
+            "team_members_cache",
+            "team_permissions_cache",
+            "user_permissions_cache",
+        ):
+            if db in self.__dict__:
+                await self.__dict__[db].close(close_connection_pool=True)
+
+    async def flushall(self) -> None:
+        await self.cache.flushdb()
+        await self.stream.flushdb()
+        await self.queue.flushdb()
+        await self.team_members_cache.flushdb()
+        await self.team_permissions_cache.flushdb()
+        await self.user_permissions_cache.flushdb()

@@ -95,6 +95,11 @@ def config_log() -> None:
     LOG.info("* PATH: %s", os.environ.get("PATH"))
     LOG.info("##########################################################")
 
+    if os.getenv("MERGIFYENGINE_STORAGE_URL") is not None:
+        LOG.warning(
+            "MERGIFYENGINE_STORAGE_URL is set, on-premise legacy Redis database setup detected."
+        )
+
     legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
     if legacy_api_url is not None:
         if legacy_api_url[-1] == "/":
