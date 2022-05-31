@@ -432,7 +432,8 @@ A ``queue_rules`` takes the following parameter:
    * - ``allow_inplace_checks``
      - bool
      - True
-     - Allow to update/rebase the original pull request if possible to check its mergeability.
+     - Allow to update/rebase the original pull request if possible to check
+       its mergeability when ``speculative_checks: 1`` and ``batch_size: 1``.
        If ``False``, a draft pull request is always created.
    * - ``disallow_checks_interruption_from_queues``
      - list of ``queue`` names
