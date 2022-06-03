@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import asyncio
 
 import httpx
 import pytest
@@ -28,7 +29,9 @@ def test_clear_token_cache(
     dashboard: func_conftest.DashboardFixture,
     monkeypatch: pytest.MonkeyPatch,
     recorder: func_conftest.RecorderFixture,
+    event_loop: asyncio.BaseEventLoop,
 ) -> None:
+    monkeypatch.setattr("asyncio.run", lambda coro: event_loop.run_until_complete(coro))
     monkeypatch.setattr("mergify_engine.web_cli.config.BASE_URL", "http://localhost")
     monkeypatch.setattr(
         "mergify_engine.web_cli.http.AsyncClient", lambda: mergify_web_client
@@ -46,7 +49,9 @@ def test_refresher(
     dashboard: func_conftest.DashboardFixture,
     recorder: func_conftest.RecorderFixture,
     monkeypatch: pytest.MonkeyPatch,
+    event_loop: asyncio.BaseEventLoop,
 ) -> None:
+    monkeypatch.setattr("asyncio.run", lambda coro: event_loop.run_until_complete(coro))
     monkeypatch.setattr("mergify_engine.web_cli.config.BASE_URL", "http://localhost")
     monkeypatch.setattr(
         "mergify_engine.web_cli.http.AsyncClient", lambda: mergify_web_client

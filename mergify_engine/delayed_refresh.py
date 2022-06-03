@@ -61,7 +61,7 @@ async def _set_current_refresh_datetime(
 ) -> None:
     await repository.installation.redis.cache.zadd(
         DELAYED_REFRESH_KEY,
-        **{_redis_key(repository, pull_number): at.timestamp()},
+        {_redis_key(repository, pull_number): at.timestamp()},
     )
 
 
@@ -129,9 +129,9 @@ async def send(
     for subkey in keys:
         (
             owner_id_str,
-            owner_login,
+            owner_login_str,
             repository_id_str,
-            repository_name,
+            repository_name_str,
             pull_request_number_str,
         ) = subkey.split("~")
         owner_id = github_types.GitHubAccountIdType(int(owner_id_str))
@@ -139,6 +139,8 @@ async def send(
         pull_request_number = github_types.GitHubPullRequestNumber(
             int(pull_request_number_str)
         )
+        repository_name = github_types.GitHubRepositoryName(repository_name_str)
+        owner_login = github_types.GitHubLogin(owner_login_str)
 
         LOG.info(
             "sending delayed pull request refresh",

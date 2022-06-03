@@ -28,18 +28,17 @@ LOG = daiquiri.getLogger(__name__)
 async def startup() -> None:
     global _REDIS_LINKS
     _REDIS_LINKS = redis_utils.RedisLinks(
+        name="web",
         cache_max_connections=config.REDIS_STREAM_WEB_MAX_CONNECTIONS,
         stream_max_connections=config.REDIS_CACHE_WEB_MAX_CONNECTIONS,
         queue_max_connections=config.REDIS_QUEUE_WEB_MAX_CONNECTIONS,
     )
-    await redis_utils.load_scripts(_REDIS_LINKS.stream)
+    await redis_utils.load_scripts(_REDIS_LINKS.cache)
 
 
 async def shutdown() -> None:
     LOG.info("asgi: starting redis shutdown")
-    _REDIS_LINKS.shutdown_all()
-    LOG.info("asgi: waiting redis pending tasks to complete")
-    await redis_utils.stop_pending_yaaredis_tasks()
+    await _REDIS_LINKS.shutdown_all()
     LOG.info("asgi: finished redis shutdown")
 
 

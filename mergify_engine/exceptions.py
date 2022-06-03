@@ -15,7 +15,7 @@ import dataclasses
 import datetime
 import typing
 
-import yaaredis
+from redis import exceptions as redis_exceptions
 
 from mergify_engine.clients import http
 
@@ -118,11 +118,11 @@ def need_retry(
         elif exception.response.status_code == 403:
             return datetime.timedelta(minutes=3)
 
-    elif isinstance(exception, yaaredis.exceptions.ResponseError):
+    elif isinstance(exception, redis_exceptions.ResponseError):
         # Redis script bug or OOM
         return datetime.timedelta(minutes=1)
 
-    elif isinstance(exception, yaaredis.exceptions.ConnectionError):
+    elif isinstance(exception, redis_exceptions.ConnectionError):
         # Redis down
         return datetime.timedelta(minutes=1)
 

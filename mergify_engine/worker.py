@@ -59,9 +59,9 @@ from datadog import statsd
 from ddtrace import tracer
 import first
 import msgpack
+from redis import exceptions as redis_exceptions
 import sentry_sdk
 import tenacity
-import yaaredis
 
 from mergify_engine import check_api
 from mergify_engine import config
@@ -152,7 +152,7 @@ def get_low_priority_minimal_score() -> float:
 @tenacity.retry(
     wait=tenacity.wait_exponential(multiplier=0.2),
     stop=tenacity.stop_after_attempt(5),
-    retry=tenacity.retry_if_exception_type(yaaredis.ConnectionError),
+    retry=tenacity.retry_if_exception_type(redis_exceptions.ConnectionError),
     reraise=True,
 )
 async def push(
@@ -311,7 +311,7 @@ class StreamProcessor:
         try:
             yield
         except Exception as e:
-            if isinstance(e, yaaredis.exceptions.ConnectionError):
+            if isinstance(e, redis_exceptions.ConnectionError):
                 statsd.increment("redis.client.connection.errors")
 
             if exceptions.should_be_ignored(e):
@@ -331,6 +331,8 @@ class StreamProcessor:
                     bucket_sources_key = worker_lua.BucketSourcesKeyType(
                         f"bucket-sources~{e.ctxt.repository.repo['id']}~{e.ctxt.pull['number']}"
                     )
+                if bucket_sources_key is None:
+                    raise RuntimeError("bucket_sources_key must be set at this point")
 
                 attempts = await self.redis_links.stream.hincrby(
                     ATTEMPTS_KEY, bucket_sources_key
@@ -353,8 +355,8 @@ class StreamProcessor:
                 if bucket_sources_key:
                     await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_sources_key)
                 await self.redis_links.stream.hdel(ATTEMPTS_KEY, bucket_org_key)
-                await self.redis_links.stream.zaddoption(
-                    "streams", "XX", **{bucket_org_key: score}
+                await self.redis_links.stream.zadd(
+                    "streams", {bucket_org_key: score}, xx=True
                 )
                 raise OrgBucketRetry(bucket_org_key, 0, retry_at)
 
@@ -370,8 +372,8 @@ class StreamProcessor:
             retry_in = 2 ** min(attempts, 3) * backoff
             retry_at = date.utcnow() + retry_in
             score = retry_at.timestamp()
-            await self.redis_links.stream.zaddoption(
-                "streams", "XX", **{bucket_org_key: score}
+            await self.redis_links.stream.zadd(
+                "streams", {bucket_org_key: score}, xx=True
             )
             raise OrgBucketRetry(bucket_org_key, attempts, retry_at)
 
@@ -441,7 +443,7 @@ class StreamProcessor:
                     await self._consume_buckets(bucket_org_key, installation)
                     await merge_train.Train.refresh_trains(installation)
 
-        except yaaredis.exceptions.ConnectionError:
+        except redis_exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "Stream Processor lost Redis connection",
@@ -455,7 +457,7 @@ class StreamProcessor:
             )
             try:
                 await worker_lua.drop_bucket(self.redis_links.stream, bucket_org_key)
-            except yaaredis.exceptions.ConnectionError:
+            except redis_exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "fail to drop org bucket, it will be retried",
@@ -509,7 +511,7 @@ class StreamProcessor:
                 bucket_org_key,
                 date.utcnow(),
             )
-        except yaaredis.exceptions.ConnectionError:
+        except redis_exceptions.ConnectionError:
             statsd.increment("redis.client.connection.errors")
             LOG.warning(
                 "fail to cleanup org bucket, it maybe partially replayed",
@@ -555,7 +557,9 @@ class StreamProcessor:
         pulls_processed = 0
         started_at = time.monotonic()
         while True:
-            bucket_sources_keys = await self.redis_links.stream.zrangebyscore(
+            bucket_sources_keys: typing.List[
+                typing.Tuple[bytes, float]
+            ] = await self.redis_links.stream.zrangebyscore(
                 bucket_org_key,
                 min=0,
                 max="+inf",
@@ -910,7 +914,7 @@ class Worker:
     dedicated_workers_syncer_idle_time: float = 30
 
     _redis_links: redis_utils.RedisLinks = dataclasses.field(
-        init=False, default_factory=redis_utils.RedisLinks
+        init=False, default_factory=lambda: redis_utils.RedisLinks(name="worker")
     )
 
     _loop: asyncio.AbstractEventLoop = dataclasses.field(
@@ -958,9 +962,6 @@ class Worker:
         return github_types.GitHubAccountIdType(int(bucket_org_key.split("~")[1]))
 
     async def shared_stream_worker_task(self, shared_worker_id: int) -> None:
-        if self._redis_links is None:
-            raise RuntimeError("redis clients are not ready")
-
         stream_processor = StreamProcessor(
             self._redis_links,
             worker_id=f"shared-{shared_worker_id}",
@@ -1054,7 +1055,9 @@ class Worker:
         # TODO(sileht): maybe also graph streams that are before `now`
         # to see the diff between the backlog and the upcoming work to do
         now = time.time()
-        org_buckets = await self._redis_links.stream.zrangebyscore(
+        org_buckets: typing.List[
+            typing.Tuple[bytes, float]
+        ] = await self._redis_links.stream.zrangebyscore(
             "streams",
             min=0,
             max=now,
@@ -1090,8 +1093,9 @@ class Worker:
                 worker_id = self.get_shared_worker_id_for(
                     owner_id, self.global_shared_tasks_count
                 )
-
-            bucket_contents = await self._redis_links.stream.zrangebyscore(
+            bucket_contents: typing.List[
+                typing.Tuple[bytes, float]
+            ] = await self._redis_links.stream.zrangebyscore(
                 org_bucket, min=0, max="+inf", withscores=True
             )
             low_prio_threshold = get_low_priority_minimal_score()
@@ -1136,8 +1140,6 @@ class Worker:
 
     async def start(self) -> None:
         self._stopping.clear()
-
-        self._redis_links = redis_utils.RedisLinks()
 
         await redis_utils.load_scripts(self._redis_links.stream)
         await migrations.run(self._redis_links.cache)
@@ -1219,7 +1221,7 @@ class Worker:
             except asyncio.CancelledError:
                 LOG.info("%s task killed", task_name)
                 return
-            except yaaredis.ConnectionError:
+            except redis_exceptions.ConnectionError:
                 statsd.increment("redis.client.connection.errors")
                 LOG.warning(
                     "%s task lost Redis connection",
@@ -1298,12 +1300,11 @@ class Worker:
             await asyncio.wait(pending)
         LOG.info("workers and monitoring exited", count=len(tasks))
 
-        LOG.info("redis finalizing")
         self._shared_worker_tasks = []
         self._dedicated_worker_tasks = {}
 
-        self._redis_links.shutdown_all()
-        await redis_utils.stop_pending_yaaredis_tasks()
+        LOG.info("redis finalizing")
+        await self._redis_links.shutdown_all()
         LOG.info("redis finalized")
 
         LOG.info("shutdown finished")
@@ -1370,7 +1371,7 @@ async def async_status() -> None:
         shared_stream_tasks_per_process * shared_stream_processes
     )
 
-    redis_links = redis_utils.RedisLinks()
+    redis_links = redis_utils.RedisLinks(name="async_status")
 
     dedicated_worker_owner_ids = await Worker.get_dedicated_worker_owner_ids(
         redis_links.stream
@@ -1386,7 +1387,7 @@ async def async_status() -> None:
         else:
             return Worker.get_shared_worker_id_for(owner_id, global_shared_tasks_count)
 
-    org_buckets = sorted(
+    org_buckets: typing.List[typing.Tuple[bytes, float]] = sorted(
         await redis_links.stream.zrangebyscore(
             "streams", min=0, max="+inf", withscores=True
         ),
@@ -1402,6 +1403,8 @@ async def async_status() -> None:
             items = f"{len(event_org_buckets)} pull requests, {count} events"
             print(f"{{{worker_id}}} [{date}] {owner_id.decode()}: {items}")
 
+    await redis_links.shutdown_all()
+
 
 def status() -> None:
     asyncio.run(async_status())
@@ -1412,7 +1415,7 @@ async def async_reschedule_now() -> int:
     parser.add_argument("owner_id", help="Organization ID")
     args = parser.parse_args()
 
-    redis_links = redis_utils.RedisLinks()
+    redis_links = redis_utils.RedisLinks(name="async_reschedule_now")
     org_buckets = await redis_links.stream.zrangebyscore("streams", min=0, max="+inf")
     expected_bucket = f"bucket~{args.owner_id}"
     for org_bucket in org_buckets:
@@ -1422,13 +1425,15 @@ async def async_reschedule_now() -> int:
             transaction = await redis_links.stream.pipeline()
             await transaction.hdel(ATTEMPTS_KEY, org_bucket)
             # TODO(sileht): Should we update bucket scores too ?
-            await transaction.zadd("streams", **{org_bucket.decode(): score})
+            await transaction.zadd("streams", {org_bucket.decode(): score})
             # NOTE(sileht): Do we need to cleanup the per PR attempt?
             # await transaction.hdel(ATTEMPTS_KEY, bucket_sources_key)
             await transaction.execute()
+            await redis_links.shutdown_all()
             return 0
     else:
         print(f"Stream for {expected_bucket} not found")
+        await redis_links.shutdown_all()
         return 1
 
 

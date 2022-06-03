@@ -77,10 +77,13 @@ async def report_dashboard_synchro(
     )
 
 
-async def report_worker_status(owner: github_types.GitHubLogin) -> None:
+async def report_worker_status(
+    redis_links: redis_utils.RedisLinks, owner: github_types.GitHubLogin
+) -> None:
     stream_name = f"stream~{owner}".encode()
-    redis_links = redis_utils.RedisLinks()
-    streams = await redis_links.stream.zrangebyscore(
+    streams: typing.List[
+        typing.Tuple[bytes, float]
+    ] = await redis_links.stream.zrangebyscore(
         "streams", min=0, max="+inf", withscores=True
     )
 
@@ -91,9 +94,13 @@ async def report_worker_status(owner: github_types.GitHubLogin) -> None:
         print("* WORKER: Installation not queued to process")
         return
 
-    planned = datetime.datetime.utcfromtimestamp(streams[pos]).isoformat()
+    planned = datetime.datetime.utcfromtimestamp(streams[pos][1]).isoformat()
 
-    attempts = await redis_links.stream.hget("attempts", stream_name) or 0
+    attempts_raw = await redis_links.stream.hget("attempts", stream_name)
+    if attempts_raw is None:
+        attempts = 0
+    else:
+        attempts = int(attempts)
     print(
         "* WORKER: Installation queued, "
         f" pos: {pos}/{len(streams)},"
@@ -170,7 +177,7 @@ def _url_parser(
 async def report(
     url: str,
 ) -> typing.Union[context.Context, github.AsyncGithubInstallationClient, None]:
-    redis_links = redis_utils.RedisLinks(max_idle_time=0)
+    redis_links = redis_utils.RedisLinks(name="debug")
 
     try:
         owner_login, repo, pull_number = _url_parser(url)
@@ -234,7 +241,7 @@ async def report(
         installation.installation["id"], db_sub, db_tokens, "DASHBOARD", slug
     )
 
-    await report_worker_status(owner_login)
+    await report_worker_status(redis_links, owner_login)
 
     if repo is not None:
         repository = await installation.get_repository_by_name(repo)
@@ -281,6 +288,7 @@ async def report(
                 )
             except http.HTTPNotFound:
                 print(f"Pull request `{url}` does not exist")
+                await redis_links.shutdown_all()
                 return client
 
             # FIXME queues could also be printed if no pull number given
@@ -319,9 +327,10 @@ async def report(
                 )
                 print(f"[Summary]: success | {summary_title}")
                 print("> " + "\n> ".join(summary.strip().split("\n")))
-
+            await redis_links.shutdown_all()
             return ctxt
 
+    await redis_links.shutdown_all()
     return client
 
 

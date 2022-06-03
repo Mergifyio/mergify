@@ -29,7 +29,7 @@ from mergify_engine import redis_utils
 
 
 async def _do_test_event_to_pull_check_run(
-    redis_cache: redis_utils.RedisCache, filename: str, expected_pulls: typing.List[int]
+    redis_links: redis_utils.RedisLinks, filename: str, expected_pulls: typing.List[int]
 ) -> None:
     with open(
         os.path.join(os.path.dirname(__file__), "events", filename),
@@ -58,7 +58,7 @@ async def _do_test_event_to_pull_check_run(
         }
     )
     installation = context.Installation(
-        installation_json, mock.Mock(), mock.Mock(), redis_cache, mock.Mock()
+        installation_json, mock.Mock(), mock.Mock(), redis_links
     )
     pulls = await github_events.extract_pull_numbers_from_event(
         installation,
@@ -70,18 +70,18 @@ async def _do_test_event_to_pull_check_run(
 
 
 async def test_event_to_pull_check_run_forked_repo(
-    redis_cache: redis_utils.RedisCache,
+    redis_links: redis_utils.RedisLinks,
 ) -> None:
     await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run.event_from_forked_repo.json", []
+        redis_links, "check_run.event_from_forked_repo.json", []
     )
 
 
 async def test_event_to_pull_check_run_same_repo(
-    redis_cache: redis_utils.RedisCache,
+    redis_links: redis_utils.RedisLinks,
 ) -> None:
     await _do_test_event_to_pull_check_run(
-        redis_cache, "check_run.event_from_same_repo.json", [409]
+        redis_links, "check_run.event_from_same_repo.json", [409]
     )
 
 

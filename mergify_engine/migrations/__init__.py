@@ -33,14 +33,12 @@ async def run(redis_cache: redis_utils.RedisCache) -> None:
     await _run_scripts("cache", redis_cache)
 
 
-async def _run_scripts(
-    dirname: str, redis: typing.Union[redis_utils.RedisCache, redis_utils.RedisStream]
-) -> None:
-    current_version = await redis.get(MIGRATION_STAMPS_KEY)
-    if current_version is None:
+async def _run_scripts(dirname: str, redis: redis_utils.RedisCache) -> None:
+    current_version_raw: typing.Optional[str] = await redis.get(MIGRATION_STAMPS_KEY)
+    if current_version_raw is None:
         current_version = 0
     else:
-        current_version = int(current_version)
+        current_version = int(current_version_raw)
 
     files = pkg_resources.resource_listdir(__name__, dirname)
     for script in sorted(files):

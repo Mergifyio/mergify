@@ -22,8 +22,12 @@ from mergify_engine import config
 from mergify_engine import logs
 
 
+SERVICE_NAME: str = "engine-<unknown>"
+
+
 def setup(service_name: str, dump_config: bool = True) -> None:
-    service_name = "engine-" + service_name
+    global SERVICE_NAME
+    SERVICE_NAME = "engine-" + service_name
 
     _version = os.environ.get("HEROKU_RELEASE_VERSION")
 
@@ -40,8 +44,8 @@ def setup(service_name: str, dump_config: bool = True) -> None:
         sentry_sdk.utils.MAX_STRING_LENGTH = 2048
 
     ddtrace.config.version = _version
-    statsd.constant_tags.append(f"service:{service_name}")
-    ddtrace.config.service = service_name
+    statsd.constant_tags.append(f"service:{SERVICE_NAME}")
+    ddtrace.config.service = SERVICE_NAME
 
     ddtrace.config.httpx["split_by_domain"] = True
 
