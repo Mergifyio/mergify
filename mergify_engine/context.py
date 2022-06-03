@@ -1048,6 +1048,7 @@ class Context(object):
             gh_pull_head_sha=self.pull["head"]["sha"]
             if "head" in self.pull
             else "<unknown-yet>",
+            gh_pull_merge_commit_sha=self.pull["merge_commit_sha"],
             gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
             gh_pull_state=(
                 "merged"
