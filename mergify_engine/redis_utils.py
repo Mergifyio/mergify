@@ -20,6 +20,7 @@ import typing
 import uuid
 
 import daiquiri
+import ddtrace
 import redis.asyncio as redispy
 
 from mergify_engine import config
@@ -174,13 +175,15 @@ class RedisLinks:
             options["ssl_check_hostname"] = False
             options["ssl_cert_reqs"] = None
 
-        return redispy.Redis.from_url(
+        client = redispy.Redis.from_url(
             url,
             max_connections=max_connections,
             decode_responses=decode_responses,
             client_name=f"{service.SERVICE_NAME}/{self.name}/{name}",
             **options,
         )
+        ddtrace.Pin.override(client, service=f"engine-redis-{name}")
+        return client
 
     async def shutdown_all(self) -> None:
         if "cache" in self.__dict__:
