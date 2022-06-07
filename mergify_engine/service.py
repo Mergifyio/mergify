@@ -25,7 +25,7 @@ from mergify_engine import logs
 
 
 SERVICE_NAME: str = "engine-<unknown>"
-VERSION: str = os.environ.get("MERGIFYENGINE_VERSION", "unknown")
+VERSION: str = os.environ.get("MERGIFYENGINE_SHA", "unknown")
 
 
 def setup(service_name: str, dump_config: bool = True) -> None:
