@@ -15,6 +15,7 @@
 # under the License.
 
 import dataclasses
+import os
 import threading
 import time
 import typing
@@ -53,6 +54,12 @@ EXPECTED_MINIMAL_PERMISSIONS: typing.Dict[
         "statuses": "read",
     },
 }
+
+
+if os.getenv("MERGIFYENGINE_TEST_SETTINGS") is not None:
+    # NOTE(sileht): Here the permission that's differ from testing app and production app
+    EXPECTED_MINIMAL_PERMISSIONS["User"]["statuses"] = "write"
+    EXPECTED_MINIMAL_PERMISSIONS["Organization"]["statuses"] = "write"
 
 
 @dataclasses.dataclass

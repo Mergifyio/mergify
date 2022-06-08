@@ -20,12 +20,6 @@ from unittest import mock
 from datadog import statsd
 
 from mergify_engine import worker
-from mergify_engine.clients import github_app
-
-
-# NOTE(sileht): Here the permission that's differ from testing app and production app
-github_app.EXPECTED_MINIMAL_PERMISSIONS["User"]["statuses"] = "write"
-github_app.EXPECTED_MINIMAL_PERMISSIONS["Organization"]["statuses"] = "write"
 
 
 statsd.socket = mock.Mock()  # type:ignore[assignment]
