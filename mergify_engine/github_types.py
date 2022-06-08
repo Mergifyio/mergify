@@ -328,7 +328,7 @@ class GitHubPullRequest(GitHubIssueOrPullRequest):
     node_id: str
 
 
-# https://docs.github.com/en/free-pro-team@latest/developers/webhooks-and-events/webhook-events-and-payloads
+# https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads
 GitHubEventType = typing.Literal[
     "check_run",
     "check_suite",
