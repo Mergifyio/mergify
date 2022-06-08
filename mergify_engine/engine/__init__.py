@@ -56,13 +56,12 @@ async def _check_configuration_changes(
 
     # NOTE(sileht): This heuristic works only if _ensure_summary_on_head_sha()
     # is called after _check_configuration_changes().
-    # If we don't have a summary yet, it means the pull request has just been
-    # open or synchronize or we never see it.
+    # If we don't have the real summary yet it means the pull request has just
+    # been open or synchronize or we never see it.
     summary = await ctxt.get_engine_check_run(constants.SUMMARY_NAME)
-    if (
-        summary
-        and summary["output"]["title"]
-        != constants.CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE
+    if summary and summary["output"]["title"] not in (
+        constants.INITIAL_SUMMARY_TITLE,
+        constants.CONFIGURATION_MUTIPLE_FOUND_SUMMARY_TITLE,
     ):
         if await ctxt.get_engine_check_run(constants.CONFIGURATION_CHANGED_CHECK_NAME):
             return True
@@ -248,27 +247,6 @@ async def _ensure_summary_on_head_sha(ctxt: context.Context) -> None:
         )
 
 
-async def _log_allow_inplace_checks_usage(
-    ctxt: context.Context, raw_config: typing.Any
-) -> None:
-    for rule in raw_config.get("queue_rules", []):
-        if "allow_inplace_checks" in rule:
-            ctxt.log.info(
-                "repository uses allow_inplace_checks",
-                allow_inplace_checks=rule["allow_inplace_checks"],
-                speculative_checks=rule.get("speculative_checks"),
-            )
-
-        if "allow_inplace_speculative_checks" in rule:
-            ctxt.log.info(
-                "repository uses allow_inplace_speculative_checks",
-                allow_inplace_speculative_checks=rule[
-                    "allow_inplace_speculative_checks"
-                ],
-                speculative_checks=rule.get("speculative_checks"),
-            )
-
-
 class T_PayloadEventIssueCommentSource(typing.TypedDict):
     event_type: github_types.GitHubEventType
     data: github_types.GitHubEventIssueComment
@@ -362,8 +340,6 @@ async def run(
                     )
         return None
 
-    await _log_allow_inplace_checks_usage(ctxt, mergify_config["raw_config"])
-
     ctxt.log.debug("engine run pending commands")
     await commands_runner.run_pending_commands_tasks(ctxt, mergify_config)
 
@@ -422,7 +398,7 @@ async def create_initial_summary(
     repo = event["pull_request"]["base"]["repo"]
 
     if not await redis.exists(
-        context.Repository.get_config_location_cache_key(
+        context.Repository.get_config_file_cache_key(
             repo["id"],
         )
     ):
@@ -451,7 +427,7 @@ async def create_initial_summary(
             "started_at": date.utcnow().isoformat(),
             "details_url": f"{event['pull_request']['html_url']}/checks",
             "output": {
-                "title": "Your rules are under evaluation",
+                "title": constants.INITIAL_SUMMARY_TITLE,
                 "summary": "Be patient, the page will be updated soon.",
             },
             "external_id": str(event["pull_request"]["number"]),

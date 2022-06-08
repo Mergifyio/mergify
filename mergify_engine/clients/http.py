@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020–2021 Mergify SAS
+# Copyright © 2020–2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -14,7 +14,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import os
 import sys
 import typing
 
@@ -26,12 +25,11 @@ import tenacity.wait
 from werkzeug.http import parse_date
 
 from mergify_engine import date
+from mergify_engine import service
 
 
 LOG = daiquiri.getLogger(__name__)
 
-DEPLOY_VERSION = os.getenv("HEROKU_RELEASE_VERSION", "dev")
-ENGINE_VERSION = os.getenv("HEROKU_SLUG_COMMIT", "dev")[:7]
 PYTHON_VERSION = (
     f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 )
@@ -39,7 +37,7 @@ HTTPX_VERSION = httpx.__version__
 
 DEFAULT_HEADERS = httpx.Headers(
     {
-        "User-Agent": f"mergify-engine/{ENGINE_VERSION} deploy/{DEPLOY_VERSION} python/{PYTHON_VERSION} httpx/{HTTPX_VERSION}"
+        "User-Agent": f"mergify-engine/{service.VERSION} python/{PYTHON_VERSION} httpx/{HTTPX_VERSION}"
     }
 )
 
@@ -215,7 +213,7 @@ def raise_for_status(resp: httpx.Response) -> None:
 class AsyncClient(httpx.AsyncClient):
     def __init__(
         self,
-        auth: httpx_types.AuthTypes = None,
+        auth: typing.Optional[httpx_types.AuthTypes] = None,
         headers: typing.Optional[httpx_types.HeaderTypes] = None,
         timeout: httpx_types.TimeoutTypes = DEFAULT_TIMEOUT,
         base_url: httpx_types.URLTypes = "",

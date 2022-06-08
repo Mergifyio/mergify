@@ -197,9 +197,26 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "REDIS_QUEUE_WEB_MAX_CONNECTIONS", default=None
         ): voluptuous.Any(None, voluptuous.Coerce(int)),
-        voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
+        # NOTE(sileht): Unused anymore, but keep to detect legacy onpremise installation
+        voluptuous.Required("STORAGE_URL", default=None): voluptuous.Any(None, str),
+        # NOTE(sileht): Not used directly, but used to build other redis urls if not provided
+        voluptuous.Required("DEFAULT_REDIS_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("LEGACY_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("QUEUE_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("TEAM_MEMBERS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("TEAM_PERMISSIONS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("USER_PERMISSIONS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("SHARED_STREAM_PROCESSES", default=1): voluptuous.Coerce(
             int
         ),
@@ -261,7 +278,7 @@ Schema = voluptuous.Schema(
     }
 )
 
-# Config variables available
+# Config variables available from voluptuous
 VERSION: str
 BASE_URL: str
 API_ENABLE: bool
@@ -283,9 +300,14 @@ SHARED_STREAM_TASKS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
 BOT_USER_LOGIN: str
-STORAGE_URL: str
+
 STREAM_URL: str
 QUEUE_URL: str
+LEGACY_CACHE_URL: str
+TEAM_PERMISSIONS_CACHE_URL: str
+TEAM_MEMBERS_CACHE_URL: str
+USER_PERMISSIONS_CACHE_URL: str
+
 BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
@@ -325,56 +347,107 @@ TESTING_ID_GPGKEY_SECRET: str
 TESTING_INSTALLATION_ID: int
 SAAS_MODE: bool
 
-configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
-
-if configuration_file is not None:
-    dotenv.load_dotenv(dotenv_path=configuration_file, override=True)
-
-CONFIG: typing.Dict[str, typing.Any] = {}
-for key, _ in Schema.schema.items():
-    val = os.getenv(f"MERGIFYENGINE_{key}")
-    if val is not None:
-        CONFIG[key] = val
+# config variables built
+GITHUB_DOMAIN: str
 
 
-# DASHBOARD API KEYS are required only for Saas
-if "SUBSCRIPTION_TOKEN" in CONFIG:
-    for key in ("DASHBOARD_TO_ENGINE_API_KEY", "ENGINE_TO_DASHBOARD_API_KEY"):
-        CONFIG[key] = secrets.token_hex(16)
+def load() -> typing.Dict[str, typing.Any]:
+    configuration_file = os.getenv("MERGIFYENGINE_TEST_SETTINGS")
 
-legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
-if legacy_api_url is not None:
-    if legacy_api_url[-1] == "/":
-        legacy_api_url = legacy_api_url[:-1]
-    if legacy_api_url.endswith("/api/v3"):
-        CONFIG["GITHUB_REST_API_URL"] = legacy_api_url
-        CONFIG["GITHUB_GRAPHQL_API_URL"] = f"{legacy_api_url[:-3]}/graphql"
+    if configuration_file is not None:
+        dotenv.load_dotenv(dotenv_path=configuration_file, override=True)
+
+    raw_config: typing.Dict[str, typing.Any] = {}
+    for key, _ in Schema.schema.items():
+        val = os.getenv(f"MERGIFYENGINE_{key}")
+        if val is not None:
+            raw_config[key] = val
+
+    # DASHBOARD API KEYS are required only for Saas
+    if "SUBSCRIPTION_TOKEN" in raw_config:
+        for key in ("DASHBOARD_TO_ENGINE_API_KEY", "ENGINE_TO_DASHBOARD_API_KEY"):
+            raw_config[key] = secrets.token_hex(16)
+
+    legacy_api_url = os.getenv("MERGIFYENGINE_GITHUB_API_URL")
+    if legacy_api_url is not None:
+        if legacy_api_url[-1] == "/":
+            legacy_api_url = legacy_api_url[:-1]
+        if legacy_api_url.endswith("/api/v3"):
+            raw_config["GITHUB_REST_API_URL"] = legacy_api_url
+            raw_config["GITHUB_GRAPHQL_API_URL"] = f"{legacy_api_url[:-3]}/graphql"
+
+    parsed_config = Schema(raw_config)
+
+    # NOTE(sileht): on legacy on-premise installation, before things were auto
+    # sharded in redis databases, STREAM/QUEUE/LEGACY_CACHE was in the same db, so
+    # keep until manual migration as been done
+    if parsed_config["STORAGE_URL"] is not None:
+        for config_key in (
+            "DEFAULT_REDIS_URL",
+            "STREAM_URL",
+            "QUEUE_URL",
+            "LEGACY_CACHE_URL",
+        ):
+            if parsed_config[config_key] is None:
+                parsed_config[config_key] = parsed_config["STORAGE_URL"]
+
+    # NOTE(sileht): If we reach 15, we should update onpremise installation guide
+    # and add an upgrade release note section to ensure people configure their Redis
+    # correctly
+    REDIS_AUTO_DB_SHARDING_MAPPING = {
+        # 0 reserved, never use it, this force people to select a DB before running any command
+        # and maybe be used by legacy onpremise installation.
+        # 1 temporary reserved, used by dashboard
+        "LEGACY_CACHE_URL": 2,
+        "STREAM_URL": 3,
+        "QUEUE_URL": 4,
+        "TEAM_MEMBERS_CACHE_URL": 5,
+        "TEAM_PERMISSIONS_CACHE_URL": 6,
+        "USER_PERMISSIONS_CACHE_URL": 7,
+    }
+
+    default_redis_url_parsed = parse.urlparse(
+        parsed_config["DEFAULT_REDIS_URL"] or "redis://localhost:6379"
+    )
+    if default_redis_url_parsed.query and "db" in parse.parse_qs(
+        default_redis_url_parsed.query
+    ):
+        print(
+            "DEFAULT_REDIS_URL must not contain any db parameter. Mergify can't start."
+        )
+        sys.exit(1)
+
+    for config_key, db in REDIS_AUTO_DB_SHARDING_MAPPING.items():
+        if parsed_config[config_key] is None:
+            query = default_redis_url_parsed.query
+            if query:
+                query += "&"
+            query += f"db={db}"
+            url = default_redis_url_parsed._replace(query=query).geturl()
+            parsed_config[config_key] = url
+
+    parsed_config["GITHUB_DOMAIN"] = parse.urlparse(
+        parsed_config["GITHUB_URL"]
+    ).hostname
+
+    # NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
+    # it in base64 format
+    if not parsed_config["PRIVATE_KEY"].startswith("----"):
+        parsed_config["PRIVATE_KEY"] = base64.b64decode(parsed_config["PRIVATE_KEY"])
+
+    if "TESTING_GPGKEY_SECRET" in parsed_config and not parsed_config[
+        "TESTING_GPGKEY_SECRET"
+    ].startswith("----"):
+        parsed_config["TESTING_GPGKEY_SECRET"] = base64.b64decode(
+            parsed_config["TESTING_GPGKEY_SECRET"]
+        )
+
+    if not parsed_config["SAAS_MODE"] and not parsed_config["SUBSCRIPTION_TOKEN"]:
+        print("SUBSCRIPTION_TOKEN is missing. Mergify can't start.")
+        sys.exit(1)
+
+    return parsed_config  # type: ignore[no-any-return]
 
 
-globals().update(Schema(CONFIG))
-
-if globals()["STREAM_URL"] is None:
-    STREAM_URL = globals()["STORAGE_URL"]
-
-if globals()["QUEUE_URL"] is None:
-    QUEUE_URL = globals()["STORAGE_URL"]
-
-GITHUB_URL = globals()["GITHUB_URL"]  # mypy workaround
-GITHUB_DOMAIN = parse.urlparse(GITHUB_URL).hostname
-
-# NOTE(sileht): Docker can't pass multiline in environment, so we allow to pass
-# it in base64 format
-if not CONFIG["PRIVATE_KEY"].startswith("----"):
-    CONFIG["PRIVATE_KEY"] = base64.b64decode(CONFIG["PRIVATE_KEY"])
-    PRIVATE_KEY = CONFIG["PRIVATE_KEY"]
-
-
-if "TESTING_GPGKEY_SECRET" in CONFIG and not CONFIG["TESTING_GPGKEY_SECRET"].startswith(
-    "----"
-):
-    CONFIG["TESTING_GPGKEY_SECRET"] = base64.b64decode(CONFIG["TESTING_GPGKEY_SECRET"])
-    TESTING_GPGKEY_SECRET = CONFIG["TESTING_GPGKEY_SECRET"]
-
-if not globals()["SAAS_MODE"] and not globals()["SUBSCRIPTION_TOKEN"]:
-    print("SUBSCRIPTION_TOKEN is missing. Mergify can't start.")
-    sys.exit(1)
+CONFIG = load()
+globals().update(CONFIG)

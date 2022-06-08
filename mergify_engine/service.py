@@ -1,5 +1,7 @@
 # -*- encoding: utf-8 -*-
 #
+# Copyright © 2020–2022 Mergify SAS
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -22,16 +24,19 @@ from mergify_engine import config
 from mergify_engine import logs
 
 
-def setup(service_name: str, dump_config: bool = True) -> None:
-    service_name = "engine-" + service_name
+SERVICE_NAME: str = "engine-<unknown>"
+VERSION: str = os.environ.get("MERGIFYENGINE_SHA", "unknown")
 
-    _version = os.environ.get("HEROKU_RELEASE_VERSION")
+
+def setup(service_name: str, dump_config: bool = True) -> None:
+    global SERVICE_NAME
+    SERVICE_NAME = "engine-" + service_name
 
     if config.SENTRY_URL:  # pragma: no cover
         sentry_sdk.init(
             config.SENTRY_URL,
             max_breadcrumbs=10,
-            release=_version,
+            release=VERSION,
             environment=config.SENTRY_ENVIRONMENT,
             integrations=[
                 httpx.HttpxIntegration(),
@@ -39,9 +44,9 @@ def setup(service_name: str, dump_config: bool = True) -> None:
         )
         sentry_sdk.utils.MAX_STRING_LENGTH = 2048
 
-    ddtrace.config.version = _version
-    statsd.constant_tags.append(f"service:{service_name}")
-    ddtrace.config.service = service_name
+    ddtrace.config.version = VERSION
+    statsd.constant_tags.append(f"service:{SERVICE_NAME}")
+    ddtrace.config.service = SERVICE_NAME
 
     ddtrace.config.httpx["split_by_domain"] = True
 

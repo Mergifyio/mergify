@@ -37,7 +37,7 @@ from mergify_engine.queue import merge_train
 from mergify_engine.tests.unit import conftest
 
 
-async def fake_train_car_create_pull(
+async def fake_train_car_start_checking_with_draft(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
     inner_self.creation_state = "created"
@@ -46,14 +46,18 @@ async def fake_train_car_create_pull(
     )
 
 
-async def fake_train_car_update_user_pull(
+async def fake_train_car_start_checking_inplace(
     inner_self: merge_train.TrainCar, queue_rule: rules.QueueRule
 ) -> None:
     inner_self.creation_state = "updated"
 
 
 async def fake_train_car_delete_pull(
-    inner_self: merge_train.TrainCar, reason: str
+    inner_self: merge_train.TrainCar,
+    reason: str,
+    not_reembarked_pull_request: typing.Optional[
+        github_types.GitHubPullRequestNumber
+    ] = None,
 ) -> None:
     pass
 
@@ -66,14 +70,15 @@ def autoload_redis(redis_cache: redis_utils.RedisCache) -> None:
 
 @pytest.fixture(autouse=True)
 def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
+
     monkeypatch.setattr(
-        "mergify_engine.queue.merge_train.TrainCar.update_user_pull",
-        fake_train_car_update_user_pull,
+        "mergify_engine.queue.merge_train.TrainCar.start_checking_inplace",
+        fake_train_car_start_checking_inplace,
     )
 
     monkeypatch.setattr(
-        "mergify_engine.queue.merge_train.TrainCar.create_pull",
-        fake_train_car_create_pull,
+        "mergify_engine.queue.merge_train.TrainCar.start_checking_with_draft",
+        fake_train_car_start_checking_with_draft,
     )
     monkeypatch.setattr(
         "mergify_engine.queue.merge_train.TrainCar.delete_pull",
@@ -83,84 +88,99 @@ def monkepatched_traincar(monkeypatch: pytest.MonkeyPatch) -> None:
 
 MERGIFY_CONFIG = """
 queue_rules:
+  - name: inplace
+    conditions: []
+    speculative_checks: 5
+
   - name: high-1x1
     conditions: []
     speculative_checks: 1
-    allow_inplace_checks: True
 
   - name: high-1x2
     conditions: []
     speculative_checks: 1
-    allow_inplace_checks: True
+    allow_inplace_checks: False
     batch_size: 2
     batch_max_wait_time: 0 s
 
   - name: 1x5
     conditions: []
     speculative_checks: 1
-    allow_inplace_checks: True
+    allow_inplace_checks: False
     batch_size: 5
     batch_max_wait_time: 0 s
 
   - name: 2x1
     conditions: []
     speculative_checks: 2
+    allow_inplace_checks: False
   - name: 2x5
     conditions: []
     speculative_checks: 2
+    allow_inplace_checks: False
     batch_size: 5
     batch_max_wait_time: 0 s
 
   - name: 5x1
     conditions: []
     speculative_checks: 5
+    allow_inplace_checks: False
   - name: 5x3
     conditions: []
     speculative_checks: 5
+    allow_inplace_checks: False
     batch_size: 3
     batch_max_wait_time: 0 s
 
   - name: batch-wait-time
     conditions: []
     speculative_checks: 2
+    allow_inplace_checks: False
     batch_size: 2
     batch_max_wait_time: 5 m
 
   - name: high-2x5-noint
     conditions: []
     speculative_checks: 2
+    allow_inplace_checks: False
     batch_size: 5
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
   - name: low-2x5-noint
     conditions: []
     speculative_checks: 2
+    allow_inplace_checks: False
     batch_size: 5
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
+    allow_inplace_checks: False
   - name: low-1x5-noint
     conditions: []
     speculative_checks: 1
     batch_size: 5
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
+    allow_inplace_checks: False
 
   - name: urgent-1x4
     conditions: []
     speculative_checks: 1
     batch_size: 4
     batch_max_wait_time: 0 s
+    allow_inplace_checks: False
   - name: fastlane-1x8-noint
     conditions: []
     speculative_checks: 1
     batch_size: 8
     batch_max_wait_time: 0 s
     allow_checks_interruption: False
+    allow_inplace_checks: False
   - name: regular-1x8-noint-from-fastlane-and-regular
     conditions: []
     speculative_checks: 1
     batch_size: 4
     batch_max_wait_time: 0 s
+    allow_inplace_checks: False
     disallow_checks_interruption_from_queues:
       - regular-1x8-noint-from-fastlane-and-regular
       - fastlane-1x8-noint
@@ -247,6 +267,42 @@ def get_config(queue_name: str, priority: int = 100) -> queue.PullQueueConfig:
         update_bot_account=None,
         queue_config=QUEUE_RULES[queue_name].config,
     )
+
+
+async def test_train_inplace_with_speculative_checks_out_of_date(
+    context_getter: conftest.ContextGetterFixture,
+    repository: context.Repository,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
+    await t.load()
+
+    config = get_config("inplace")
+
+    await t.add_pull(await context_getter(12345), config)
+    await t.add_pull(await context_getter(54321), config)
+    with mock.patch.object(merge_train.TrainCar, "is_behind", side_effect=[True]):
+        await t.refresh()
+    assert [[12345], [12345, 54321]] == get_cars_content(t)
+    assert t._cars[0].creation_state == "created"
+    assert t._cars[1].creation_state == "created"
+
+
+async def test_train_inplace_with_speculative_checks_up_to_date(
+    context_getter: conftest.ContextGetterFixture,
+    repository: context.Repository,
+) -> None:
+    t = merge_train.Train(repository, github_types.GitHubRefType("main"))
+    await t.load()
+
+    config = get_config("inplace")
+
+    await t.add_pull(await context_getter(12345), config)
+    await t.add_pull(await context_getter(54321), config)
+    with mock.patch.object(merge_train.TrainCar, "is_behind", side_effect=[False]):
+        await t.refresh()
+    assert [[12345], [12345, 54321]] == get_cars_content(t)
+    assert t._cars[0].creation_state == "updated"
+    assert t._cars[1].creation_state == "created"
 
 
 async def test_train_add_pull(
@@ -768,7 +824,7 @@ async def test_train_queue_splitted_on_failure_1x2(
     assert list(range(6, 20)) == get_waiting_content(t)
     assert len(t._cars[0].failure_history) == 1
     assert len(t._cars[1].failure_history) == 0
-    assert t._cars[0].creation_state == "updated"
+    assert t._cars[0].creation_state == "created"
     assert t._cars[1].creation_state == "created"
 
     # mark [41] as failed
@@ -781,7 +837,7 @@ async def test_train_queue_splitted_on_failure_1x2(
     assert [[42, 6]] == get_cars_content(t)
     assert list(range(7, 20)) == get_waiting_content(t)
     assert len(t._cars[0].failure_history) == 0
-    assert t._cars[0].creation_state == "created"  # type: ignore[comparison-overlap]
+    assert t._cars[0].creation_state == "created"
 
 
 @mock.patch("mergify_engine.queue.merge_train.TrainCar._set_creation_failure")

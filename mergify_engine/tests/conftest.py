@@ -64,34 +64,27 @@ def enable_api() -> None:
 
 @pytest.fixture()
 async def redis_links() -> typing.AsyncGenerator[redis_utils.RedisLinks, None]:
-    links = redis_utils.RedisLinks()
-    await links.cache.flushdb()
-    await links.stream.flushdb()
-    await links.queue.flushdb()
+    links = redis_utils.RedisLinks(name="global-fixture")
+    await links.flushall()
     await redis_utils.load_scripts(links.cache)
     try:
         yield links
     finally:
-        await links.cache.flushdb()
-        await links.stream.flushdb()
-        await links.queue.flushdb()
-        links.cache.connection_pool.disconnect()
-        links.queue.connection_pool.disconnect()
-        links.stream.connection_pool.disconnect()
-        await redis_utils.stop_pending_yaaredis_tasks()
+        await links.flushall()
+        await links.shutdown_all()
 
 
 @pytest.fixture()
 async def redis_cache(
     redis_links: redis_utils.RedisLinks,
-) -> typing.AsyncGenerator[redis_utils.RedisCache, None]:
+) -> redis_utils.RedisCache:
     return redis_links.cache
 
 
 @pytest.fixture()
 async def redis_stream(
     redis_links: redis_utils.RedisLinks,
-) -> typing.AsyncGenerator[redis_utils.RedisStream, None]:
+) -> redis_utils.RedisStream:
     return redis_links.stream
 
 

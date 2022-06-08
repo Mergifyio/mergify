@@ -22,6 +22,78 @@ from mergify_engine.tests.functional import base
 class TestQueueApi(base.FunctionalTestBase):
     SUBSCRIPTION_ACTIVE = True
 
+    async def test_invalid_rules_in_config(self) -> None:
+        invalid_rules = {
+            "queue_rules": [
+                {
+                    "name": "urgent",
+                    "conditions": [
+                        "status-success=continuous-integration/fast-ci",
+                    ],
+                    "batch_max_wait_time": "15 s",
+                    "speculative_checks": 1,
+                    "false_condition": 3,
+                },
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/slow-ci",
+                    ],
+                    "false_condition": 2,
+                    "batch_size": 2,
+                    "batch_max_wait_time": "0 s",
+                },
+                {
+                    "name": "low-priority",
+                    "conditions": [
+                        "status-success=continuous-integration/slow-ci",
+                    ],
+                    "allow_inplace_checks": False,
+                    "checks_timeout": "10 m",
+                    "false_condition": "mergify-test4",
+                },
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue-urgent",
+                    ],
+                    "actions": {"false_action": {"name": "urgent"}},
+                },
+                {
+                    "name": "Merge default",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"false_action": {"name": "default"}},
+                },
+                {
+                    "name": "Merge low",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue-low",
+                    ],
+                    "actions": {"false_action": {"name": "low-priority"}},
+                },
+            ],
+        }
+
+        await self.setup_repo(yaml.dump(invalid_rules))
+
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/queues/configuration",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+
+        assert r.status_code == 422
+        assert r.json() == {"detail": "The configuration file is invalid."}
+
     async def test_get_queues_config_list(self) -> None:
         rules = {
             "queue_rules": [
@@ -108,7 +180,7 @@ class TestQueueApi(base.FunctionalTestBase):
                 {
                     "name": "urgent",
                     "config": {
-                        "allow_inplace_checks": False,
+                        "allow_inplace_checks": True,
                         "disallow_checks_interruption_from_queues": [],
                         "batch_size": 3,
                         "batch_max_wait_time": 15.0,
@@ -121,7 +193,7 @@ class TestQueueApi(base.FunctionalTestBase):
                 {
                     "name": "default",
                     "config": {
-                        "allow_inplace_checks": False,
+                        "allow_inplace_checks": True,
                         "disallow_checks_interruption_from_queues": [],
                         "batch_size": 2,
                         "batch_max_wait_time": 0.0,

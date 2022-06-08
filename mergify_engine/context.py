@@ -36,6 +36,7 @@ import jinja2.runtime
 import jinja2.sandbox
 import jinja2.utils
 import markdownify
+import msgpack
 
 from mergify_engine import cache
 from mergify_engine import check_api
@@ -65,6 +66,20 @@ MARKDOWN_COMMENT_RE = re.compile("(<!--.*?-->)", flags=re.DOTALL | re.IGNORECASE
 
 class MergifyConfigFile(github_types.GitHubContentFile):
     decoded_content: str
+
+
+def content_file_to_config_file(
+    content: github_types.GitHubContentFile,
+) -> MergifyConfigFile:
+    return MergifyConfigFile(
+        type=content["type"],
+        content=content["content"],
+        path=content["path"],
+        sha=content["sha"],
+        decoded_content=base64.b64decode(
+            bytearray(content["content"], "utf-8")
+        ).decode(),
+    )
 
 
 DEFAULT_CONFIG_FILE = MergifyConfigFile(
@@ -224,7 +239,7 @@ class Installation:
     @classmethod
     async def clear_team_members_cache_for_team(
         cls,
-        redis: redis_utils.RedisCache,
+        redis: redis_utils.RedisTeamMembersCache,
         owner: github_types.GitHubAccount,
         team_slug: github_types.GitHubTeamSlug,
     ) -> None:
@@ -235,7 +250,7 @@ class Installation:
 
     @classmethod
     async def clear_team_members_cache_for_org(
-        cls, redis: redis_utils.RedisCache, user: github_types.GitHubAccount
+        cls, redis: redis_utils.RedisTeamMembersCache, user: github_types.GitHubAccount
     ) -> None:
         await redis.delete(cls._team_members_cache_key_for_repo(user["id"]))
 
@@ -245,7 +260,7 @@ class Installation:
         members = self._caches.team_members.get(team_slug)
         if members is cache.Unset:
             key = self._team_members_cache_key_for_repo(self.owner_id)
-            members_raw = await self.redis.cache.hget(key, team_slug)
+            members_raw = await self.redis.team_members_cache.hget(key, team_slug)
             if members_raw is None:
                 members = [
                     github_types.GitHubLogin(member["login"])
@@ -255,15 +270,13 @@ class Installation:
                         page_limit=20,
                     )
                 ]
-                # TODO(sileht): move to msgpack when we remove redis-cache connection
-                # from decode_responses=True (eg: MRGFY-285)
-                pipe = await self.redis.cache.pipeline()
-                await pipe.hset(key, team_slug, json.dumps(members))
+                pipe = await self.redis.team_members_cache.pipeline()
+                await pipe.hset(key, team_slug, msgpack.packb(members))
                 await pipe.expire(key, self.TEAM_MEMBERS_EXPIRATION)
                 await pipe.execute()
             else:
                 members = typing.cast(
-                    typing.List[github_types.GitHubLogin], json.loads(members_raw)
+                    typing.List[github_types.GitHubLogin], msgpack.unpackb(members_raw)
                 )
             self._caches.team_members.set(team_slug, members)
         return members
@@ -371,15 +384,7 @@ class Repository(object):
                     continue
                 raise
 
-            yield MergifyConfigFile(
-                type=content["type"],
-                content=content["content"],
-                path=content["path"],
-                sha=content["sha"],
-                decoded_content=base64.b64decode(
-                    bytearray(content["content"], "utf-8")
-                ).decode(),
-            )
+            yield content_file_to_config_file(content)
 
     @tracer.wrap("get_mergify_config", span_type="worker")
     async def get_mergify_config(self) -> "rules.MergifyConfig":
@@ -425,30 +430,20 @@ class Repository(object):
             return cached_config_file
 
         config_file_cache_key = self.get_config_file_cache_key(self.repo["id"])
-        config_location_cache_key = self.get_config_location_cache_key(self.repo["id"])
-        cached_filename = await self.installation.redis.cache.get(
-            config_location_cache_key
-        )
         pipeline = await self.installation.redis.cache.pipeline()
 
-        async for config_file in self.iter_mergify_config_files(
-            preferred_filename=cached_filename
-        ):
-
-            if cached_filename != config_file["path"]:
-                await pipeline.set(
-                    config_location_cache_key, config_file["path"], ex=60 * 60 * 24 * 31
-                )
-
+        async for config_file in self.iter_mergify_config_files():
             await pipeline.set(
                 config_file_cache_key,
                 json.dumps(
-                    {
-                        "type": config_file["type"],
-                        "content": config_file["content"],
-                        "path": config_file["path"],
-                        "sha": config_file["sha"],
-                    }
+                    github_types.GitHubContentFile(
+                        {
+                            "type": config_file["type"],
+                            "content": config_file["content"],
+                            "path": config_file["path"],
+                            "sha": config_file["sha"],
+                        }
+                    )
                 ),
                 ex=60 * 60 * 24 * 31,
             )
@@ -463,22 +458,17 @@ class Repository(object):
         self,
         repo_id: github_types.GitHubRepositoryIdType,
     ) -> typing.Optional[MergifyConfigFile]:
-        config_file = await self.installation.redis.cache.get(
+        config_file_raw = await self.installation.redis.cache.get(
             self.get_config_file_cache_key(repo_id),
         )
 
-        if config_file is not None:
-            jsonified_config_file = json.loads(config_file)
-            return MergifyConfigFile(
-                type=jsonified_config_file["type"],
-                content=jsonified_config_file["content"],
-                path=jsonified_config_file["path"],
-                sha=jsonified_config_file["sha"],
-                decoded_content=base64.b64decode(
-                    bytearray(jsonified_config_file["content"], "utf-8")
-                ).decode(),
-            )
-        return None
+        if config_file_raw is None:
+            return None
+
+        content = typing.cast(
+            github_types.GitHubContentFile, json.loads(config_file_raw)
+        )
+        return content_file_to_config_file(content)
 
     async def get_commits(
         self,
@@ -552,19 +542,6 @@ class Repository(object):
 
         return self.pull_contexts[pull_number]
 
-    CONFIG_LOCATION_CACHE_KEY_PREFIX = "config_location"
-    CONFIG_LOCATION_CACHE_KEY_DELIMITER = "/"
-
-    @classmethod
-    def get_config_location_cache_key(
-        cls,
-        repo_id: github_types.GitHubRepositoryIdType,
-    ) -> str:
-        return (
-            f"{cls.CONFIG_LOCATION_CACHE_KEY_PREFIX}"
-            f"{cls.CONFIG_LOCATION_CACHE_KEY_DELIMITER}{repo_id}"
-        )
-
     CONFIG_FILE_CACHE_KEY_PREFIX = "config_file"
     CONFIG_FILE_CACHE_KEY_DELIMITER = "/"
 
@@ -613,20 +590,20 @@ class Repository(object):
     @classmethod
     async def clear_user_permission_cache_for_user(
         cls,
-        redis: redis_utils.RedisCache,
+        redis: redis_utils.RedisUserPermissionsCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
         user: github_types.GitHubAccount,
     ) -> None:
         await redis.hdel(
             cls._users_permission_cache_key_for_repo(owner["id"], repo["id"]),
-            user["id"],
+            str(user["id"]),
         )
 
     @classmethod
     async def clear_user_permission_cache_for_repo(
         cls,
-        redis: redis_utils.RedisCache,
+        redis: redis_utils.RedisUserPermissionsCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
@@ -636,7 +613,9 @@ class Repository(object):
 
     @classmethod
     async def clear_user_permission_cache_for_org(
-        cls, redis: redis_utils.RedisCache, user: github_types.GitHubAccount
+        cls,
+        redis: redis_utils.RedisUserPermissionsCache,
+        user: github_types.GitHubAccount,
     ) -> None:
         pipeline = await redis.pipeline()
         async for key in redis.scan_iter(
@@ -653,23 +632,27 @@ class Repository(object):
         permission = self._caches.user_permissions.get(user["id"])
         if permission is cache.Unset:
             key = self._users_permission_cache_key
-            cached_permission = typing.cast(
-                typing.Optional[github_types.GitHubRepositoryPermission],
-                await self.installation.redis.cache.hget(key, user["id"]),
+            cached_permission_raw = (
+                await self.installation.redis.user_permissions_cache.hget(
+                    key, str(user["id"])
+                )
             )
-            if cached_permission is None:
+            if cached_permission_raw is None:
                 permission = typing.cast(
                     github_types.GitHubRepositoryCollaboratorPermission,
                     await self.installation.client.item(
                         f"{self.base_url}/collaborators/{user['login']}/permission"
                     ),
                 )["permission"]
-                pipe = await self.installation.redis.cache.pipeline()
+                pipe = await self.installation.redis.user_permissions_cache.pipeline()
                 await pipe.hset(key, user["id"], permission)
                 await pipe.expire(key, self.USERS_PERMISSION_EXPIRATION)
                 await pipe.execute()
             else:
-                permission = cached_permission
+                permission = typing.cast(
+                    github_types.GitHubRepositoryPermission,
+                    cached_permission_raw.decode(),
+                )
             self._caches.user_permissions.set(user["id"], permission)
         return permission
 
@@ -702,7 +685,7 @@ class Repository(object):
     @classmethod
     async def clear_team_permission_cache_for_team(
         cls,
-        redis: redis_utils.RedisCache,
+        redis: redis_utils.RedisTeamPermissionsCache,
         owner: github_types.GitHubAccount,
         team: github_types.GitHubTeamSlug,
     ) -> None:
@@ -717,7 +700,7 @@ class Repository(object):
     @classmethod
     async def clear_team_permission_cache_for_repo(
         cls,
-        redis: redis_utils.RedisCache,
+        redis: redis_utils.RedisTeamPermissionsCache,
         owner: github_types.GitHubAccount,
         repo: github_types.GitHubRepository,
     ) -> None:
@@ -727,7 +710,9 @@ class Repository(object):
 
     @classmethod
     async def clear_team_permission_cache_for_org(
-        cls, redis: redis_utils.RedisCache, org: github_types.GitHubAccount
+        cls,
+        redis: redis_utils.RedisTeamPermissionsCache,
+        org: github_types.GitHubAccount,
     ) -> None:
         pipeline = await redis.pipeline()
         async for key in redis.scan_iter(
@@ -741,7 +726,9 @@ class Repository(object):
         read_permission = self._caches.team_has_read_permission.get(team)
         if read_permission is cache.Unset:
             key = self._teams_permission_cache_key
-            read_permission_raw = await self.installation.redis.cache.hget(key, team)
+            read_permission_raw = (
+                await self.installation.redis.team_permissions_cache.hget(key, team)
+            )
             if read_permission_raw is None:
                 try:
                     # note(sileht) read permissions are not part of the permissions
@@ -753,7 +740,7 @@ class Repository(object):
                     read_permission = True
                 except http.HTTPNotFound:
                     read_permission = False
-                pipe = await self.installation.redis.cache.pipeline()
+                pipe = await self.installation.redis.team_permissions_cache.pipeline()
                 await pipe.hset(key, team, str(int(read_permission)))
                 await pipe.expire(key, self.TEAMS_PERMISSION_EXPIRATION)
                 await pipe.execute()
@@ -1070,6 +1057,7 @@ class Context(object):
             gh_pull_head_sha=self.pull["head"]["sha"]
             if "head" in self.pull
             else "<unknown-yet>",
+            gh_pull_merge_commit_sha=self.pull["merge_commit_sha"],
             gh_pull_url=self.pull.get("html_url", "<unknown-yet>"),
             gh_pull_state=(
                 "merged"

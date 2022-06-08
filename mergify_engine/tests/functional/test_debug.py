@@ -125,10 +125,10 @@ pull_request_rules:
  '#files': 1,
  'approved-reviews-by': [],
  'assignee': [],
- 'author': 'mergify-test2',
+ 'author': 'mergify-test[bot]',
  'base': '{self.main_branch_name}',
- 'body': 'test_debugger: pull request n1 from fork',
- 'body-raw': 'test_debugger: pull request n1 from fork',
+ 'body': 'test_debugger: pull request n1 from integration',
+ 'body-raw': 'test_debugger: pull request n1 from integration',
  'changes-requested-reviews-by': [],
  'check-failure': [],
  'check-neutral': [],
@@ -139,8 +139,8 @@ pull_request_rules:
  'check-success-or-neutral': ['Summary'],
  'closed': False,
  'commented-reviews-by': [],
- 'commits': ['test_debugger: pull request n1 from fork'],
- 'commits-unverified': ['test_debugger: pull request n1 from fork'],
+ 'commits': ['test_debugger: pull request n1 from integration'],
+ 'commits-unverified': ['test_debugger: pull request n1 from integration'],
  'conflict': False,
  'dismissed-reviews-by': [],
  'files': ['test1'],
@@ -161,7 +161,7 @@ pull_request_rules:
  'status-failure': [],
  'status-neutral': [],
  'status-success': ['Summary'],
- 'title': 'test_debugger: pull request n1 from fork'}}
+ 'title': 'test_debugger: pull request n1 from integration'}}
 is_behind: False
 mergeable_state: clean
 * MERGIFY LAST CHECKS:

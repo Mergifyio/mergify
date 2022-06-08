@@ -49,10 +49,7 @@ async def get(
     redis: "redis_utils.RedisCache",
     owner_id: github_types.GitHubAccountIdType,
 ) -> typing.Optional[datetime.datetime]:
-    raw = typing.cast(
-        typing.Optional[str],
-        await redis.get(get_last_seen_key(owner_id)),
-    )
+    raw = await redis.get(get_last_seen_key(owner_id))
     if raw is None:
         return None
     else:

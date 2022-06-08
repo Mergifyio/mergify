@@ -42,7 +42,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
 
         await self.wait_for("pull_request", {"action": "closed"})
 
-        await self.create_comment(p2["number"], "@mergifyio update")
+        await self.create_comment_as_admin(p2["number"], "@mergifyio update")
         await self.run_engine()
 
         oldsha = p2["head"]["sha"]
@@ -66,7 +66,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         await self.merge_pull(p1["number"])
         await self.wait_for("pull_request", {"action": "closed"})
 
-        await self.create_comment(p2["number"], "@mergifyio rebase")
+        await self.create_comment_as_admin(p2["number"], "@mergifyio rebase")
         await self.run_engine()
 
         await self.wait_for("pull_request", {"action": "synchronize"})
@@ -77,7 +77,7 @@ class TestBranchUpdatePublic(base.FunctionalTestBase):
         assert oldsha != p2["head"]["sha"]
         f = typing.cast(
             github_types.GitHubContentFile,
-            await self.client_admin.item(f"{self.url_origin}/contents/TESTING"),
+            await self.client_integration.item(f"{self.url_origin}/contents/TESTING"),
         )
         data = base64.b64decode(bytearray(f["content"], "utf-8"))
         assert data == b"p2\n\nfoobar\n\n\np1"

@@ -13,33 +13,40 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import asyncio
 import dataclasses
 import functools
 import hashlib
-import ssl
 import typing
 import uuid
 
 import daiquiri
-import yaaredis
+import ddtrace
+import redis.asyncio as redispy
 
 from mergify_engine import config
+from mergify_engine import service
 
 
 LOG = daiquiri.getLogger(__name__)
 
 
-# NOTE(sileht): I wonder why mypy thinks `yaaredis.StrictRedis` is `typing.Any`...
-RedisCache = typing.NewType("RedisCache", yaaredis.StrictRedis)  # type: ignore
-RedisStream = typing.NewType("RedisStream", yaaredis.StrictRedis)  # type: ignore
-RedisQueue = typing.NewType("RedisQueue", yaaredis.StrictRedis)  # type: ignore
+RedisCache = typing.NewType("RedisCache", "redispy.Redis[str]")
+RedisStream = typing.NewType("RedisStream", "redispy.Redis[bytes]")
+RedisQueue = typing.NewType("RedisQueue", "redispy.Redis[bytes]")
+RedisUserPermissionsCache = typing.NewType(
+    "RedisUserPermissionsCache", "redispy.Redis[bytes]"
+)
+RedisTeamPermissionsCache = typing.NewType(
+    "RedisTeamPermissionsCache", "redispy.Redis[bytes]"
+)
+RedisTeamMembersCache = typing.NewType("RedisTeamMembersCache", "redispy.Redis[bytes]")
 
 ScriptIdT = typing.NewType("ScriptIdT", uuid.UUID)
 
 SCRIPTS: typing.Dict[ScriptIdT, typing.Tuple[str, str]] = {}
 
 
+# TODO(sileht): Redis script management can be moved back to Redis.register_script() mechanism
 def register_script(script: str) -> ScriptIdT:
     global SCRIPTS
     # NOTE(sileht): We don't use sha, in case of something server side change the script sha
@@ -54,10 +61,16 @@ def register_script(script: str) -> ScriptIdT:
     return script_id
 
 
-async def load_script(redis: RedisStream, script_id: ScriptIdT) -> None:
+# FIXME(sileht): We store Cache and Stream script into the same global object
+# it works but if a script is loaded into two redis, this won't works as expected
+# as the app will think it's already loaded while it's not...
+async def load_script(
+    redis: typing.Union[RedisCache, RedisStream], script_id: ScriptIdT
+) -> None:
     global SCRIPTS
     sha, script = SCRIPTS[script_id]
-    newsha = await redis.script_load(script)
+    # FIXME(sileht): weird, this method is typed on redis-py
+    newsha = await redis.script_load(script)  # type: ignore[no-untyped-call]
     if newsha != sha:
         LOG.error(
             "wrong redis script sha cached",
@@ -68,22 +81,24 @@ async def load_script(redis: RedisStream, script_id: ScriptIdT) -> None:
         SCRIPTS[script_id] = (newsha, script)
 
 
-async def load_scripts(redis: RedisStream) -> None:
+async def load_scripts(redis: typing.Union[RedisCache, RedisStream]) -> None:
     # TODO(sileht): cleanup unused script, this is tricky, because during
     # deployment we have running in parallel due to the rolling upgrade:
     # * an old version of the asgi server
     # * a new version of the asgi server
     # * a new version of the backend
     global SCRIPTS
-    ids = list(SCRIPTS.keys())
-    exists = await redis.script_exists(*ids)
+    scripts = list(SCRIPTS.items())  # order matter for zip bellow
+    shas = [sha for _, (sha, _) in scripts]
+    ids = [_id for _id, _ in scripts]
+    exists = await redis.script_exists(*shas)  # type: ignore[no-untyped-call]
     for script_id, exist in zip(ids, exists):
         if not exist:
             await load_script(redis, script_id)
 
 
 async def run_script(
-    redis: RedisStream,
+    redis: typing.Union[RedisCache, RedisStream],
     script_id: ScriptIdT,
     keys: typing.Tuple[str, ...],
     args: typing.Optional[typing.Tuple[typing.Union[str], ...]] = None,
@@ -94,28 +109,12 @@ async def run_script(
         args = keys
     else:
         args = keys + args
-    return await redis.evalsha(sha, len(keys), *args)
-
-
-async def stop_pending_yaaredis_tasks() -> None:
-    tasks = [
-        task
-        for task in asyncio.all_tasks()
-        if (
-            getattr(task.get_coro(), "__qualname__", None)
-            == "ConnectionPool.disconnect_on_idle_time_exceeded"
-        )
-    ]
-
-    if tasks:
-        for task in tasks:
-            task.cancel()
-        await asyncio.wait(tasks)
+    return await redis.evalsha(sha, len(keys), *args)  # type: ignore[no-untyped-call]
 
 
 @dataclasses.dataclass
 class RedisLinks:
-    max_idle_time: int = 60
+    name: str
     cache_max_connections: typing.Optional[int] = None
     stream_max_connections: typing.Optional[int] = None
     queue_max_connections: typing.Optional[int] = None
@@ -123,8 +122,9 @@ class RedisLinks:
     @functools.cached_property
     def queue(self) -> RedisQueue:
         client = self.redis_from_url(
+            "queue",
             config.QUEUE_URL,
-            max_idle_time=self.max_idle_time,
+            decode_responses=False,
             max_connections=self.queue_max_connections,
         )
         return RedisQueue(client)
@@ -132,41 +132,112 @@ class RedisLinks:
     @functools.cached_property
     def stream(self) -> RedisStream:
         client = self.redis_from_url(
+            "stream",
             config.STREAM_URL,
-            max_idle_time=self.max_idle_time,
+            decode_responses=False,
             max_connections=self.stream_max_connections,
         )
         return RedisStream(client)
 
     @functools.cached_property
+    def team_members_cache(self) -> RedisTeamMembersCache:
+        client = self.redis_from_url(
+            "team_members_cache",
+            config.TEAM_MEMBERS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisTeamMembersCache(client)
+
+    @functools.cached_property
+    def team_permissions_cache(self) -> RedisTeamPermissionsCache:
+        client = self.redis_from_url(
+            "team_permissions_cache",
+            config.TEAM_PERMISSIONS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisTeamPermissionsCache(client)
+
+    @functools.cached_property
+    def user_permissions_cache(self) -> RedisUserPermissionsCache:
+        client = self.redis_from_url(
+            "user_permissions_cache",
+            config.USER_PERMISSIONS_CACHE_URL,
+            decode_responses=False,
+            max_connections=self.cache_max_connections,
+        )
+        return RedisUserPermissionsCache(client)
+
+    @functools.cached_property
     def cache(self) -> RedisCache:
         client = self.redis_from_url(
-            config.STORAGE_URL,
+            "cache",
+            config.LEGACY_CACHE_URL,
             decode_responses=True,
-            max_idle_time=self.max_idle_time,
             max_connections=self.cache_max_connections,
         )
         return RedisCache(client)
 
-    @staticmethod
-    def redis_from_url(url: str, **options: typing.Any) -> yaaredis.StrictRedis:
-        ssl_scheme = "rediss://"
-        if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith(ssl_scheme):
-            final_url = f"redis://{url[len(ssl_scheme):]}"
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = (
-                ssl.CERT_NONE  # nosemgrep contrib.dlint.dlint-equivalent.insecure-ssl-use
-            )
-            options["ssl_context"] = ctx
-        else:
-            final_url = url
-        return yaaredis.StrictRedis.from_url(final_url, **options)
+    @typing.overload
+    def redis_from_url(
+        self,  # FIXME(sileht): mypy is lost if the method is static...
+        name: str,
+        url: str,
+        decode_responses: typing.Literal[True],
+        max_connections: typing.Optional[int] = None,
+    ) -> "redispy.Redis[str]":
+        ...
 
-    def shutdown_all(self) -> None:
-        self.cache.connection_pool.max_idle_time = 0
-        self.cache.connection_pool.disconnect()
-        self.stream.connection_pool.max_idle_time = 0
-        self.stream.connection_pool.disconnect()
-        self.queue.connection_pool.max_idle_time = 0
-        self.queue.connection_pool.disconnect()
+    @typing.overload
+    def redis_from_url(
+        self,  # FIXME(sileht): mypy is lost if the method is static...
+        name: str,
+        url: str,
+        decode_responses: typing.Literal[False],
+        max_connections: typing.Optional[int] = None,
+    ) -> "redispy.Redis[bytes]":
+        ...
+
+    def redis_from_url(
+        self,  # FIXME(sileht): mypy is lost if the method is static...
+        name: str,
+        url: str,
+        decode_responses: bool,
+        max_connections: typing.Optional[int] = None,
+    ) -> typing.Union["redispy.Redis[bytes]", "redispy.Redis[str]"]:
+
+        options: typing.Dict[str, typing.Any] = {}
+        if config.REDIS_SSL_VERIFY_MODE_CERT_NONE and url.startswith("rediss://"):
+            options["ssl_check_hostname"] = False
+            options["ssl_cert_reqs"] = None
+
+        client = redispy.Redis.from_url(
+            url,
+            max_connections=max_connections,
+            decode_responses=decode_responses,
+            client_name=f"{service.SERVICE_NAME}/{self.name}/{name}",
+            **options,
+        )
+        ddtrace.Pin.override(client, service=f"engine-redis-{name}")
+        return client
+
+    async def shutdown_all(self) -> None:
+        for db in (
+            "cache",
+            "stream",
+            "queue",
+            "team_members_cache",
+            "team_permissions_cache",
+            "user_permissions_cache",
+        ):
+            if db in self.__dict__:
+                await self.__dict__[db].close(close_connection_pool=True)
+
+    async def flushall(self) -> None:
+        await self.cache.flushdb()
+        await self.stream.flushdb()
+        await self.queue.flushdb()
+        await self.team_members_cache.flushdb()
+        await self.team_permissions_cache.flushdb()
+        await self.user_permissions_cache.flushdb()

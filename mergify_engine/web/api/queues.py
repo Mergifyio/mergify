@@ -29,6 +29,7 @@ from mergify_engine import rules
 from mergify_engine.dashboard import application as application_mod
 from mergify_engine.queue import freeze
 from mergify_engine.queue import merge_train
+from mergify_engine.rules import InvalidRules
 from mergify_engine.rules import get_mergify_config
 from mergify_engine.web import api
 from mergify_engine.web.api import security
@@ -148,7 +149,9 @@ class Queues:
 # FIXME(sileht): reuse dataclasses variante once
 # https://github.com/tiangolo/fastapi/issues/4679 is fixed
 class QueueFreezePayload(pydantic.BaseModel):
-    reason: str = pydantic.Field(description="The reason of the queue freeze")
+    reason: str = pydantic.Field(
+        max_length=255, description="The reason of the queue freeze"
+    )
 
 
 @pydantic.dataclasses.dataclass
@@ -330,6 +333,7 @@ async def repository_queues(
     response_model=QueuesConfig,
     responses={
         **api.default_responses,  # type: ignore
+        422: {"description": "The configuration file is invalid."},
     },
 )
 async def repository_queues_configuration(
@@ -342,7 +346,13 @@ async def repository_queues_configuration(
     if config_file is None:
         return QueuesConfig()
 
-    config = get_mergify_config(config_file)
+    try:
+        config = get_mergify_config(config_file)
+    except InvalidRules:
+        raise fastapi.HTTPException(
+            status_code=422,
+            detail="The configuration file is invalid.",
+        )
 
     return QueuesConfig(
         [

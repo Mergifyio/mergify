@@ -65,6 +65,7 @@ pull_request_rules:
       - "check-success=Rule: feature requirements (post_check)"
       - "#approved-reviews-by>=1"
       - "#changes-requested-reviews-by=0"
+      - "#review-threads-unresolved=0"
       - "#commits=1"
       - label!=work-in-progress
       - label!=manual merge

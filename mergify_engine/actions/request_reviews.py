@@ -216,7 +216,7 @@ class RequestReviewsAction(actions.Action):
 
         if team_errors:
             return check_api.Result(
-                check_api.Conclusion.FAILURE,
+                check_api.Conclusion.ACTION_REQUIRED,
                 "Invalid requested teams",
                 "\n".join(team_errors),
             )

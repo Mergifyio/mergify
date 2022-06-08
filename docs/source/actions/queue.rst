@@ -187,7 +187,8 @@ disembarked and re-embarked.
    With speculative checks, pull requests are tested against the base branch
    within another temporary pull request. This requires the branch protection
    settings ``Require branches to be up to date before merging`` to be
-   disabled. If you require a linear history, just set the queue option ``merge: rebase``.
+   disabled. If you require a linear history, just set the queue option
+   ``method: rebase``.
 
 Batch Size
 ----------
@@ -212,6 +213,13 @@ For example, if your queue is 15 pull requests long and you have
 ``speculative_checks`` set to ``3`` and ``batch_size`` to ``5``, you'll have 3
 draft pull requests of 5 pull requests each being tested at the same time. If
 your CI time is 10 min, you can merge those 15 pull requests in only 10 minutes.
+
+.. warning::
+
+   With batch mode, pull requests are tested against the base branch within
+   another temporary pull request. This requires the branch protection settings
+   ``Require branches to be up to date before merging`` to be disabled. If you
+   require a linear history, just set the queue option ``method: rebase``.
 
 Queue Freeze
 ------------
@@ -424,8 +432,9 @@ A ``queue_rules`` takes the following parameter:
        See :ref:`speculative checks`.
    * - ``allow_inplace_checks``
      - bool
-     - True if ``speculative_checks: 1`` and ``batch_size: 1`` otherwise False.
-     - Allow to update/rebase the original pull request if possible to check its mergeability.
+     - True
+     - Allow to update/rebase the original pull request if possible to check
+       its mergeability when ``speculative_checks: 1`` and ``batch_size: 1``.
        If ``False``, a draft pull request is always created.
    * - ``disallow_checks_interruption_from_queues``
      - list of ``queue`` names

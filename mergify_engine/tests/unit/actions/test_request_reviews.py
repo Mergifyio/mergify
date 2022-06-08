@@ -202,7 +202,7 @@ async def test_team_permissions_missing(
     ctxt = await context_getter(github_types.GitHubPullRequestNumber(1))
     ctxt.repository.installation.client = client
     result = await action.run(ctxt, None)
-    assert result.conclusion == check_api.Conclusion.FAILURE
+    assert result.conclusion == check_api.Conclusion.ACTION_REQUIRED
     assert result.title == "Invalid requested teams"
     for error in (
         "Team `foobar` does not exist or has not access to this repository",

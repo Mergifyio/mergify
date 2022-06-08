@@ -82,7 +82,7 @@ class BackportActionTestBase(base.FunctionalTestBase):
         bp_pull = pulls[0]
         if expected_title is None:
             assert bp_pull["title"].endswith(
-                f": pull request n1 from fork (backport #{p['number']})"
+                f": pull request n1 from integration (backport #{p['number']})"
             )
         else:
             assert bp_pull["title"] == expected_title

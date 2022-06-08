@@ -62,7 +62,7 @@ class TestCloseAction(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
         self.assertEqual("closed", p["state"])
         comments = await self.get_issue_comments(p["number"])
-        self.assertEqual("Thank you mergify-test2", comments[-1]["body"])
+        self.assertEqual("Thank you mergify-test[bot]", comments[-1]["body"])
 
     async def _test_close_template_error(self, msg):
         rules = {

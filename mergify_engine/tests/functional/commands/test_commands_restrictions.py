@@ -34,8 +34,12 @@ class TestCommandsRestrictions(base.FunctionalTestBase):
         p_ok = await self.create_pr()
         p_nok = await self.create_pr(base=feature_branch)
 
-        await self.create_comment(p_ok["number"], f"@mergifyio copy {stable_branch}")
-        await self.create_comment(p_nok["number"], f"@mergifyio copy {stable_branch}")
+        await self.create_comment_as_admin(
+            p_ok["number"], f"@mergifyio copy {stable_branch}"
+        )
+        await self.create_comment_as_admin(
+            p_nok["number"], f"@mergifyio copy {stable_branch}"
+        )
         await self.run_engine()
         await self.wait_for("issue_comment", {"action": "created"})
         await self.wait_for("issue_comment", {"action": "created"})

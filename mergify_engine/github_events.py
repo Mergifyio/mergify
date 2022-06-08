@@ -85,6 +85,10 @@ def _extract_slim_event(event_type: str, data: typing.Any) -> typing.Any:
         slim_data["sha"] = data["sha"]
         slim_data["context"] = data["context"]
 
+    elif event_type == "pull_request_review":
+        # NOTE(sileht): only used for logging purpose
+        slim_data["action"] = data["action"]
+
     elif event_type == "refresh":
         # To get PR from sha or branch name
         slim_data["action"] = data["action"]
@@ -331,15 +335,15 @@ async def push_to_worker(
 
         if event["action"] == "deleted":
             await context.Installation.clear_team_members_cache_for_org(
-                redis_links.cache, event["organization"]
+                redis_links.team_members_cache, event["organization"]
             )
             await context.Repository.clear_team_permission_cache_for_org(
-                redis_links.cache, event["organization"]
+                redis_links.team_permissions_cache, event["organization"]
             )
 
         if event["action"] in ("deleted", "member_added", "member_removed"):
             await context.Repository.clear_user_permission_cache_for_org(
-                redis_links.cache, event["organization"]
+                redis_links.user_permissions_cache, event["organization"]
             )
 
     elif event_type == "member":
@@ -351,7 +355,7 @@ async def push_to_worker(
         ignore_reason = "member event"
 
         await context.Repository.clear_user_permission_cache_for_user(
-            redis_links.cache,
+            redis_links.user_permissions_cache,
             event["repository"]["owner"],
             event["repository"],
             event["member"],
@@ -367,23 +371,27 @@ async def push_to_worker(
 
         if "slug" in event["team"]:
             await context.Installation.clear_team_members_cache_for_team(
-                redis_links.cache, event["organization"], event["team"]["slug"]
+                redis_links.team_members_cache,
+                event["organization"],
+                event["team"]["slug"],
             )
             await context.Repository.clear_team_permission_cache_for_team(
-                redis_links.cache, event["organization"], event["team"]["slug"]
+                redis_links.team_permissions_cache,
+                event["organization"],
+                event["team"]["slug"],
             )
         else:
             # Deleted team
             await context.Installation.clear_team_members_cache_for_org(
-                redis_links.cache,
+                redis_links.team_members_cache,
                 event["organization"],
             )
             await context.Repository.clear_team_permission_cache_for_org(
-                redis_links.cache, event["organization"]
+                redis_links.team_permissions_cache, event["organization"]
             )
 
         await context.Repository.clear_user_permission_cache_for_org(
-            redis_links.cache, event["organization"]
+            redis_links.user_permissions_cache, event["organization"]
         )
 
     elif event_type == "team":
@@ -396,10 +404,14 @@ async def push_to_worker(
 
         if event["action"] in ("edited", "deleted"):
             await context.Installation.clear_team_members_cache_for_team(
-                redis_links.cache, event["organization"], event["team"]["slug"]
+                redis_links.team_members_cache,
+                event["organization"],
+                event["team"]["slug"],
             )
             await context.Repository.clear_team_permission_cache_for_team(
-                redis_links.cache, event["organization"], event["team"]["slug"]
+                redis_links.team_permissions_cache,
+                event["organization"],
+                event["team"]["slug"],
             )
 
         if event["action"] in (
@@ -410,17 +422,21 @@ async def push_to_worker(
         ):
             if "repository" in event:
                 await context.Repository.clear_user_permission_cache_for_repo(
-                    redis_links.cache, event["organization"], event["repository"]
+                    redis_links.user_permissions_cache,
+                    event["organization"],
+                    event["repository"],
                 )
                 await context.Repository.clear_team_permission_cache_for_repo(
-                    redis_links.cache, event["organization"], event["repository"]
+                    redis_links.team_permissions_cache,
+                    event["organization"],
+                    event["repository"],
                 )
             else:
                 await context.Repository.clear_user_permission_cache_for_org(
-                    redis_links.cache, event["organization"]
+                    redis_links.user_permissions_cache, event["organization"]
                 )
                 await context.Repository.clear_team_permission_cache_for_org(
-                    redis_links.cache, event["organization"]
+                    redis_links.team_permissions_cache, event["organization"]
                 )
 
     elif event_type == "team_add":
@@ -432,10 +448,14 @@ async def push_to_worker(
         ignore_reason = "team_add event"
 
         await context.Repository.clear_user_permission_cache_for_repo(
-            redis_links.cache, event["repository"]["owner"], event["repository"]
+            redis_links.user_permissions_cache,
+            event["repository"]["owner"],
+            event["repository"],
         )
         await context.Repository.clear_team_permission_cache_for_repo(
-            redis_links.cache, event["organization"], event["repository"]
+            redis_links.team_permissions_cache,
+            event["organization"],
+            event["repository"],
         )
 
     else:
