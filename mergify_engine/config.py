@@ -197,9 +197,26 @@ Schema = voluptuous.Schema(
         voluptuous.Required(
             "REDIS_QUEUE_WEB_MAX_CONNECTIONS", default=None
         ): voluptuous.Any(None, voluptuous.Coerce(int)),
-        voluptuous.Required("STORAGE_URL", default="redis://localhost:6379?db=8"): str,
+        # NOTE(sileht): Unused anymore, but keep to detect legacy onpremise installation
+        voluptuous.Required("STORAGE_URL", default=None): voluptuous.Any(None, str),
+        # NOTE(sileht): Not used directly, but used to build other redis urls if not provided
+        voluptuous.Required("DEFAULT_REDIS_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("LEGACY_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("QUEUE_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("STREAM_URL", default=None): voluptuous.Any(None, str),
+        voluptuous.Required("TEAM_MEMBERS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("TEAM_PERMISSIONS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
+        voluptuous.Required("USER_PERMISSIONS_CACHE_URL", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("SHARED_STREAM_PROCESSES", default=1): voluptuous.Coerce(
             int
         ),
@@ -283,9 +300,14 @@ SHARED_STREAM_TASKS_PER_PROCESS: int
 EXTERNAL_USER_PERSONAL_TOKEN: str
 BOT_USER_ID: int
 BOT_USER_LOGIN: str
-STORAGE_URL: str
+
 STREAM_URL: str
 QUEUE_URL: str
+LEGACY_CACHE_URL: str
+TEAM_PERMISSIONS_CACHE_URL: str
+TEAM_MEMBERS_CACHE_URL: str
+USER_PERMISSIONS_CACHE_URL: str
+
 BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
 SUBSCRIPTION_BASE_URL: str
@@ -356,11 +378,53 @@ def load() -> typing.Dict[str, typing.Any]:
 
     parsed_config = Schema(raw_config)
 
-    if parsed_config["STREAM_URL"] is None:
-        parsed_config["STREAM_URL"] = parsed_config["STORAGE_URL"]
+    # NOTE(sileht): on legacy on-premise installation, before things were auto
+    # sharded in redis databases, STREAM/QUEUE/LEGACY_CACHE was in the same db, so
+    # keep until manual migration as been done
+    if parsed_config["STORAGE_URL"] is not None:
+        for config_key in (
+            "DEFAULT_REDIS_URL",
+            "STREAM_URL",
+            "QUEUE_URL",
+            "LEGACY_CACHE_URL",
+        ):
+            if parsed_config[config_key] is None:
+                parsed_config[config_key] = parsed_config["STORAGE_URL"]
 
-    if parsed_config["QUEUE_URL"] is None:
-        parsed_config["QUEUE_URL"] = parsed_config["STORAGE_URL"]
+    # NOTE(sileht): If we reach 15, we should update onpremise installation guide
+    # and add an upgrade release note section to ensure people configure their Redis
+    # correctly
+    REDIS_AUTO_DB_SHARDING_MAPPING = {
+        # 0 reserved, never use it, this force people to select a DB before running any command
+        # and maybe be used by legacy onpremise installation.
+        # 1 temporary reserved, used by dashboard
+        "LEGACY_CACHE_URL": 2,
+        "STREAM_URL": 3,
+        "QUEUE_URL": 4,
+        "TEAM_MEMBERS_CACHE_URL": 5,
+        "TEAM_PERMISSIONS_CACHE_URL": 6,
+        "USER_PERMISSIONS_CACHE_URL": 7,
+    }
+
+    default_redis_url_parsed = parse.urlparse(
+        parsed_config["DEFAULT_REDIS_URL"] or "redis://localhost:6379"
+    )
+    if default_redis_url_parsed.query and "db" in parse.parse_qs(
+        default_redis_url_parsed.query
+    ):
+        print(
+            "DEFAULT_REDIS_URL must not contain any db parameter. Mergify can't start."
+        )
+        sys.exit(1)
+
+    for config_key, db in REDIS_AUTO_DB_SHARDING_MAPPING.items():
+        if parsed_config[config_key] is None:
+            query = default_redis_url_parsed.query
+            if query:
+                query += "&"
+            query += f"db={db}"
+            url = default_redis_url_parsed._replace(query=query).geturl()
+            parsed_config[config_key] = url
 
     parsed_config["GITHUB_DOMAIN"] = parse.urlparse(
         parsed_config["GITHUB_URL"]

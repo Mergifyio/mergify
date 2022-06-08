@@ -390,7 +390,7 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.git.cleanup)
 
         self.redis_links = redis_utils.RedisLinks(name="functional-fixture")
-        await self.clear_redis()
+        await self.redis_links.flushall()
 
         installation_json = await github.get_installation_from_account_id(
             config.TESTING_ORGANIZATION_ID
@@ -504,14 +504,9 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await root.shutdown()
 
         await self._event_reader.aclose()
-        await self.clear_redis()
+        await self.redis_links.flushall()
         await self.redis_links.shutdown_all()
         mock.patch.stopall()
-
-    async def clear_redis(self) -> None:
-        await self.redis_links.cache.flushall()
-        await self.redis_links.stream.flushall()
-        await self.redis_links.queue.flushall()
 
     async def wait_for(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         return await self._event_reader.wait_for(*args, **kwargs)
