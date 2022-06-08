@@ -186,7 +186,18 @@ async def test_run_command_with_rerun_and_without_user(
             "@mergifyio something",
             "Sorry but I didn't understand the command",
         ),
-        (666, "admin", "@mergifyio squash", "Pull request is already one-commit long"),
+        (
+            666,
+            "admin",
+            "@mergifyio squash",
+            "Pull request is already one-commit long",
+        ),
+        (
+            666,
+            "admin",
+            f"{config.GITHUB_URL}/Mergifyio squash",
+            "Pull request is already one-commit long",
+        ),
         (
             666,
             "admin",
