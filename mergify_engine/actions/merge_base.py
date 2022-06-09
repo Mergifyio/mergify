@@ -267,7 +267,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 error_message=e.message,
             )
             return check_api.Result(
-                check_api.Conclusion.FAILURE,
+                check_api.Conclusion.CANCELLED,
                 message,
                 f"GitHub error message: `{e.message}`",
             )
