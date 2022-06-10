@@ -322,6 +322,24 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 result = await self.get_unqueue_status(ctxt, q)
 
         if result.conclusion is not check_api.Conclusion.PENDING:
+            # NOTE(sileht): The PR has been checked successfully but the
+            # final merge fail, we must erase the queue summary conclusion,
+            # so the requeue can works.
+            if (
+                car
+                and car.checks_conclusion == check_api.Conclusion.SUCCESS
+                and result.conclusion is check_api.Conclusion.CANCELLED
+            ):
+                await check_api.set_check_run(
+                    ctxt,
+                    constants.MERGE_QUEUE_SUMMARY_NAME,
+                    check_api.Result(
+                        check_api.Conclusion.CANCELLED,
+                        f"The pull request {ctxt.pull['number']} cannot be merged and has been disembarked",
+                        result.title + "\n" + result.summary,
+                    ),
+                )
+
             await q.remove_pull(ctxt)
 
         # NOTE(sileht): Only refresh if the car still exists and is the same as
