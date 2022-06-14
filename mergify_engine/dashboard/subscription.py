@@ -53,8 +53,8 @@ class Features(enum.Enum):
     DEDICATED_WORKER = "dedicated_worker"
     ADVANCED_MONITORING = "advanced_monitoring"
     QUEUE_FREEZE = "queue_freeze"
-    EVENTLOGS_SHORT = "eventlogs-short"
-    EVENTLOGS_LONG = "eventlogs-long"
+    EVENTLOGS_SHORT = "eventlogs_short"
+    EVENTLOGS_LONG = "eventlogs_long"
 
 
 class SubscriptionDict(typing.TypedDict):
@@ -73,8 +73,8 @@ class SubscriptionDict(typing.TypedDict):
             "dedicated_worker",
             "advanced_monitoring",
             "queue_freeze",
-            "eventlogs-short",
-            "eventlogs-long",
+            "eventlogs_short",
+            "eventlogs_long",
         ]
     ]
 
