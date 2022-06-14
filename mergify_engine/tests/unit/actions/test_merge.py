@@ -93,7 +93,7 @@ my body""",
 
 # Commit Message
 
-my title     
+my title
 WATCHOUT ^^^ there is empty spaces above for testing ^^^^
 my body""",  # noqa:W293,W291
             "my title",
@@ -184,30 +184,26 @@ async def test_merge_commit_message_undefined(
     )
     with pytest.raises(context.RenderTemplateFailure) as x:
         await ctxt.pull_request.get_commit_message()
-        assert str(x) == "foobar"
+    assert "foobar" in str(x.value)
 
 
 @pytest.mark.parametrize(
-    "body,error",
+    "body",
     [
-        (
-            """Hello world
+        """Hello world
 
 # Commit Message
 {{title}}
 
 here is my message {{ and broken template
-""",
-            "lol",
-        ),
+"""
     ],
 )
 async def test_merge_commit_message_syntax_error(
-    body: str, error: str, context_getter: conftest.ContextGetterFixture
+    body: str, context_getter: conftest.ContextGetterFixture
 ) -> None:
     ctxt = await context_getter(
         github_types.GitHubPullRequestNumber(43), body=body, title="My PR title"
     )
-    with pytest.raises(context.RenderTemplateFailure) as rmf:
+    with pytest.raises(context.RenderTemplateFailure):
         await ctxt.pull_request.get_commit_message()
-        assert str(rmf) == error
