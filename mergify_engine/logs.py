@@ -67,7 +67,12 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
     def add_fields(self, log_record, record, message_dict):
         super().add_fields(log_record, record, message_dict)
         log_record.update(self.HEROKU_LOG_EXTRAS)
-        log_record.update(ddtrace.tracer.get_log_correlation_context())
+        log_record.update(
+            {
+                f"dd.{k}": v
+                for k, v in ddtrace.tracer.get_log_correlation_context().items()
+            }
+        )
         worker_id = WORKER_ID.get(None)
         if worker_id is not None:
             log_record.update({"worker_id": worker_id})
