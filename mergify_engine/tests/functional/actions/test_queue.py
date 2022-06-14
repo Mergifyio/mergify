@@ -4262,8 +4262,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
                     config=queue_config,
                 )
             )
-            assert exc_info.value.car == car
-            assert car.queue_pull_request_number is None
+        assert exc_info.value.car == car
+        assert car.queue_pull_request_number is None
 
         p3 = await self.get_pull(p3["number"])
         ctxt_p3 = context.Context(self.repository_ctxt, p3)
