@@ -88,7 +88,14 @@ async def dashboard(
             getattr(subscription.Features, f) for f in subscription.Features.__members__
         )
         if subscription_active
-        else frozenset([subscription.Features.PUBLIC_REPOSITORY]),
+        else frozenset(
+            # EVENTLOGS requires subscription, but not for tests
+            [
+                subscription.Features.PUBLIC_REPOSITORY,
+                subscription.Features.EVENTLOGS_SHORT,
+                subscription.Features.EVENTLOGS_LONG,
+            ]
+        ),
     )
     await sub._save_subscription_to_cache()
     user_tokens = user_tokens_mod.UserTokens(

@@ -20,7 +20,7 @@ def import_check_worker() -> int:
     from mergify_engine import worker  # noqa isort:skip
 
     worker.service.setup("import-check-worker")
-    worker.signals.setup()
+    worker.signals.register()
 
     return 0
 

@@ -208,7 +208,7 @@ async def test_get_usage_last_seen(
 ) -> None:
     ctxt = await context_getter(number=1)
     await redis.startup()
-    signals.setup()
+    signals.register()
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
         data = b"a" * 123
         headers = {

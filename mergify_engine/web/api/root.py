@@ -41,6 +41,7 @@ from mergify_engine.web import redis
 from mergify_engine.web import utils as web_utils
 from mergify_engine.web.api import applications
 from mergify_engine.web.api import badges
+from mergify_engine.web.api import eventlogs
 from mergify_engine.web.api import queues
 from mergify_engine.web.api import security
 from mergify_engine.web.api import simulator
@@ -74,6 +75,10 @@ app = fastapi.FastAPI(
             "description": "Operations with badges.",
         },
         {
+            "name": "eventlogs",
+            "description": "Operations with event logs.",
+        },
+        {
             "name": "queues",
             "description": "Operations with queues.",
         },
@@ -97,6 +102,7 @@ app.include_router(applications.router)
 app.include_router(queues.router)
 app.include_router(badges.router)
 app.include_router(simulator.router)
+app.include_router(eventlogs.router)
 
 web_utils.setup_exception_handlers(app)
 

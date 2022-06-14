@@ -144,5 +144,23 @@ async def check_subscription_feature_queue_freeze(
     ):
         raise fastapi.HTTPException(
             status_code=403,
-            detail=f"⚠ The [subscription](https://dashboard.mergify.com/github/{repository_ctxt.installation.owner_login}/subscription) needs to be upgraded to enable the `queue_freeze` feature.",
+            detail="⚠ The subscription needs to be upgraded to enable the `queue_freeze` feature.",
         )
+
+
+async def check_subscription_feature_eventlogs(
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        get_repository_context
+    ),
+) -> None:
+    if repository_ctxt.installation.subscription.has_feature(
+        subscription.Features.EVENTLOGS_LONG
+    ) or repository_ctxt.installation.subscription.has_feature(
+        subscription.Features.EVENTLOGS_SHORT
+    ):
+        return
+
+    raise fastapi.HTTPException(
+        status_code=402,
+        detail="⚠ The subscription needs to be upgraded to enable the `eventlogs` feature.",
+    )
