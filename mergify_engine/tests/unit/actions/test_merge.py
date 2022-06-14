@@ -93,7 +93,7 @@ my body""",
 
 # Commit Message
 
-my title
+my title     
 WATCHOUT ^^^ there is empty spaces above for testing ^^^^
 my body""",  # noqa:W293,W291
             "my title",
