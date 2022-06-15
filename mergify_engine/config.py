@@ -154,7 +154,7 @@ Schema = voluptuous.Schema(
         # Dashboard settings
         #
         voluptuous.Required(
-            "SUBSCRIPTION_BASE_URL", default="http://localhost:5000"
+            "SUBSCRIPTION_BASE_URL", default="https://subscription.mergify.com"
         ): str,
         # OnPremise special config
         voluptuous.Required("SUBSCRIPTION_TOKEN", default=None): voluptuous.Any(
