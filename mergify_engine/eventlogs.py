@@ -52,6 +52,11 @@ class EventRefresh(EventBase):
     metadata: signals.EventNoMetadata
 
 
+class EventDismissReview(EventBase):
+    event: typing.Literal["action.dismiss_reviews"]
+    metadata: signals.EventDismissReviewMetadata
+
+
 def _get_pull_request_key(
     owner_id: github_types.GitHubAccountIdType,
     repo_id: github_types.GitHubRepositoryIdType,
@@ -60,7 +65,7 @@ def _get_pull_request_key(
     return f"eventlogs/{owner_id}/{repo_id}/{pull_request}"
 
 
-Event = typing.Union[EventLabel, EventRefresh]
+Event = typing.Union[EventLabel, EventRefresh, EventDismissReview]
 
 SUPPORTED_EVENT_NAMES = list(
     itertools.chain(
@@ -161,5 +166,7 @@ async def get(
             yield typing.cast(EventLabel, event)
         elif event["event"] == "action.refresh":
             yield typing.cast(EventRefresh, event)
+        elif event["event"] == "action.dismiss_reviews":
+            yield typing.cast(EventDismissReview, event)
         else:
             LOG.error("unsupported event-type, skipping", event=event)
