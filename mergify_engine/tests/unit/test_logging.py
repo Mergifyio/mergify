@@ -71,14 +71,14 @@ def test_logging(
             "timestamp": mock.ANY,
             "status": "error",
             "logger": {"name": "name"},
-            "trace_id": mock.ANY,
-            "span_id": mock.ANY,
+            "dd.trace_id": mock.ANY,
+            "dd.span_id": mock.ANY,
             # FIXME(sileht): It should be "whatever" but it's buggy
             # here we get a random service depending on the order tests are
             # running, so use ANY for now.
-            "service": mock.ANY,
-            "version": "unknown",
-            "env": "",
+            "dd.service": mock.ANY,
+            "dd.version": mock.ANY,
+            "dd.env": "",
             "HEROKU_RELEASE_VERSION": "v1234",
             "HEROKU_SLUG_COMMIT": "75a50b499de27757f171bac717c81685d648d3a7",
             "worker_id": "shared-30",
