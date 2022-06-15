@@ -86,6 +86,12 @@ async def fake_get_subscription(*args, **kwargs):
     return sub
 
 
+async def stop_and_wait_worker(self):
+    self.stop()
+    await self._stopping.wait()
+    await self._stop_task
+
+
 FAKE_INSTALLATION = {
     "id": 12345,
     "account": {"id": 123, "login": "owner-123"},
@@ -1884,7 +1890,11 @@ async def test_separate_dedicated_worker(
 @mock.patch("mergify_engine.worker.Worker.monitoring_task")
 @mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
 @mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
-@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch(
+    "mergify_engine.worker.Worker.wait_shutdown_complete",
+    side_effect=stop_and_wait_worker,
+    autospec=True,
+)
 @mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
 def test_worker_start_all_tasks(
     loop_and_sleep_forever: mock.Mock,
@@ -1914,7 +1924,11 @@ def test_worker_start_all_tasks(
 @mock.patch("mergify_engine.worker.Worker.monitoring_task")
 @mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
 @mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
-@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch(
+    "mergify_engine.worker.Worker.wait_shutdown_complete",
+    side_effect=stop_and_wait_worker,
+    autospec=True,
+)
 @mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
 def test_worker_start_just_shared(
     loop_and_sleep_forever: mock.Mock,
@@ -1944,7 +1958,11 @@ def test_worker_start_just_shared(
 @mock.patch("mergify_engine.worker.Worker.monitoring_task")
 @mock.patch("mergify_engine.worker.Worker.dedicated_workers_spawner_task")
 @mock.patch("mergify_engine.worker.Worker.shared_stream_worker_task")
-@mock.patch("mergify_engine.worker.Worker.wait_shutdown_complete")
+@mock.patch(
+    "mergify_engine.worker.Worker.wait_shutdown_complete",
+    side_effect=stop_and_wait_worker,
+    autospec=True,
+)
 @mock.patch("mergify_engine.worker.Worker.loop_and_sleep_forever")
 def test_worker_start_except_shared(
     loop_and_sleep_forever: mock.Mock,
