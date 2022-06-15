@@ -873,6 +873,255 @@ class TestQueueAction(base.FunctionalTestBase):
         )
         assert check["conclusion"] == check_api.Conclusion.SUCCESS.value
 
+    async def test_unqueue_rule_unmatch_with_batch_requeue(self) -> None:
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 1,
+                    "allow_inplace_checks": True,
+                    "batch_size": 3,
+                    "batch_max_wait_time": "0 s",
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
+        p3 = await self.create_pr()
+
+        # To force others to be rebased
+        p = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 4
+
+        await self.wait_for("pull_request", {"action": "opened"})
+        await self.run_full_engine()
+        tmp_pull_1 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 1)
+        )
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        assert p["merge_commit_sha"] is not None
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"], p3["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull_1["number"],
+                ),
+            ],
+        )
+
+        await self.remove_label(p1["number"], "queue")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "opened"})
+        tmp_pull_2 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 2)
+        )
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p2["number"], p3["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull_2["number"],
+                ),
+            ],
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert check["output"]["title"] == "The rule doesn't match anymore"
+
+        check = first(
+            await context.Context(self.repository_ctxt, p2).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p3).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 2nd in the queue to be merged"
+        )
+
+    async def test_unqueue_command_with_batch_requeue(self) -> None:
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/fake-ci",
+                    ],
+                    "speculative_checks": 1,
+                    "allow_inplace_checks": True,
+                    "batch_size": 3,
+                    "batch_max_wait_time": "0 s",
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1 = await self.create_pr()
+        p2 = await self.create_pr(two_commits=True)
+        p3 = await self.create_pr()
+
+        # To force others to be rebased
+        p = await self.create_pr()
+        await self.merge_pull(p["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p = await self.get_pull(p["number"])
+
+        await self.add_label(p1["number"], "queue")
+        await self.add_label(p2["number"], "queue")
+        await self.add_label(p3["number"], "queue")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 4
+
+        await self.wait_for("pull_request", {"action": "opened"})
+        await self.run_engine()
+        tmp_pull_1 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 1)
+        )
+
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        assert p["merge_commit_sha"] is not None
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"], p2["number"], p3["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull_1["number"],
+                ),
+            ],
+        )
+
+        await self.create_comment_as_admin(p1["number"], "@mergifyio unqueue")
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "opened"})
+        tmp_pull_2 = await self.get_pull(
+            github_types.GitHubPullRequestNumber(p["number"] + 2)
+        )
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(
+            q,
+            p["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p2["number"], p3["number"]],
+                    [],
+                    p["merge_commit_sha"],
+                    "created",
+                    tmp_pull_2["number"],
+                ),
+            ],
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p1).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert check["conclusion"] == "cancelled"
+        assert (
+            check["output"]["title"]
+            == "The pull request has been removed from the queue"
+        )
+        assert (
+            check["output"]["summary"]
+            == "The pull request has been manually removed from the queue by an `unqueue` command."
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p2).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert check["conclusion"] is None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 1st in the queue to be merged"
+        )
+
+        check = first(
+            await context.Context(self.repository_ctxt, p3).pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Merge priority high (queue)",
+        )
+        assert check is not None
+        assert check["conclusion"] is None
+        assert (
+            check["output"]["title"]
+            == "The pull request is the 2nd in the queue to be merged"
+        )
+
     async def test_batch_queue(self):
         rules = {
             "queue_rules": [
