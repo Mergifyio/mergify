@@ -13,6 +13,8 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from unittest import mock
+
 import yaml
 
 from mergify_engine import config
@@ -177,6 +179,32 @@ Unknown pull request attribute: Loser
             ],
         )
 
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": [
+                {
+                    "timestamp": mock.ANY,
+                    "event": "action.dismiss_reviews",
+                    "metadata": {
+                        "users": ["mergify-test1"],
+                    },
+                },
+                {
+                    "timestamp": mock.ANY,
+                    "event": "action.dismiss_reviews",
+                    "metadata": {
+                        "users": ["mergify-test1"],
+                    },
+                },
+            ]
+        }
         return p
 
     async def test_dismiss_reviews_ignored(self):
