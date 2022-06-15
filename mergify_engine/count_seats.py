@@ -426,23 +426,27 @@ async def count_and_send(redis_cache: redis_utils.RedisCache) -> None:
 
 async def report(args: argparse.Namespace) -> None:
     redis_links = redis_utils.RedisLinks(name="report")
-    if args.daemon:
-        service.setup("count-seats")
-        await count_and_send(redis_links.cache)
-    else:
-        service.setup("count-seats", dump_config=False)
-        if config.SUBSCRIPTION_TOKEN is None:
-            LOG.error("on-premise subscription token missing")
+    try:
+        if args.daemon:
+            service.setup("count-seats")
+            await count_and_send(redis_links.cache)
         else:
-            seats = await Seats.get(redis_links.cache)
-            if args.json:
-                print(json.dumps(seats.jsonify()))
+            service.setup("count-seats", dump_config=False)
+            if config.SUBSCRIPTION_TOKEN is None:
+                LOG.error("on-premise subscription token missing")
             else:
-                seats_count = seats.count()
-                LOG.info(
-                    "collaborators with write_users access: %s", seats_count.write_users
-                )
-                LOG.info("active_users collaborators: %s", seats_count.active_users)
+                seats = await Seats.get(redis_links.cache)
+                if args.json:
+                    print(json.dumps(seats.jsonify()))
+                else:
+                    seats_count = seats.count()
+                    LOG.info(
+                        "collaborators with write_users access: %s",
+                        seats_count.write_users,
+                    )
+                    LOG.info("active_users collaborators: %s", seats_count.active_users)
+    finally:
+        await redis_links.shutdown_all()
 
 
 def main() -> None:
