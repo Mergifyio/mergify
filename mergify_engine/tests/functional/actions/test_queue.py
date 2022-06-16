@@ -3632,7 +3632,7 @@ DO NOT EDIT
                 == "The pull request is the 1st in the queue to be merged"
             )
             pulls_to_refresh: typing.List[
-                typing.Tuple[str, str]
+                typing.Tuple[str, float]
             ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
@@ -3710,7 +3710,7 @@ DO NOT EDIT
                 == "The pull request is the 1st in the queue to be merged"
             )
             pulls_to_refresh: typing.List[
-                typing.Tuple[str, str]
+                typing.Tuple[str, float]
             ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
@@ -3795,7 +3795,7 @@ DO NOT EDIT
                 == "The pull request is the 1st in the queue to be merged"
             )
             pulls_to_refresh: typing.List[
-                typing.Tuple[str, str]
+                typing.Tuple[str, float]
             ] = await self.redis_links.cache.zrangebyscore(
                 "delayed-refresh", "-inf", "+inf", withscores=True
             )
