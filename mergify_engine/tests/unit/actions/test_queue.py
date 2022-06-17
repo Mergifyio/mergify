@@ -63,7 +63,7 @@ def fake_client() -> mock.Mock:
                     "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "started_at": "",
-                    "completed_at": "",
+                    "completed_at": None,
                     "html_url": "https://example.com",
                     "check_suite": {"id": 1234},
                     "output": {
@@ -99,7 +99,7 @@ def fake_client() -> mock.Mock:
                     "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "started_at": "",
-                    "completed_at": "",
+                    "completed_at": None,
                     "html_url": "https://example.com",
                     "check_suite": {"id": 1234},
                     "output": {
@@ -135,7 +135,7 @@ def fake_client() -> mock.Mock:
                     "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "started_at": "",
-                    "completed_at": "",
+                    "completed_at": None,
                     "html_url": "https://example.com",
                     "check_suite": {"id": 1234},
                     "output": {
@@ -171,7 +171,7 @@ def fake_client() -> mock.Mock:
                     "before": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "after": "4eef79d038b0327a5e035fd65059e556a55c6aa4",
                     "started_at": "",
-                    "completed_at": "",
+                    "completed_at": None,
                     "html_url": "https://example.com",
                     "check_suite": {"id": 1234},
                     "output": {

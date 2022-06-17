@@ -1637,12 +1637,24 @@ class Context(object):
         # NOTE(sileht): conclusion can be one of success, failure, neutral,
         # cancelled, timed_out, or action_required, and  None for "pending"
         checks.update(
-            {c["name"]: c["conclusion"] for c in reversed(await self.pull_check_runs)}
+            {
+                c["name"]: c["conclusion"]
+                for c in sorted(await self.pull_check_runs, key=self._check_runs_sorter)
+            }
         )
         # NOTE(sileht): state can be one of error, failure, pending,
         # or success.
         checks.update({s["context"]: s["state"] for s in await self.pull_statuses})
         return checks
+
+    @staticmethod
+    def _check_runs_sorter(
+        check_run: github_types.CachedGitHubCheckRun,
+    ) -> datetime.datetime:
+        if check_run["completed_at"] is None:
+            return datetime.datetime.max
+        else:
+            return datetime.datetime.fromisoformat(check_run["completed_at"][:-1])
 
     UNUSABLE_STATES = ["unknown", None]
 
