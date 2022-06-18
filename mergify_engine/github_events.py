@@ -507,7 +507,7 @@ async def filter_and_dispatch(
     score: typing.Optional[str] = None,
 ) -> None:
     meter_event(event_type, event)
-    await count_seats.store_active_users(redis_links.cache, event_type, event)
+    await count_seats.store_active_users(redis_links.active_users, event_type, event)
     await push_to_worker(redis_links, event_type, event_id, event, score)
 
 

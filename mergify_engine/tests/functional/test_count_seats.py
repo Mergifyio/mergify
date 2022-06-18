@@ -103,7 +103,7 @@ class TestCountSeats(base.FunctionalTestBase):
     async def test_get_collaborators(self) -> None:
         expected_seats = await self._prepare_repo()
         assert (
-            await count_seats.Seats.get(self.redis_links.cache)
+            await count_seats.Seats.get(self.redis_links.active_users)
         ).seats == expected_seats.seats
 
     async def test_count_seats(self) -> None:
@@ -113,7 +113,9 @@ class TestCountSeats(base.FunctionalTestBase):
                 url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
             )
         ).json()
-        seats_count = (await count_seats.Seats.get(self.redis_links.cache)).count()
+        seats_count = (
+            await count_seats.Seats.get(self.redis_links.active_users)
+        ).count()
         assert seats_count.write_users >= len(members)
         assert seats_count.active_users == 2
 
@@ -193,7 +195,7 @@ class TestCountSeats(base.FunctionalTestBase):
                         )
                         assert len(repo["collaborators"]["active_users"]) == 2
 
-    async def test_stored_user_in_redis(self):
+    async def test_stored_user_in_redis(self) -> None:
         rules = {
             "pull_request_rules": [
                 {
@@ -212,7 +214,9 @@ class TestCountSeats(base.FunctionalTestBase):
         repository_name = self.RECORD_CONFIG["repository_name"]
         organization_name = self.RECORD_CONFIG["organization_name"]
         key = f"active-users~{organization_id}~{organization_name}~{repository_id}~{repository_name}"
-        active_users = await self.redis_links.cache.zrangebyscore(
+        active_users: typing.List[
+            typing.Tuple[bytes, float]
+        ] = await self.redis_links.active_users.zrangebyscore(
             key, min="-inf", max="+inf", withscores=True
         )
         now = time.time()
@@ -220,6 +224,8 @@ class TestCountSeats(base.FunctionalTestBase):
         user_admin, timestamp_admin = active_users[0]
         user_fork, timestamp_fork = active_users[1]
         assert timestamp_admin <= now and timestamp_admin > now - 60
-        assert user_admin == f"{config.TESTING_MERGIFY_TEST_1_ID}~mergify-test1"
+        assert (
+            user_admin == f"{config.TESTING_MERGIFY_TEST_1_ID}~mergify-test1".encode()
+        )
         assert timestamp_fork <= now and timestamp_fork > now - 60
-        assert user_fork == f"{config.TESTING_MERGIFY_TEST_2_ID}~mergify-test2"
+        assert user_fork == f"{config.TESTING_MERGIFY_TEST_2_ID}~mergify-test2".encode()

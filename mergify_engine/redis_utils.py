@@ -33,6 +33,7 @@ LOG = daiquiri.getLogger(__name__)
 RedisCache = typing.NewType("RedisCache", "redispy.Redis[str]")
 RedisStream = typing.NewType("RedisStream", "redispy.Redis[bytes]")
 RedisQueue = typing.NewType("RedisQueue", "redispy.Redis[bytes]")
+RedisActiveUsers = typing.NewType("RedisActiveUsers", "redispy.Redis[bytes]")
 RedisUserPermissionsCache = typing.NewType(
     "RedisUserPermissionsCache", "redispy.Redis[bytes]"
 )
@@ -116,6 +117,9 @@ async def run_script(
 @dataclasses.dataclass
 class RedisLinks:
     name: str
+
+    # NOTE(sileht): This is used, only to limit connection on webserver side.
+    # The worker open only one connection per asyncio tasks per worker.
     cache_max_connections: typing.Optional[int] = None
     stream_max_connections: typing.Optional[int] = None
     queue_max_connections: typing.Optional[int] = None
@@ -182,6 +186,16 @@ class RedisLinks:
         return RedisEventLogs(client)
 
     @functools.cached_property
+    def active_users(self) -> RedisActiveUsers:
+        client = self.redis_from_url(
+            "active_users",
+            config.ACTIVE_USERS_URL,
+            decode_responses=False,
+            max_connections=None,
+        )
+        return RedisActiveUsers(client)
+
+    @functools.cached_property
     def cache(self) -> RedisCache:
         client = self.redis_from_url(
             "cache",
@@ -242,6 +256,7 @@ class RedisLinks:
             "team_members_cache",
             "team_permissions_cache",
             "user_permissions_cache",
+            "active_users",
             "eventlogs",
         ):
             if db in self.__dict__:
@@ -254,4 +269,5 @@ class RedisLinks:
         await self.team_members_cache.flushdb()
         await self.team_permissions_cache.flushdb()
         await self.user_permissions_cache.flushdb()
+        await self.active_users.flushdb()
         await self.eventlogs.flushdb()

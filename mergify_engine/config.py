@@ -220,6 +220,9 @@ Schema = voluptuous.Schema(
         voluptuous.Required("USER_PERMISSIONS_CACHE_URL", default=None): voluptuous.Any(
             None, str
         ),
+        voluptuous.Required("ACTIVE_USERS_URL", default=None): voluptuous.Any(
+            None, str
+        ),
         voluptuous.Required("EVENTLOGS_URL", default=None): voluptuous.Any(None, str),
         voluptuous.Required("SHARED_STREAM_PROCESSES", default=1): voluptuous.Coerce(
             int
@@ -312,6 +315,7 @@ LEGACY_CACHE_URL: str
 TEAM_PERMISSIONS_CACHE_URL: str
 TEAM_MEMBERS_CACHE_URL: str
 USER_PERMISSIONS_CACHE_URL: str
+ACTIVE_USERS_URL: str
 
 BUCKET_PROCESSING_MAX_SECONDS: int
 INTEGRATION_ID: int
@@ -392,6 +396,7 @@ def load() -> typing.Dict[str, typing.Any]:
             "DEFAULT_REDIS_URL",
             "STREAM_URL",
             "QUEUE_URL",
+            "ACTIVE_USERS_URL",
             "LEGACY_CACHE_URL",
         ):
             if parsed_config[config_key] is None:
@@ -411,6 +416,7 @@ def load() -> typing.Dict[str, typing.Any]:
         "TEAM_PERMISSIONS_CACHE_URL": 6,
         "USER_PERMISSIONS_CACHE_URL": 7,
         "EVENTLOGS_URL": 8,
+        "ACTIVE_USERS_URL": 9,
     }
 
     default_redis_url_parsed = parse.urlparse(
