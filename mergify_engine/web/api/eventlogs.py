@@ -39,9 +39,7 @@ router = fastapi.APIRouter(
 
 
 Event = typing.Annotated[
-    typing.Union[
-        eventlogs.EventLabel, eventlogs.EventRefresh, eventlogs.EventDismissReview
-    ],
+    eventlogs.Event,
     pydantic.Field(discriminator="event"),
 ]
 

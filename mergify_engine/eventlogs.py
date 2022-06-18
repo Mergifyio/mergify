@@ -42,19 +42,91 @@ class EventMetadata(typing.TypedDict):
     pass
 
 
+class EventBaseNoMetadata(EventBase):
+    metadata: signals.EventNoMetadata
+
+
+class EventAssign(EventBase):
+    event: typing.Literal["action.assign"]
+    metadata: signals.EventAssignMetadata
+
+
+class EventBackport(EventBase):
+    event: typing.Literal["action.backport"]
+    metadata: signals.EventCopyMetadata
+
+
+class EventClose(EventBaseNoMetadata):
+    event: typing.Literal["action.close"]
+
+
+class EventComment(EventBaseNoMetadata):
+    event: typing.Literal["action.comment"]
+
+
+class EventCopy(EventBase):
+    event: typing.Literal["action.copy"]
+    metadata: signals.EventCopyMetadata
+
+
+class EventDeleteHeadBranch(EventBaseNoMetadata):
+    event: typing.Literal["action.delete_head_branch"]
+
+
+class EventDismissReviews(EventBase):
+    event: typing.Literal["action.dismiss_reviews"]
+    metadata: signals.EventDismissReviewsMetadata
+
+
 class EventLabel(EventBase):
     event: typing.Literal["action.label"]
     metadata: signals.EventLabelMetadata
 
 
-class EventRefresh(EventBase):
+class EventMerge(EventBaseNoMetadata):
+    event: typing.Literal["action.merge"]
+
+
+class EventPostCheck(EventBaseNoMetadata):
+    event: typing.Literal["action.post_check"]
+
+
+class EventQueueMerged(EventBaseNoMetadata):
+    event: typing.Literal["action.queue.merged"]
+
+
+class EventRebase(EventBaseNoMetadata):
+    event: typing.Literal["action.rebase"]
+
+
+class EventRefresh(EventBaseNoMetadata):
     event: typing.Literal["action.refresh"]
-    metadata: signals.EventNoMetadata
 
 
-class EventDismissReview(EventBase):
-    event: typing.Literal["action.dismiss_reviews"]
-    metadata: signals.EventDismissReviewMetadata
+class EventRequeue(EventBaseNoMetadata):
+    event: typing.Literal["action.requeue"]
+
+
+class EventRequestReviewers(EventBase):
+    event: typing.Literal["action.request_reviewers"]
+    metadata: signals.EventRequestReviewsMetadata
+
+
+class EventReview(EventBase):
+    event: typing.Literal["action.review"]
+    metadata: signals.EventReviewMetadata
+
+
+class EventSquash(EventBaseNoMetadata):
+    event: typing.Literal["action.squash"]
+
+
+class EventUnqueue(EventBaseNoMetadata):
+    event: typing.Literal["action.unqueue"]
+
+
+class EventUpdate(EventBaseNoMetadata):
+    event: typing.Literal["action.update"]
 
 
 def _get_pull_request_key(
@@ -65,7 +137,27 @@ def _get_pull_request_key(
     return f"eventlogs/{owner_id}/{repo_id}/{pull_request}"
 
 
-Event = typing.Union[EventLabel, EventRefresh, EventDismissReview]
+Event = typing.Union[
+    EventAssign,
+    EventBackport,
+    EventClose,
+    EventComment,
+    EventCopy,
+    EventDeleteHeadBranch,
+    EventDismissReviews,
+    EventLabel,
+    EventMerge,
+    EventPostCheck,
+    EventQueueMerged,
+    EventRebase,
+    EventRefresh,
+    EventRequestReviewers,
+    EventRequeue,
+    EventReview,
+    EventSquash,
+    EventUnqueue,
+    EventUpdate,
+]
 
 SUPPORTED_EVENT_NAMES = list(
     itertools.chain(
@@ -162,11 +254,61 @@ async def get(
 
     for _, raw in await redis.xrange(key, min=f"{int(older_event.timestamp())}"):
         event = typing.cast(GenericEvent, msgpack.unpackb(raw[b"data"], timestamp=3))
-        if event["event"] == "action.label":
+        if event["event"] == "action.assign":
+            yield typing.cast(EventAssign, event)
+
+        elif event["event"] == "action.backport":
+            yield typing.cast(EventBackport, event)
+
+        elif event["event"] == "action.close":
+            yield typing.cast(EventClose, event)
+
+        elif event["event"] == "action.comment":
+            yield typing.cast(EventComment, event)
+
+        elif event["event"] == "action.copy":
+            yield typing.cast(EventCopy, event)
+
+        elif event["event"] == "action.delete_head_branch":
+            yield typing.cast(EventDeleteHeadBranch, event)
+
+        elif event["event"] == "action.dismiss_reviews":
+            yield typing.cast(EventDismissReviews, event)
+
+        elif event["event"] == "action.label":
             yield typing.cast(EventLabel, event)
+
+        elif event["event"] == "action.merge":
+            yield typing.cast(EventMerge, event)
+
+        elif event["event"] == "action.post_check":
+            yield typing.cast(EventPostCheck, event)
+
+        elif event["event"] == "action.queue.merged":
+            yield typing.cast(EventQueueMerged, event)
+
+        elif event["event"] == "action.rebase":
+            yield typing.cast(EventRebase, event)
+
         elif event["event"] == "action.refresh":
             yield typing.cast(EventRefresh, event)
-        elif event["event"] == "action.dismiss_reviews":
-            yield typing.cast(EventDismissReview, event)
+
+        elif event["event"] == "action.request_reviewers":
+            yield typing.cast(EventRequestReviewers, event)
+
+        elif event["event"] == "action.requeue":
+            yield typing.cast(EventRequeue, event)
+
+        elif event["event"] == "action.review":
+            yield typing.cast(EventReview, event)
+
+        elif event["event"] == "action.squash":
+            yield typing.cast(EventSquash, event)
+
+        elif event["event"] == "action.unqueue":
+            yield typing.cast(EventUnqueue, event)
+
+        elif event["event"] == "action.update":
+            yield typing.cast(EventUpdate, event)
         else:
             LOG.error("unsupported event-type, skipping", event=event)
