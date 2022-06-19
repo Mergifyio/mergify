@@ -1154,6 +1154,81 @@ async def test_stream_processor_pull_unexpected_error(
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
+async def test_stream_processor_priority(
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.Mock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
+
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+
+    async def push_prio(pr: int, prio: worker.Priority) -> None:
+        await worker.push(
+            redis_links.stream,
+            github_types.GitHubAccountIdType(234),
+            github_types.GitHubLogin("owner-234"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(pr),
+            "pull_request",
+            {"payload": prio},  # type: ignore[typeddict-item]
+            score=str(worker.get_priority_score(prio)),
+        )
+
+    with freeze_time("2020-01-01", tick=True):
+        await push_prio(1, worker.Priority.low)
+        await push_prio(2, worker.Priority.low)
+        await push_prio(3, worker.Priority.high)
+        await push_prio(4, worker.Priority.low)
+        await push_prio(5, worker.Priority.medium)
+        await push_prio(6, worker.Priority.medium)
+        await push_prio(7, worker.Priority.high)
+        await push_prio(8, worker.Priority.low)
+
+    with freeze_time("2020-01-04", tick=True):
+        await push_prio(9, worker.Priority.high)
+        await push_prio(10, worker.Priority.low)
+        await push_prio(11, worker.Priority.medium)
+        await push_prio(12, worker.Priority.medium)
+        await push_prio(13, worker.Priority.low)
+
+    assert 1 == (await redis_links.stream.zcard("streams"))
+    assert 1 == len(await redis_links.stream.keys("bucket~*"))
+    assert 0 == len(await redis_links.stream.hgetall("attempts"))
+
+    owners_cache = worker.OwnerLoginsCache()
+    w = worker.Worker(
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        shared_stream_tasks_per_process=1,
+        shared_stream_processes=1,
+        process_index=0,
+    )
+
+    p = worker.StreamProcessor(redis_links, "shared-0", None, owners_cache)
+
+    received = []
+
+    def fake_engine(installation, repo_id, repo, pull_number, sources):
+        received.append(pull_number)
+
+    run_engine.side_effect = fake_engine
+
+    with freeze_time("2020-01-14", tick=True):
+        await w._stream_worker_task(p)
+
+    assert 0 == (await redis_links.stream.zcard("streams"))
+    assert 0 == len(await redis_links.stream.keys("bucket~*"))
+    assert 0 == len(await redis_links.stream.hgetall("attempts"))
+    assert received == [3, 7, 9, 5, 6, 11, 12, 1, 2, 4, 8, 10, 13]
+
+
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
+@mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_date_scheduling(
     run_engine,
     get_installation_from_account_id,

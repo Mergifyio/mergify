@@ -46,6 +46,7 @@ import collections
 import contextlib
 import dataclasses
 import datetime
+import enum
 import functools
 import hashlib
 import itertools
@@ -141,11 +142,33 @@ T_MessagePayload = typing.NewType("T_MessagePayload", typing.Dict[bytes, bytes])
 T_MessageID = typing.NewType("T_MessageID", str)
 
 
-def get_low_priority_minimal_score() -> float:
-    # NOTE(sileht): score is scheduled_at timestamp for high
-    # prio and scheduled_at timestamp * 10 for low prio, pick *
-    # 2 to split the bucket
-    return date.utcnow().timestamp() * 2
+class Priority(enum.IntEnum):
+    high = 1
+    medium = 3
+    low = 5
+
+
+# NOTE(sileht): any score below comes from entry created before we introduce
+# offset, the lower score at this times was around 16 557 192 804 (utcnow() * 10)
+PRIORITY_OFFSET = 100_000_000_000
+SCORE_TIMESTAMP_PRECISION = 10000
+
+
+def get_priority_score(prio: Priority) -> float:
+    # NOTE(sileht): we drop ms, to avoid float precision issue (eg:
+    # 3.99999 becoming 4.0000) that could break priority offset
+    return (
+        int(date.utcnow().timestamp() * SCORE_TIMESTAMP_PRECISION)
+        + prio.value * PRIORITY_OFFSET * SCORE_TIMESTAMP_PRECISION
+    )
+
+
+def get_priority_level_from_score(score: float) -> Priority:
+    if score < PRIORITY_OFFSET * SCORE_TIMESTAMP_PRECISION:
+        # NOTE(sileht): backward compatibilty
+        return Priority.high
+    prio_score = int(score / PRIORITY_OFFSET / SCORE_TIMESTAMP_PRECISION)
+    return Priority(prio_score)
 
 
 @tenacity.retry(
@@ -189,7 +212,7 @@ async def push(
 
         # NOTE(sileht): lower timestamps are processed first
         if score is None:
-            score = str(date.utcnow().timestamp())
+            score = str(get_priority_score(Priority.high))
 
         bucket_org_key = worker_lua.BucketOrgKeyType(f"bucket~{owner_id}")
         bucket_sources_key = worker_lua.BucketSourcesKeyType(
@@ -599,9 +622,10 @@ class StreamProcessor:
                 break
 
             if (time.monotonic() - started_at) >= config.BUCKET_PROCESSING_MAX_SECONDS:
-                low_prio_threshold = get_low_priority_minimal_score()
-                prio = "high" if _bucket_score < low_prio_threshold else "low"
-                statsd.increment("engine.buckets.preempted", tags=[f"priority:{prio}"])
+                prio = get_priority_level_from_score(_bucket_score)
+                statsd.increment(
+                    "engine.buckets.preempted", tags=[f"priority:{prio.name}"]
+                )
                 break
 
             pulls_processed += 1
@@ -767,7 +791,7 @@ class StreamProcessor:
         # NOTE(sileht): refreshing all opened pull request because something got merged
         # has a lower priority
         if source["event_type"] == "push":
-            score = str(date.utcnow().timestamp() * 10)
+            score = str(get_priority_score(Priority.low))
 
         pipe = await self.redis_links.stream.pipeline()
         for pull_number in pull_numbers:
@@ -1122,8 +1146,9 @@ class Worker:
 
         # TODO(sileht): maybe we can do something with the bucket scores to
         # build a latency metric
-        bucket_backlog_lows: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
-        bucket_backlog_highs: typing.Dict[str, int] = collections.defaultdict(lambda: 0)
+        bucket_backlogs: typing.Dict[
+            Priority, typing.Dict[str, int]
+        ] = collections.defaultdict(lambda: collections.defaultdict(lambda: 0))
 
         for org_bucket, _ in org_buckets:
             owner_id = self.extract_owner(
@@ -1140,25 +1165,17 @@ class Worker:
             ] = await self._redis_links.stream.zrangebyscore(
                 org_bucket, min=0, max="+inf", withscores=True
             )
-            low_prio_threshold = get_low_priority_minimal_score()
             for _, score in bucket_contents:
-                if score < low_prio_threshold:
-                    bucket_backlog_highs[worker_id] += 1
-                else:
-                    bucket_backlog_lows[worker_id] += 1
+                prio = get_priority_level_from_score(score)
+                bucket_backlogs[prio][worker_id] += 1
 
-        for worker_id, bucket_backlog_high in bucket_backlog_highs.items():
-            statsd.gauge(
-                "engine.buckets.backlog",
-                bucket_backlog_high,
-                tags=["priority:high", f"worker_id:{worker_id}"],
-            )
-        for worker_id, bucket_backlog_low in bucket_backlog_lows.items():
-            statsd.gauge(
-                "engine.buckets.backlog",
-                bucket_backlog_low,
-                tags=["priority:low", f"worker_id:{worker_id}"],
-            )
+        for priority, bucket_backlog in bucket_backlogs.items():
+            for worker_id, length in bucket_backlog.items():
+                statsd.gauge(
+                    "engine.buckets.backlog",
+                    length,
+                    tags=[f"priority:{priority.name}", f"worker_id:{worker_id}"],
+                )
 
     @tracer.wrap("delayed_refresh_task", span_type="worker")
     async def delayed_refresh_task(self) -> None:
