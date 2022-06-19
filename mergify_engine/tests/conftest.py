@@ -1,9 +1,12 @@
 import asyncio
+import functools
 import logging
 import os
 import typing
 
 import freezegun
+import freezegun.api
+import msgpack
 import pytest
 import respx
 
@@ -17,6 +20,28 @@ from mergify_engine.clients import github
 freezegun.configure(  # type:ignore[attr-defined]
     extend_ignore_list=["mergify_engine.clients.github_app"]
 )
+
+
+def msgpack_freezegun_fixes(obj: typing.Any) -> typing.Any:
+    # NOTE(sileht): msgpack isinstance check doesn't support override of
+    # __instancecheck__ like freezegun does, so we convert the fake one into a
+    # real one
+    if isinstance(obj, freezegun.api.FakeDatetime):  # type: ignore[attr-defined]
+        return freezegun.api.real_datetime(  # type: ignore[attr-defined]
+            obj.year,
+            obj.month,
+            obj.day,
+            obj.hour,
+            obj.minute,
+            obj.second,
+            obj.microsecond,
+            obj.tzinfo,
+        )
+    return obj
+
+
+# serialize freezegum FakeDatetime as datetime
+msgpack.packb = functools.partial(msgpack.packb, default=msgpack_freezegun_fixes)
 
 original_os_environ = os.environ.copy()
 
