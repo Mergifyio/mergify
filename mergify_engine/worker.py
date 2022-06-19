@@ -839,7 +839,11 @@ class StreamProcessor:
                 bucket_sources_key,
                 tuple(message_ids),
             )
-            logger.error(
+            statsd.increment(
+                "engine.buckets.abandoning",
+                tags=[f"worker_id:{self.worker_id}"],
+            )
+            logger.warning(
                 "failed to process pull request, abandoning",
                 attempts=e.attempts,
                 exc_info=True,
