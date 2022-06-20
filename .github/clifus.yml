@@ -1,0 +1,48 @@
+sources:
+  python-version:
+    name: Get latest Python version from Docker Hub
+    kind: shell
+    spec:
+      command: python3 .github/get-latest-python-version.py
+
+targets:
+  heroku_runtime.txt:
+    name: "Update runtime.txt"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: runtime.txt
+      forcecreate: true
+      content: python-{{ source `python-version` }}
+  tox-1:
+    name: "Update tox.ini basepython"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: tox.ini
+      lineMatchPattern: '(basepython = python)(.*)'
+    transformers:
+      - find: '^\d+\.\d+'
+      - replaceRegexGroup: 2
+  tox-2:
+    name: "Update tox.ini default target"
+    kind: file
+    sourceID: python-version
+    spec:
+      file: tox.ini
+      lineMatchPattern: 'envlist = py(\d+),pep8'
+    transformers:
+      - find: '^\d+\.\d+'
+      - replacer:
+          from: "."
+          to: ""
+      - addPrefix: "envlist = py"
+      - addSuffix: ",pep8"
+  ci-file:
+    name: "Update CI file GitHub workflow"
+    kind: file
+    spec:
+      file: ".github/workflows/ci.yaml"
+      lineMatchPattern: '(\s+python-version: )(.+)'
+    transformers:
+      - replaceRegexGroup: 2
