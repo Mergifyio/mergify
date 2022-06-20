@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020—2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -15,6 +15,7 @@
 # under the License.
 
 import datetime
+import email.utils
 import typing
 from unittest import mock
 from urllib import parse
@@ -22,7 +23,6 @@ from urllib import parse
 import httpx
 import pytest
 import respx
-from werkzeug.http import http_date
 
 from mergify_engine import config
 from mergify_engine import date
@@ -318,7 +318,7 @@ async def test_client_retry_429_retry_after_as_absolute_date(
     respx_mock: respx.MockRouter,
 ) -> None:
     expected_retry = date.utcnow() + datetime.timedelta(seconds=2)
-    retry_after = http_date(expected_retry)
+    retry_after = email.utils.format_datetime(expected_retry)
     when = await _do_test_client_retry_429(respx_mock, retry_after)
     # ms are cut by http_date, so we allow a 1 second delta :(
     assert when >= expected_retry - datetime.timedelta(seconds=1)

@@ -14,6 +14,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
+import email.utils
 import sys
 import typing
 
@@ -22,7 +24,6 @@ import httpx
 from httpx import _types as httpx_types
 import tenacity
 import tenacity.wait
-from werkzeug.http import parse_date
 
 from mergify_engine import date
 from mergify_engine import service
@@ -105,6 +106,18 @@ STATUS_CODE_TO_EXC = {
     429: HTTPTooManyRequests,
     503: HTTPServiceUnavailable,
 }
+
+
+def parse_date(value: str) -> typing.Optional[datetime.datetime]:
+    try:
+        dt = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=datetime.timezone.utc)
+
+    return dt
 
 
 class wait_retry_after_header(tenacity.wait.wait_base):
