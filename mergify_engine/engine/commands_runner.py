@@ -38,7 +38,7 @@ from mergify_engine.rules import conditions
 LOG = daiquiri.getLogger(__name__)
 
 COMMAND_MATCHER = re.compile(
-    fr"^(?:{config.GITHUB_URL.rstrip('/')}/|@)Mergify(?:|io) (\w*)(.*)",  # noqa: BLK100
+    rf"^(?:{config.GITHUB_URL.rstrip('/')}/|@)Mergify(?:|io) (\w*)(.*)",  # noqa: BLK100
     re.IGNORECASE,
 )
 COMMAND_RESULT_MATCHER_OLD = re.compile(
