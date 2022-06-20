@@ -41,12 +41,15 @@ jobs:
             return matchArtifact.name.split("-")[2]
       - run: unzip docs.zip -d docs
 
-      - uses: google-github-actions/setup-gcloud@master
+      - name: Setup gcloud 🔧
+        uses: google-github-actions/setup-gcloud@v0.6.0
         with:
           service_account_email: ${{ secrets.GCP_DOCS_EMAIL }}
           service_account_key: ${{ secrets.GCP_DOCS_KEY }}
           export_default_credentials: true
-      - uses: google-github-actions/upload-cloud-storage@v0.10.2
+
+      - name: Deploy 🚀
+        uses: google-github-actions/upload-cloud-storage@v0.10.2
         with:
           path: docs
           destination: mergify-docs-preview/${{steps.download-artifact.outputs.result}}
