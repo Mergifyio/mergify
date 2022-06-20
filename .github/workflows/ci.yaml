@@ -27,7 +27,7 @@ jobs:
           pip install tox
           tox -e pep8
 
-  requirements:
+  constraints:
     timeout-minutes: 5
     runs-on: ubuntu-20.04
     steps:
@@ -42,9 +42,9 @@ jobs:
       - name: Build 🔧 & Test 🔍
         run: |
           pip install tox
-          tox -e requirements
+          tox -e constraints
           tox -e missing-imports
-          tox -e genreqs
+          tox -e genconstraints
           git diff --exit-code
   test:
     timeout-minutes: 10
