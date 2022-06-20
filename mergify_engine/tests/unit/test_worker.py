@@ -811,14 +811,15 @@ async def test_stream_processor_retrying_pull(
 
     # Too many retries, everything is gone
     assert 15 == len(logger.info.mock_calls)
-    assert 1 == len(logger.error.mock_calls)
+    assert 1 == len(logger.warning.mock_calls)
+    assert 0 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == (
         "failed to process pull request, retrying",
     )
     assert logger.info.mock_calls[1].args == (
         "failed to process pull request, retrying",
     )
-    assert logger.error.mock_calls[0].args == (
+    assert logger.warning.mock_calls[0].args == (
         "failed to process pull request, abandoning",
     )
     assert 0 == (await redis_links.stream.zcard("streams"))
@@ -922,6 +923,7 @@ async def test_stream_processor_retrying_stream_recovered(
     assert 0 == len(await redis_links.stream.keys("bucket-sources~*"))
 
     assert 1 == len(logger.info.mock_calls)
+    assert 0 == len(logger.warning.mock_calls)
     assert 0 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == ("failed to process org bucket, retrying",)
 
@@ -1016,6 +1018,7 @@ async def test_stream_processor_retrying_stream_failure(
 
     # Still there
     assert 3 == len(logger.info.mock_calls)
+    assert 0 == len(logger.warning.mock_calls)
     assert 0 == len(logger.error.mock_calls)
     assert logger.info.mock_calls[0].args == ("failed to process org bucket, retrying",)
     assert logger.info.mock_calls[1].args == ("failed to process org bucket, retrying",)
@@ -1064,6 +1067,7 @@ async def test_stream_processor_pull_unexpected_error(
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
+    assert len(logger.warning.mock_calls) == 0
     assert len(logger.error.mock_calls) == 2
     assert logger.error.mock_calls[0].args == ("failed to process pull request",)
     assert logger.error.mock_calls[1].args == ("failed to process pull request",)
