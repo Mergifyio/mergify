@@ -241,13 +241,28 @@ async def run_engine(
                 wait_background_github_processing=True,
             )
         except http.HTTPNotFound:
-            # NOTE(sileht): Don't fail if we received even on repo/pull that doesn't exists anymore
+            # NOTE(sileht): Don't fail if we received an event on repo/pull that doesn't exists anymore
             logger.debug("pull request doesn't exists, skipping it")
-            return None
+            return
+
+        except http.HTTPClientSideError as e:
+            if (
+                e.status_code == 422
+                and "The request could not be processed because too many files changed"
+                in e.message
+            ):
+                logger.warning(
+                    "This pull request cannot be evaluated by Mergify", exc_info=True
+                )
+                return
+
+            # NOTE(sileht): Reraise to retry with worker or create a Sentry
+            # issue
+            raise
 
         if ctxt.repository.repo["archived"]:
             logger.debug("repository archived, skipping it")
-            return None
+            return
 
         try:
             result = await engine.run(ctxt, sources)
