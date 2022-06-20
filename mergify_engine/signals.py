@@ -31,9 +31,9 @@ LOG = daiquiri.getLogger(__name__)
 EventName = typing.Literal[
     "action.assign",
     "action.backport",
-    "action.copy",
     "action.close",
     "action.comment",
+    "action.copy",
     "action.delete_head_branch",
     "action.dismiss_reviews",
     "action.label",
@@ -42,8 +42,8 @@ EventName = typing.Literal[
     "action.queue.merged",
     "action.rebase",
     "action.refresh",
-    "action.requeue",
     "action.request_reviewers",
+    "action.requeue",
     "action.review",
     "action.squash",
     "action.unqueue",
@@ -78,7 +78,7 @@ class EventRequestReviewsMetadata(EventMetadata):
     team_reviewers: typing.List[str]
 
 
-class EventDismissReviewMetadata(EventMetadata):
+class EventDismissReviewsMetadata(EventMetadata):
     users: typing.List[str]
 
 
@@ -199,7 +199,7 @@ async def send(
     repository: "context.Repository",
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.dismiss_reviews"],
-    metadata: EventDismissReviewMetadata,
+    metadata: EventDismissReviewsMetadata,
 ) -> None:
     ...
 
