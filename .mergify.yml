@@ -72,6 +72,23 @@ pull_request_rules:
     actions:
       queue:
 
+  - name: automatic merge for python version bump
+    conditions:
+      - and: *CheckRuns
+      - check-success=semantic-pull-request
+      - check-success=constraints
+      - author=mergify-ci-bot
+      - label!=work-in-progress
+      - label!=manual merge
+      - "title~=^chore: bump python version"
+      - head=python-version-update
+      - "#commits=1"
+    actions:
+      queue:
+        name: lowprio
+        method: rebase
+        commit_message_template: null
+
   - name: automatic merge from dependabot
     conditions:
       - and: *CheckRuns
