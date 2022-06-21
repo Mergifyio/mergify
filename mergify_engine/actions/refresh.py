@@ -44,6 +44,7 @@ class RefreshAction(actions.Action):
             ctxt.pull["number"],
             "action.refresh",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, title="Pull request refreshed", summary=""

@@ -268,6 +268,7 @@ class RequestReviewsAction(actions.Action):
                             "team_reviewers": list(team_reviews_to_request),
                         }
                     ),
+                    rule.get_signal_trigger(),
                 )
 
             if already_at_max or will_exceed_max:

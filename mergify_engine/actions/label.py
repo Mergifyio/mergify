@@ -107,6 +107,7 @@ class LabelAction(actions.Action):
                 signals.EventLabelMetadata(
                     {"added": sorted(labels_added), "removed": sorted(labels_removed)}
                 ),
+                rule.get_signal_trigger(),
             )
 
             return check_api.Result(

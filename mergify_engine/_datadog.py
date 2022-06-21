@@ -30,6 +30,7 @@ class Signal(signals.SignalBase):
         pull_request: github_types.GitHubPullRequestNumber,
         event: signals.EventName,
         metadata: signals.EventMetadata,
+        trigger: str,
     ) -> None:
         if event.startswith("action"):
             statsd.increment("engine.signals.action.count", tags=[f"event:{event[7:]}"])

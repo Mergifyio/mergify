@@ -98,6 +98,7 @@ class DeleteHeadBranchAction(actions.Action):
             ctxt.pull["number"],
             "action.delete_head_branch",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
         return check_api.Result(
             check_api.Conclusion.SUCCESS,

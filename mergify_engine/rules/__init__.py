@@ -50,6 +50,7 @@ class PullRequestRule:
     conditions: conditions.PullRequestRuleConditions
     actions: typing.Dict[str, actions.Action]
     hidden: bool = False
+    from_command: bool = False
 
     class T_from_dict_required(typing.TypedDict):
         name: str
@@ -66,6 +67,15 @@ class PullRequestRule:
 
     def get_check_name(self, action: str) -> str:
         return f"Rule: {self.name} ({action})"
+
+    def get_signal_trigger(self) -> str:
+        return f"Rule: {self.name}"
+
+
+@dataclasses.dataclass
+class CommandRule(PullRequestRule):
+    def get_signal_trigger(self) -> str:
+        return f"Command: {self.name}"
 
 
 EvaluatedRule = typing.NewType("EvaluatedRule", PullRequestRule)

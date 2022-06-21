@@ -36,6 +36,7 @@ EVENTLOGS_SHORT_RETENTION = datetime.timedelta(days=1)
 
 class EventBase(typing.TypedDict):
     timestamp: datetime.datetime
+    trigger: str
 
 
 class EventMetadata(typing.TypedDict):
@@ -183,6 +184,7 @@ class EventLogsSignal(signals.SignalBase):
         pull_request: github_types.GitHubPullRequestNumber,
         event: signals.EventName,
         metadata: signals.EventMetadata,
+        trigger: str,
     ) -> None:
         if event not in SUPPORTED_EVENT_NAMES:
             return
@@ -218,6 +220,7 @@ class EventLogsSignal(signals.SignalBase):
                             "timestamp": now,
                             "event": event,
                             "metadata": metadata,
+                            "trigger": trigger,
                         }
                     ),
                     datetime=True,

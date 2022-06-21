@@ -90,6 +90,7 @@ class AssignAction(actions.Action):
                 signals.EventAssignMetadata(
                     {"added": assignees_to_add, "removed": assignees_to_remove}
                 ),
+                rule.get_signal_trigger(),
             )
 
             return check_api.Result(

@@ -177,6 +177,7 @@ class DismissReviewsAction(actions.Action):
                 ctxt.pull["number"],
                 "action.dismiss_reviews",
                 signals.EventDismissReviewsMetadata({"users": list(to_dismiss_users)}),
+                rule.get_signal_trigger(),
             )
             return check_api.Result(
                 check_api.Conclusion.SUCCESS, "Review dismissed", ""

@@ -234,7 +234,11 @@ async def run_command(
         if conds.match:
             result = await command.action.run(
                 ctxt,
-                rules.EvaluatedRule(rules.PullRequestRule("", None, conds, {}, False)),
+                rules.EvaluatedRule(
+                    # TODO(sileht): inject the user that run the command in the name
+                    # but we need first to make it mandatory
+                    rules.CommandRule(command_full, None, conds, {}, False)
+                ),
             )
         elif actions.ActionFlag.ALLOW_AS_PENDING_COMMAND in command.action.flags:
             result = check_api.Result(

@@ -35,12 +35,14 @@ async def test_signals(
             ctxt.pull["number"],
             "action.label",
             signals.EventLabelMetadata({"added": [], "removed": ["bar"]}),
+            "Rule: awesome rule",
         )
         signal_method.assert_called_once_with(
             ctxt.repository,
             ctxt.pull["number"],
             "action.label",
             {"added": [], "removed": ["bar"]},
+            "Rule: awesome rule",
         )
 
 
@@ -59,6 +61,7 @@ async def test_datadog(
             ctxt.pull["number"],
             "action.label",
             {"added": [], "removed": ["bar"]},
+            "Rule: awesome rule",
         )
         increment.assert_called_once_with(
             "engine.signals.action.count", tags=["event:label"]

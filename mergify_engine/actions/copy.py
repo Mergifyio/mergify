@@ -107,6 +107,7 @@ class CopyAction(actions.Action):
     async def _copy(
         self,
         ctxt: context.Context,
+        rule: rules.EvaluatedRule,
         branch_name: github_types.GitHubRefType,
         bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> typing.Tuple[check_api.Conclusion, str]:
@@ -154,6 +155,7 @@ class CopyAction(actions.Action):
                     ctxt.pull["number"],
                     self.HOOK_EVENT_NAME,
                     signals.EventCopyMetadata({"to": branch_name}),
+                    rule.get_signal_trigger(),
                 )
 
             except duplicate_pull.DuplicateAlreadyExists:
@@ -263,7 +265,8 @@ class CopyAction(actions.Action):
             )
 
         results = [
-            await self._copy(ctxt, branch_name, bot_account) for branch_name in branches
+            await self._copy(ctxt, rule, branch_name, bot_account)
+            for branch_name in branches
         ]
 
         # Pick the first status as the final_status

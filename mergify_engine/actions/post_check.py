@@ -116,6 +116,7 @@ class PostCheckAction(actions.Action):
                 ctxt.pull["number"],
                 "action.post_check",
                 signals.EventNoMetadata(),
+                rule.get_signal_trigger(),
             )
 
         return check_api.Result(conclusion, title, summary)
