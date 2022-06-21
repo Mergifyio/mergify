@@ -907,6 +907,30 @@ def get_process_index_from_env() -> int:
         return 0
 
 
+def wait_before_next_retry(retry_state: tenacity.RetryCallState) -> typing.Any:
+    return retry_state.next_action.__dict__["sleep"]
+
+
+async def ping_redis(
+    redis: typing.Union[redis_utils.RedisStream, redis_utils.RedisCache],
+    redis_name: str,
+) -> None:
+    def retry_log(retry_state: tenacity.RetryCallState) -> None:
+        statsd.increment("redis.client.connection.errors")
+        LOG.warning(
+            "Couldn't connect to Redis %s, retrying in %d seconds...",
+            redis_name,
+            wait_before_next_retry(retry_state),
+        )
+
+    r = tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=0.2, max=5),
+        retry=tenacity.retry_if_exception_type(redis_exceptions.ConnectionError),
+        before_sleep=retry_log,
+    )
+    await r(redis.ping)()
+
+
 WorkerServiceT = typing.Literal[
     "shared-stream",
     "dedicated-stream",
@@ -1159,6 +1183,9 @@ class Worker:
 
     async def start(self) -> None:
         self._stopping.clear()
+
+        await ping_redis(self._redis_links.stream, "Stream")
+        await ping_redis(self._redis_links.cache, "Cache")
 
         await redis_utils.load_scripts(self._redis_links.stream)
         await migrations.run(self._redis_links.cache)
