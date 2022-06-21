@@ -77,7 +77,7 @@ async def marketplace_handler(
                         "Content-Type": request.headers.get("Content-Type"),
                     },
                 )
-        except httpx.TimeoutException:
+        except httpx.HTTPError:
             LOG.warning(
                 "Fail to forward Marketplace event",
                 event_type=event_type,
@@ -128,7 +128,7 @@ async def event_handler(
                         "Content-Type": request.headers.get("Content-Type"),
                     },
                 )
-        except httpx.TimeoutException:
+        except httpx.HTTPError:
             LOG.warning(
                 "Fail to forward GitHub event",
                 event_type=event_type,
