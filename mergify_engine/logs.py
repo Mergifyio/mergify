@@ -18,6 +18,7 @@ import logging
 import os
 import re
 import sys
+import typing
 
 import daiquiri
 import daiquiri.formatter
@@ -40,16 +41,16 @@ WORKER_ID: contextvars.ContextVar[str] = contextvars.ContextVar("worker_id")
 class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[misc]
     LEVEL_COLORS = LEVEL_COLORS
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         if hasattr(record, "_daiquiri_extra_keys"):
-            record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)
-        return super().format(record)
+            record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)  # type: ignore[attr-defined]
+        return super().format(record)  # type: ignore[no-any-return]
 
-    def add_extras(self, record):
+    def add_extras(self, record: logging.LogRecord) -> None:
         super().add_extras(record)
         worker_id = WORKER_ID.get(None)
         if worker_id is not None:
-            record.extras += " " + self.extras_template.format("worker_id", worker_id)
+            record.extras += " " + self.extras_template.format("worker_id", worker_id)  # type: ignore[attr-defined]
 
 
 CUSTOM_FORMATTER = CustomFormatter(
@@ -64,7 +65,12 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
         if envvar in os.environ
     }
 
-    def add_fields(self, log_record, record, message_dict):
+    def add_fields(
+        self,
+        log_record: typing.Dict[str, str],
+        record: logging.LogRecord,
+        message_dict: typing.Dict[str, str],
+    ) -> None:
         super().add_fields(log_record, record, message_dict)
         log_record.update(self.HEROKU_LOG_EXTRAS)
         log_record.update(
