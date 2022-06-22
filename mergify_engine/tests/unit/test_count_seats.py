@@ -106,31 +106,35 @@ for filename in os.listdir(_EVENT_DIR):
 
 @freeze_time("2011-11-11")
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
-async def test_store_active_users(event_type, event, redis_cache):
-    await count_seats.store_active_users(redis_cache, event_type, event)
+async def test_store_active_users(
+    event_type: str,
+    event: github_types.GitHubEvent,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
+    await count_seats.store_active_users(redis_links.active_users, event_type, event)
     one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
     if event_type == "push":
-        assert await redis_cache.zrangebyscore(
+        assert await redis_links.active_users.zrangebyscore(
             "active-users~21031067~Codertocat~186853002~Hello-World",
             min=one_month_ago.timestamp(),
             max="+inf",
             withscores=True,
         ) == [
-            ("21031067~Codertocat", 1320969600.0),
+            (b"21031067~Codertocat", 1320969600.0),
         ]
     elif event_type == "pull_request":
-        assert await redis_cache.zrangebyscore(
+        assert await redis_links.active_users.zrangebyscore(
             "active-users~21031067~Codertocat~186853002~Hello-World",
             min=one_month_ago.timestamp(),
             max="+inf",
             withscores=True,
         ) == [
-            ("12345678~AnotherUser", 1320969600.0),
-            ("21031067~Codertocat", 1320969600.0),
+            (b"12345678~AnotherUser", 1320969600.0),
+            (b"21031067~Codertocat", 1320969600.0),
         ]
     else:
         assert (
-            await redis_cache.zrangebyscore(
+            await redis_links.active_users.zrangebyscore(
                 "active-users~21031067~Codertocat~186853002~Hello-World",
                 min=one_month_ago.timestamp(),
                 max="+inf",
@@ -141,8 +145,12 @@ async def test_store_active_users(event_type, event, redis_cache):
 
 @freeze_time("2011-11-11")
 @pytest.mark.parametrize("event_type, event", list(GITHUB_SAMPLE_EVENTS.values()))
-async def test_get_usage_count_seats(event_type, event, redis_cache):
-    await (count_seats.store_active_users(redis_cache, event_type, event))
+async def test_get_usage_count_seats(
+    event_type: str,
+    event: github_types.GitHubEvent,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
+    await (count_seats.store_active_users(redis_links.active_users, event_type, event))
     charset = "utf8"
     await redis.startup()
     async with httpx.AsyncClient(base_url="http://whatever", app=root.app) as client:
@@ -204,7 +212,7 @@ async def test_get_usage_count_seats(event_type, event, redis_cache):
 
 @freeze_time("2011-11-11")
 async def test_get_usage_last_seen(
-    redis_cache: redis_utils.RedisCache, context_getter: conftest.ContextGetterFixture
+    context_getter: conftest.ContextGetterFixture,
 ) -> None:
     ctxt = await context_getter(number=1)
     await redis.startup()
