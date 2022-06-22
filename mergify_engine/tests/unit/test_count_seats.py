@@ -226,6 +226,7 @@ async def test_get_usage_last_seen(
             ctxt.pull["number"],
             "action.refresh",
             signals.EventNoMetadata(),
+            "Rule: testing",
         )
 
         reply = await client.request(

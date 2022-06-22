@@ -76,6 +76,7 @@ class RequeueAction(actions.Action):
             ctxt.pull["number"],
             "action.requeue",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
 
         return check_api.Result(

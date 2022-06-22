@@ -195,6 +195,7 @@ Unknown pull request attribute: Loser
                     "metadata": {
                         "users": ["mergify-test1"],
                     },
+                    "trigger": "Rule: dismiss reviews",
                 },
                 {
                     "timestamp": mock.ANY,
@@ -202,6 +203,7 @@ Unknown pull request attribute: Loser
                     "metadata": {
                         "users": ["mergify-test1"],
                     },
+                    "trigger": "Rule: dismiss reviews",
                 },
             ]
         }

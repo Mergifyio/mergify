@@ -557,12 +557,15 @@ Then, re-embark the pull request into the merge queue by posting the comment
         )
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
-    async def send_signal(self, ctxt: context.Context) -> None:
+    async def send_signal(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> None:
         await signals.send(
             ctxt.repository,
             ctxt.pull["number"],
             "action.queue.merged",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
 
     def need_draft_pull_request_refresh(self) -> bool:
