@@ -855,7 +855,7 @@ class Repository(object):
             data = typing.cast(
                 github_types.GitHubCompareCommits,
                 await self.installation.client.item(
-                    f"{self.base_url}/compare/{base_ref}...{head_ref}"
+                    f"{self.base_url}/compare/{parse.quote(base_ref, safe='')}...{parse.quote(head_ref, safe='')}"
                 ),
             )
         except http.HTTPNotFound:
