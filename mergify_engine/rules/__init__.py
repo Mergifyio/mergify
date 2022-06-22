@@ -552,7 +552,7 @@ def get_defaults_schema(
     }
 
 
-def FullifyPullRequestRules(v):
+def FullifyPullRequestRules(v: "MergifyConfig") -> "MergifyConfig":
     try:
         for pr_rule in v["pull_request_rules"]:
             for action in pr_rule.actions.values():
