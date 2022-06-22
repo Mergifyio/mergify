@@ -24,6 +24,7 @@ from freezegun import freeze_time
 import httpx
 import msgpack
 import pytest
+from redis import exceptions as redis_exceptions
 
 from mergify_engine import context
 from mergify_engine import date
@@ -114,6 +115,13 @@ def fake_get_installation_from_account_id(
         "target_type": "Organization",
         "permissions": github_app.EXPECTED_MINIMAL_PERMISSIONS["Organization"],
     }
+
+
+# NOTE(Syffe): related to this issue: https://github.com/python/cpython/issues/84753
+# and this PR: https://github.com/python/cpython/pull/94050
+# inspect doesn't assert mock.AsyncMock as a coroutine, so we need to create a fake one
+async def fake() -> None:
+    pass
 
 
 WORKER_HAS_WORK_INTERVAL_CHECK = 0.02
@@ -658,6 +666,73 @@ async def test_consume_good_stream(
     assert 0 == len(await redis_links.stream.keys("bucket~*"))
     assert 0 == len(await redis_links.stream.keys("bucket-sources~*"))
     assert 0 == len(await redis_links.stream.hgetall("attempts"))
+
+
+@mock.patch.object(worker, "LOG")
+@mock.patch("redis.asyncio.Redis.ping")
+@mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
+@mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
+async def test_worker_start_redis_ping(
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    ping: mock.MagicMock,
+    logger: mock.MagicMock,
+    request: pytest.FixtureRequest,
+    event_loop: asyncio.BaseEventLoop,
+) -> None:
+    logs.setup_logging()
+
+    get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
+    get_subscription.side_effect = fake_get_subscription
+    ping.side_effect = [
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        fake(),
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        redis_exceptions.ConnectionError(),
+        fake(),
+    ]
+
+    w = worker.Worker(
+        shared_stream_tasks_per_process=3,
+        delayed_refresh_idle_time=0.01,
+        dedicated_workers_spawner_idle_time=0.01,
+        dedicated_workers_syncer_idle_time=0.01,
+    )
+
+    await w.start()
+
+    assert 8 == len(logger.warning.mock_calls)
+    assert logger.warning.mock_calls[0].args == (
+        "Couldn't connect to Redis %s, retrying in %d seconds...",
+        "Stream",
+        0.2,
+    )
+    assert logger.warning.mock_calls[1].args == (
+        "Couldn't connect to Redis %s, retrying in %d seconds...",
+        "Stream",
+        0.4,
+    )
+    assert logger.warning.mock_calls[4].args == (
+        "Couldn't connect to Redis %s, retrying in %d seconds...",
+        "Cache",
+        0.2,
+    )
+    assert logger.warning.mock_calls[5].args == (
+        "Couldn't connect to Redis %s, retrying in %d seconds...",
+        "Cache",
+        0.4,
+    )
+
+    async def cleanup() -> None:
+        w.stop()
+        await w.wait_shutdown_complete()
+
+    request.addfinalizer(lambda: event_loop.run_until_complete(cleanup()))
 
 
 @mock.patch("mergify_engine.worker.daiquiri.getLogger")
