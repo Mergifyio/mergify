@@ -88,16 +88,16 @@ def _get_active_users_key(
 
 
 async def get_active_users_keys(
-    redis_cache: redis_utils.RedisCache,
+    redis: redis_utils.RedisActiveUsers,
     owner_id: typing.Union[typing.Literal["*"], github_types.GitHubAccountIdType] = "*",
     repo_id: typing.Union[
         typing.Literal["*"], github_types.GitHubRepositoryIdType
     ] = "*",
 ) -> typing.AsyncIterator[ActiveUserKeyT]:
-    async for key in redis_cache.scan_iter(
+    async for key in redis.scan_iter(
         f"{ACTIVE_USERS_PREFIX}~{owner_id}~*~{repo_id}~*", count=10000
     ):
-        yield ActiveUserKeyT(key)
+        yield ActiveUserKeyT(key.decode())
 
 
 def _parse_user(user: str) -> ActiveUser:
@@ -108,19 +108,19 @@ def _parse_user(user: str) -> ActiveUser:
 
 
 async def get_active_users(
-    redis_cache: redis_utils.RedisCache, key: ActiveUserKeyT
+    redis: redis_utils.RedisActiveUsers, key: ActiveUserKeyT
 ) -> typing.Set[ActiveUser]:
     one_month_ago = datetime.datetime.utcnow() - datetime.timedelta(days=30)
     return {
-        _parse_user(user)
-        for user in await redis_cache.zrangebyscore(
+        _parse_user(user.decode())
+        for user in await redis.zrangebyscore(
             key, min=one_month_ago.timestamp(), max="+inf"
         )
     }
 
 
 async def store_active_users(
-    redis_cache: redis_utils.RedisCache,
+    redis: redis_utils.RedisActiveUsers,
     event_type: str,
     event: github_types.GitHubEvent,
 ) -> None:
@@ -178,7 +178,7 @@ async def store_active_users(
         return
 
     repo_key = _get_active_users_key(typed_event["repository"])
-    transaction = await redis_cache.pipeline()
+    transaction = await redis.pipeline()
     for user_id, user_login in users.items():
         user_key = f"{user_id}~{user_login}"
         await transaction.zadd(repo_key, {user_key: time.time()})
@@ -225,7 +225,7 @@ class Seats:
     @classmethod
     async def get(
         cls,
-        redis_cache: redis_utils.RedisCache,
+        redis: redis_utils.RedisActiveUsers,
         write_users: bool = True,
         active_users: bool = True,
         owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
@@ -236,7 +236,7 @@ class Seats:
                 raise RuntimeError("Can't get `write_users` if `owner_id` is set")
             await seats.populate_with_collaborators_with_write_users_access()
         if active_users:
-            await seats.populate_with_active_users(redis_cache, owner_id)
+            await seats.populate_with_active_users(redis, owner_id)
         return seats
 
     def jsonify(self) -> SeatsJsonT:
@@ -299,11 +299,11 @@ class Seats:
 
     async def populate_with_active_users(
         self,
-        redis_cache: redis_utils.RedisCache,
+        redis: redis_utils.RedisActiveUsers,
         owner_id: typing.Optional[github_types.GitHubAccountIdType] = None,
     ) -> None:
         async for key in get_active_users_keys(
-            redis_cache, owner_id="*" if owner_id is None else owner_id
+            redis, owner_id="*" if owner_id is None else owner_id
         ):
             _, _owner_id, owner_login, repo_id, repo_name = key.split("~")
             org = SeatAccount(
@@ -314,7 +314,7 @@ class Seats:
                 github_types.GitHubRepositoryIdType(int(repo_id)),
                 github_types.GitHubRepositoryName(repo_name),
             )
-            active_users = await get_active_users(redis_cache, key)
+            active_users = await get_active_users(redis, key)
 
             repo_seats = self.seats[org][repo]
             if repo_seats["active_users"] is None:
@@ -401,7 +401,7 @@ async def send_seats(seats: SeatsCountResultT) -> None:
                 raise
 
 
-async def count_and_send(redis_cache: redis_utils.RedisCache) -> None:
+async def count_and_send(redis: redis_utils.RedisActiveUsers) -> None:
     await asyncio.sleep(HOUR)
     while True:
         # NOTE(sileht): We loop even if SUBSCRIPTION_TOKEN is missing to not
@@ -411,7 +411,7 @@ async def count_and_send(redis_cache: redis_utils.RedisCache) -> None:
             LOG.info("on-premise subscription token missing, nothing to do.")
         else:
             try:
-                seats = (await Seats.get(redis_cache)).count()
+                seats = (await Seats.get(redis)).count()
             except Exception:
                 LOG.error("failed to count seats", exc_info=True)
             else:
@@ -429,13 +429,13 @@ async def report(args: argparse.Namespace) -> None:
     try:
         if args.daemon:
             service.setup("count-seats")
-            await count_and_send(redis_links.cache)
+            await count_and_send(redis_links.active_users)
         else:
             service.setup("count-seats", dump_config=False)
             if config.SUBSCRIPTION_TOKEN is None:
                 LOG.error("on-premise subscription token missing")
             else:
-                seats = await Seats.get(redis_links.cache)
+                seats = await Seats.get(redis_links.active_users)
                 if args.json:
                     print(json.dumps(seats.jsonify()))
                 else:
