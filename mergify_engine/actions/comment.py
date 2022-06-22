@@ -97,6 +97,7 @@ class CommentAction(actions.Action):
             ctxt.pull["number"],
             "action.comment",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Comment posted", message)
 

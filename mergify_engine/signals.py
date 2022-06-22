@@ -92,6 +92,7 @@ SignalT = typing.Callable[
         github_types.GitHubPullRequestNumber,
         EventName,
         typing.Optional[EventMetadata],
+        str,
     ],
     typing.Coroutine[None, None, None],
 ]
@@ -105,6 +106,7 @@ class SignalBase(abc.ABC):
         pull_request: github_types.GitHubPullRequestNumber,
         event: EventName,
         metadata: EventMetadata,
+        trigger: str,
     ) -> None:
         pass
 
@@ -116,6 +118,7 @@ class NoopSignal(SignalBase):
         pull_request: github_types.GitHubPullRequestNumber,
         event: EventName,
         metadata: EventMetadata,
+        trigger: str,
     ) -> None:
         pass
 
@@ -160,6 +163,7 @@ async def send(
         "action.queue.merged",
     ],
     metadata: EventNoMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -170,6 +174,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.review"],
     metadata: EventReviewMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -180,6 +185,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.assign"],
     metadata: EventAssignMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -190,6 +196,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.label"],
     metadata: EventLabelMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -200,6 +207,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.dismiss_reviews"],
     metadata: EventDismissReviewsMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -210,6 +218,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.request_reviewers"],
     metadata: EventRequestReviewsMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -220,6 +229,7 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.backport", "action.copy"],
     metadata: EventCopyMetadata,
+    trigger: str,
 ) -> None:
     ...
 
@@ -229,9 +239,10 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: EventName,
     metadata: EventMetadata,
+    trigger: str,
 ) -> None:
     for name, signal in SIGNALS.items():
         try:
-            await signal(repository, pull_request, event, metadata)
+            await signal(repository, pull_request, event, metadata, trigger)
         except Exception:
             LOG.error("failed to run signal: %s", name, exc_info=True)

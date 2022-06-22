@@ -39,6 +39,7 @@ class Signal(signals.SignalBase):
         pull_request: github_types.GitHubPullRequestNumber,
         event: signals.EventName,
         metadata: signals.EventMetadata,
+        trigger: str,
     ) -> None:
         key = get_last_seen_key(repository.installation.owner_id)
         now = date.utcnow().isoformat()
