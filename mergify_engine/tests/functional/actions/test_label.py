@@ -83,6 +83,7 @@ class TestLabelAction(base.FunctionalTestBase):
                         "added": ["foobar", "unstable"],
                         "removed": ["remove-me"],
                     },
+                    "trigger": "Rule: rename label",
                 },
                 {
                     "timestamp": mock.ANY,
@@ -91,6 +92,7 @@ class TestLabelAction(base.FunctionalTestBase):
                         "added": ["unstable"],
                         "removed": [],
                     },
+                    "trigger": "Rule: rename label",
                 },
             ]
         }
@@ -172,6 +174,7 @@ class TestLabelAction(base.FunctionalTestBase):
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {"added": [], "removed": ["stable"]},
+                    "trigger": "Rule: delete all labels",
                 }
             ]
         }

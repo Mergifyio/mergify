@@ -36,7 +36,9 @@ FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
 class MergeBaseAction(actions.Action, abc.ABC):
     @abc.abstractmethod
-    async def send_signal(self, ctxt: context.Context) -> None:
+    async def send_signal(
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+    ) -> None:
         pass
 
     @abc.abstractmethod
@@ -97,7 +99,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 else:
                     return await self._handle_merge_error(e, ctxt, rule, q)
             else:
-                await self.send_signal(ctxt)
+                await self.send_signal(ctxt, rule)
                 ctxt.log.info("merged")
 
             # NOTE(sileht): We can't use merge_report() here, because it takes
@@ -147,7 +149,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 else:
                     return await self._handle_merge_error(e, ctxt, rule, q)
             else:
-                await self.send_signal(ctxt)
+                await self.send_signal(ctxt, rule)
                 await ctxt.update()
                 ctxt.log.info("merged")
 

@@ -120,6 +120,7 @@ class SquashAction(actions.Action):
                 ctxt.pull["number"],
                 "action.squash",
                 signals.EventNoMetadata(),
+                rule.get_signal_trigger(),
             )
         return check_api.Result(
             check_api.Conclusion.SUCCESS, "Pull request squashed successfully", ""

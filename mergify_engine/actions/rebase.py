@@ -69,6 +69,7 @@ class RebaseAction(actions.Action):
             ctxt.pull["number"],
             "action.rebase",
             signals.EventNoMetadata(),
+            rule.get_signal_trigger(),
         )
 
         return check_api.Result(
