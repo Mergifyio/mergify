@@ -99,11 +99,13 @@ class QueueBase(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def add_pull(self, ctxt: context.Context, config: PullQueueConfig) -> None:
+    async def add_pull(
+        self, ctxt: context.Context, config: PullQueueConfig, signal_trigger: str
+    ) -> None:
         pass
 
     @abc.abstractmethod
-    async def remove_pull(self, ctxt: context.Context) -> None:
+    async def remove_pull(self, ctxt: context.Context, signal_trigger: str) -> None:
         pass
 
     @abc.abstractmethod

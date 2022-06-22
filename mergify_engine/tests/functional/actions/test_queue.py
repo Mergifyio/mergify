@@ -4486,7 +4486,8 @@ class TestTrainApiCalls(base.FunctionalTestBase):
 
         await car1.start_checking_with_draft(queue_rule)
         await car2.start_checking_with_draft(queue_rule)
-        await car_to_delete.start_checking_with_draft(queue_rule)
+        with mock.patch.object(q2, "find_embarked_pull", return_value=[1, mock.Mock()]):
+            await car_to_delete.start_checking_with_draft(queue_rule)
 
         assert 10 == len(await self.get_branches())
         assert 1 == len(q1._cars)
@@ -4612,8 +4613,9 @@ class TestTrainApiCalls(base.FunctionalTestBase):
         )
 
         await car1.start_checking_with_draft(queue_rule)
-        await car2.start_checking_with_draft(queue_rule)
-        await car3.start_checking_with_draft(queue_rule)
+        with mock.patch.object(q, "find_embarked_pull", return_value=[1, mock.Mock()]):
+            await car2.start_checking_with_draft(queue_rule)
+            await car3.start_checking_with_draft(queue_rule)
         await car4.start_checking_with_draft(queue_rule)
 
         assert 13 == len(await self.get_branches())

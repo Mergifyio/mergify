@@ -305,7 +305,11 @@ Then, re-embark the pull request into the merge queue by posting the comment
         result = await self.merge_report(ctxt)
         if result is None:
             if await self._should_be_queued(ctxt, q):
-                await q.add_pull(ctxt, typing.cast(queue.PullQueueConfig, self.config))
+                await q.add_pull(
+                    ctxt,
+                    typing.cast(queue.PullQueueConfig, self.config),
+                    rule.get_signal_trigger(),
+                )
                 try:
                     qf = await freeze.QueueFreeze.get(
                         ctxt.repository, self.config["name"]
@@ -316,7 +320,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                         result = await self.get_queue_status(ctxt, rule, q, qf)
 
                 except Exception:
-                    await q.remove_pull(ctxt)
+                    await q.remove_pull(ctxt, rule.get_signal_trigger())
                     raise
             else:
                 result = await self.get_unqueue_status(ctxt, q)
@@ -340,7 +344,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                     ),
                 )
 
-            await q.remove_pull(ctxt)
+            await q.remove_pull(ctxt, rule.get_signal_trigger())
 
         # NOTE(sileht): Only refresh if the car still exists and is the same as
         # before we run the action
@@ -404,7 +408,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 result = await self.get_unqueue_status(ctxt, q)
 
         if result.conclusion is not check_api.Conclusion.PENDING:
-            await q.remove_pull(ctxt)
+            await q.remove_pull(ctxt, rule.get_signal_trigger())
 
         # The car may have been removed
         newcar = q.get_car(ctxt)
