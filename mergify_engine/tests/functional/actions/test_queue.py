@@ -13,6 +13,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+import copy
 import datetime
 import itertools
 import operator
@@ -3007,6 +3008,174 @@ DO NOT EDIT
 
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_pr_priority_no_interrupt(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        "status-success=continuous-integration/slow-ci",
+                    ],
+                    "allow_inplace_checks": False,
+                    "speculative_checks": 5,
+                },
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Merge priority high",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=high",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "high"}},
+                },
+                {
+                    "name": "Merge priority low",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=low",
+                    ],
+                    "actions": {"queue": {"name": "default", "priority": "low"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p1 = await self.create_pr()
+        p2 = await self.create_pr()
+        p3 = await self.create_pr()
+
+        # To force others to be rebased
+        p_merged = await self.create_pr()
+        await self.merge_pull(p_merged["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p_merged = await self.get_pull(p_merged["number"])
+
+        # Put first PR in queue
+        await self.add_label(p1["number"], "low")
+        await self.add_label(p2["number"], "low")
+        await self.run_engine()
+
+        ctxt_p_merged = context.Context(self.repository_ctxt, p_merged)
+        q = await merge_train.Train.from_context(ctxt_p_merged)
+
+        # my 3 PRs + 2 merge-queue PR
+        pulls = await self.get_pulls()
+        assert len(pulls) == 5
+
+        tmp_mq_p1 = pulls[1]
+        tmp_mq_p2 = pulls[0]
+        assert tmp_mq_p1["number"] not in [p1["number"], p2["number"], p3["number"]]
+        assert tmp_mq_p2["number"] not in [p1["number"], p2["number"], p3["number"]]
+
+        await self._assert_cars_contents(
+            q,
+            p_merged["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p_merged["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p1["number"],
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p_merged["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p2["number"],
+                ),
+            ],
+        )
+
+        # Change the configuration and introduce disallow_checks_interruption_from_queues
+        updated_rules = copy.deepcopy(rules)
+        updated_rules["queue_rules"][0]["disallow_checks_interruption_from_queues"] = [
+            "default"
+        ]
+        p_new_config = await self.create_pr(
+            files={".mergify.yml": yaml.dump(updated_rules)}
+        )
+        await self.merge_pull(p_new_config["number"])
+        await self.wait_for("pull_request", {"action": "closed"})
+        await self.run_engine()
+        p_new_config = await self.get_pull(p_new_config["number"])
+
+        ctxt_p_new_config = context.Context(self.repository_ctxt, p_new_config)
+        q = await merge_train.Train.from_context(ctxt_p_new_config)
+
+        # my 3 PRs + 2 merge-queue PR
+        pulls = await self.get_pulls()
+        assert len(pulls) == 5
+
+        tmp_mq_p1 = pulls[1]
+        tmp_mq_p2 = pulls[0]
+        assert tmp_mq_p1["number"] not in [p1["number"], p2["number"], p3["number"]]
+        assert tmp_mq_p2["number"] not in [p1["number"], p2["number"], p3["number"]]
+
+        await self._assert_cars_contents(
+            q,
+            p_new_config["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p_new_config["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p1["number"],
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p_new_config["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p2["number"],
+                ),
+            ],
+        )
+
+        # Put second PR at the begining of the queue via pr priority Checks
+        # must not be interrupted due to
+        # disallow_checks_interruption_from_queues config
+        await self.add_label(p3["number"], "high")
+        await self.run_engine()
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 6
+
+        tmp_mq_p3 = pulls[0]
+        assert tmp_mq_p3["number"] not in [p1["number"], p2["number"], p3["number"]]
+
+        await self._assert_cars_contents(
+            q,
+            p_new_config["merge_commit_sha"],
+            [
+                TrainCarMatcher(
+                    [p1["number"]],
+                    [],
+                    p_new_config["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p1["number"],
+                ),
+                TrainCarMatcher(
+                    [p2["number"]],
+                    [p1["number"]],
+                    p_new_config["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p2["number"],
+                ),
+                TrainCarMatcher(
+                    [p3["number"]],
+                    [p1["number"], p2["number"]],
+                    p_new_config["merge_commit_sha"],
+                    "created",
+                    tmp_mq_p3["number"],
+                ),
+            ],
+        )
+
     async def test_queue_priority(self):
         rules = {
             "queue_rules": [
@@ -4078,7 +4247,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -4165,7 +4333,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(
@@ -4272,7 +4439,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         queue_rule = rules.QueueRule(
@@ -4394,7 +4560,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car1 = merge_train.TrainCar(
@@ -4493,7 +4658,6 @@ class TestTrainApiCalls(base.FunctionalTestBase):
             effective_priority=0,
             bot_account=None,
             update_bot_account=None,
-            queue_config=queue_config,
         )
 
         car = merge_train.TrainCar(

@@ -159,16 +159,6 @@ class EmbarkedPull:
             config = data[1]
             queued_at = data[2]
 
-            # backward compat allow_checks_interruption ->
-            # disallow_checks_interruption_from_queues option migration
-            config["queue_config"].setdefault(
-                "disallow_checks_interruption_from_queues", []
-            )
-            if "allow_checks_interruption" in config["queue_config"]:
-                config["queue_config"][
-                    "disallow_checks_interruption_from_queues"
-                ].append(config["name"])
-
             return cls(
                 train=train,
                 user_pull_request_number=user_pull_request_number,
@@ -915,17 +905,6 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 source="draft pull creation error",
             )
 
-    async def get_rule(
-        self,
-    ) -> "rules.QueueRule":
-        queue_name = self.initial_embarked_pulls[0].config["name"]
-        rules = await self.train.get_queue_rules()
-
-        if not rules or queue_name not in [rule.name for rule in rules]:
-            raise RuntimeError("Rules are missing from configuration")
-
-        return rules[queue_name]
-
     def checks_have_timed_out(
         self, checks_duration: datetime.datetime, timeout: datetime.timedelta
     ) -> bool:
@@ -942,7 +921,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
         self.has_timed_out = False
         self.ci_has_passed = False
 
-        rule = await self.get_rule()
+        rule = await self.train.get_queue_rule(
+            self.initial_embarked_pulls[0].config["name"]
+        )
         timeout = rule.config["checks_timeout"]
 
         if (
@@ -1052,7 +1033,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
         queue_summary = "\n\nRequired conditions for merge:\n\n"
         queue_summary += self.last_evaluated_conditions or ""
         timeout_summary = ""
-        rule = await self.get_rule()
+        rule = await self.train.get_queue_rule(
+            self.initial_embarked_pulls[0].config["name"]
+        )
         timeout = rule.config["checks_timeout"]
 
         if (
@@ -1439,6 +1422,14 @@ class Train(queue.QueueBase):
 
         return mergify_config["queue_rules"]
 
+    async def get_queue_rule(self, queue_name: "rules.QueueName") -> "rules.QueueRule":
+        rules = await self.get_queue_rules()
+
+        if not rules or queue_name not in [rule.name for rule in rules]:
+            raise RuntimeError("Rules are missing from configuration")
+
+        return rules[queue_name]
+
     async def refresh(self) -> None:
 
         queue_rules = await self.get_queue_rules()
@@ -1614,6 +1605,7 @@ class Train(queue.QueueBase):
         # NOTE(sileht): first, ensure the pull is not in another branch
         await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
 
+        new_pull_queue_rule = await self.get_queue_rule(config["name"])
         best_position = -1
         need_to_be_readded = False
         frozen_queues = {
@@ -1621,6 +1613,9 @@ class Train(queue.QueueBase):
         }
 
         for position, (embarked_pull, car) in enumerate(self._iter_embarked_pulls()):
+            embarked_pull_queue_rule = await self.get_queue_rule(
+                embarked_pull.config["name"]
+            )
 
             car_can_be_interrupted = car is None or (
                 (
@@ -1630,10 +1625,10 @@ class Train(queue.QueueBase):
                         and embarked_pull.config["name"] in frozen_queues
                     )
                 )
-                and config["queue_config"]["priority"]
-                >= embarked_pull.config["queue_config"]["priority"]
+                and new_pull_queue_rule.config["priority"]
+                >= embarked_pull_queue_rule.config["priority"]
                 and config["name"]
-                not in embarked_pull.config["queue_config"][
+                not in embarked_pull_queue_rule.config[
                     "disallow_checks_interruption_from_queues"
                 ]
             )

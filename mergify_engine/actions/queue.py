@@ -441,13 +441,12 @@ Then, re-embark the pull request into the merge queue by posting the comment
             raise voluptuous.error.Invalid(f"{self.config['name']} queue not found")
 
         self.queue_count = len(mergify_config["queue_rules"])
-        self.config["queue_config"] = self.queue_rule.config
 
     def _set_effective_priority(self, ctxt: context.Context) -> None:
         self.config["effective_priority"] = typing.cast(
             int,
             self.config["priority"]
-            + self.config["queue_config"]["priority"] * queue.QUEUE_PRIORITY_OFFSET,
+            + self.queue_rule.config["priority"] * queue.QUEUE_PRIORITY_OFFSET,
         )
 
     async def get_unqueue_status(
