@@ -3264,7 +3264,7 @@ DO NOT EDIT
             ],
         )
 
-        # Put second PR at the begining of the queue via queue priority
+        # Put third PR at the begining of the queue via queue priority
         await self.add_label(p3["number"], "queue-urgent")
         await self.run_engine()
 
