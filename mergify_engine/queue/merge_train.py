@@ -1426,7 +1426,9 @@ class Train(queue.QueueBase):
         rules = await self.get_queue_rules()
 
         if not rules or queue_name not in [rule.name for rule in rules]:
-            raise RuntimeError("Rules are missing from configuration")
+            raise RuntimeError(
+                f"The rule for queue `{queue_name}` is missing from configuration"
+            )
 
         return rules[queue_name]
 
