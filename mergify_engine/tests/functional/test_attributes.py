@@ -182,7 +182,9 @@ class TestAttributes(base.FunctionalTestBase):
         }
         await self.branch_protection_protect(self.main_branch_name, protection)
 
-        p = await self.create_pr()
+        pr_branch = self.get_full_branch_name("esca#p.me")
+        p = await self.create_pr(branch=pr_branch)
+
         pr_force_rebase = await self.create_pr(two_commits=True)
         await self.merge_pull_as_admin(pr_force_rebase["number"])
         await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
