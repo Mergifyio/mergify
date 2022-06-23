@@ -265,7 +265,6 @@ def get_config(queue_name: str, priority: int = 100) -> queue.PullQueueConfig:
         effective_priority=effective_priority,
         bot_account=None,
         update_bot_account=None,
-        queue_config=QUEUE_RULES[queue_name].config,
     )
 
 
@@ -1462,16 +1461,6 @@ async def test_train_queue_pr_with_higher_prio_enters_in_queue_during_merging_2x
 
 
 def test_embarked_pull_old_serialization() -> None:
-    queue_config = rules.QueueConfig(
-        priority=0,
-        speculative_checks=5,
-        batch_size=1,
-        batch_max_wait_time=datetime.timedelta(seconds=0),
-        allow_inplace_checks=True,
-        disallow_checks_interruption_from_queues=[],
-        checks_timeout=None,
-        draft_bot_account=None,
-    )
     config = queue.PullQueueConfig(
         name=rules.QueueName("foo"),
         strict_method="merge",
@@ -1480,7 +1469,6 @@ def test_embarked_pull_old_serialization() -> None:
         effective_priority=0,
         bot_account=None,
         update_bot_account=None,
-        queue_config=queue_config,
     )
 
     now = date.utcnow()
