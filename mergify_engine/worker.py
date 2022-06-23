@@ -73,7 +73,6 @@ from mergify_engine import exceptions
 from mergify_engine import github_events
 from mergify_engine import github_types
 from mergify_engine import logs
-from mergify_engine import migrations
 from mergify_engine import redis_utils
 from mergify_engine import service
 from mergify_engine import signals
@@ -1188,7 +1187,6 @@ class Worker:
         await ping_redis(self._redis_links.cache, "Cache")
 
         await redis_utils.load_scripts(self._redis_links.stream)
-        await migrations.run(self._redis_links.cache)
 
         self._dedicated_workers_syncer_task = self.create_task(
             "dedicated workers cache syncer",
