@@ -500,6 +500,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
             is_queued = True
             break
 
+    signal_trigger = ""
     for check_name, conclusion in previous_conclusions.items():
         if check_name in current_conclusions:
             continue
@@ -508,6 +509,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
             check_name.endswith(" (queue)")
             and conclusion == check_api.Conclusion.PENDING
         ):
+            signal_trigger = check_name.removesuffix(" (queue)")
             was_queued = True
 
         if check_name in check_runs:
@@ -527,7 +529,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
 
     if not is_queued and was_queued:
         ctxt.log.info("action removal cleanup, cleanup queue")
-        await merge_train.Train.force_remove_pull(ctxt)
+        await merge_train.Train.force_remove_pull(ctxt, signal_trigger)
 
 
 async def handle(
