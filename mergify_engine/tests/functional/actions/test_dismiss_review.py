@@ -190,6 +190,8 @@ Unknown pull request attribute: Loser
         assert r.json() == {
             "events": [
                 {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
                     "timestamp": mock.ANY,
                     "event": "action.dismiss_reviews",
                     "metadata": {
@@ -198,6 +200,8 @@ Unknown pull request attribute: Loser
                     "trigger": "Rule: dismiss reviews",
                 },
                 {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
                     "timestamp": mock.ANY,
                     "event": "action.dismiss_reviews",
                     "metadata": {

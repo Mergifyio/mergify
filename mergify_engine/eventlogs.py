@@ -37,6 +37,8 @@ EVENTLOGS_SHORT_RETENTION = datetime.timedelta(days=1)
 class EventBase(typing.TypedDict):
     timestamp: datetime.datetime
     trigger: str
+    repository: str
+    pull_request: int
 
 
 class EventMetadata(typing.TypedDict):
@@ -150,6 +152,13 @@ class EventUpdate(EventBaseNoMetadata):
     event: typing.Literal["action.update"]
 
 
+def _get_repository_key(
+    owner_id: github_types.GitHubAccountIdType,
+    repo_id: github_types.GitHubRepositoryIdType,
+) -> str:
+    return f"eventlogs-repository/{owner_id}/{repo_id}"
+
+
 def _get_pull_request_key(
     owner_id: github_types.GitHubAccountIdType,
     repo_id: github_types.GitHubRepositoryIdType,
@@ -228,36 +237,40 @@ class EventLogsSignal(signals.SignalBase):
         else:
             return
 
-        key = _get_pull_request_key(
+        repo_key = _get_repository_key(
+            repository.installation.owner_id, repository.repo["id"]
+        )
+        pull_key = _get_pull_request_key(
             repository.installation.owner_id, repository.repo["id"], pull_request
         )
         pipe = await redis.pipeline()
         now = date.utcnow()
-
-        await pipe.xadd(
-            key,
-            fields={
-                b"version": DEFAULT_VERSION,
-                b"data": msgpack.packb(
-                    GenericEvent(
-                        {
-                            "timestamp": now,
-                            "event": event,
-                            "metadata": metadata,
-                            "trigger": trigger,
-                        }
-                    ),
-                    datetime=True,
+        fields = {
+            b"version": DEFAULT_VERSION,
+            b"data": msgpack.packb(
+                GenericEvent(
+                    {
+                        "timestamp": now,
+                        "event": event,
+                        "repository": repository.repo["full_name"],
+                        "pull_request": pull_request,
+                        "metadata": metadata,
+                        "trigger": trigger,
+                    }
                 ),
-            },
-        )
-        await pipe.expire(key, int(retention.total_seconds()))
+                datetime=True,
+            ),
+        }
+        await pipe.xadd(pull_key, fields=fields)
+        await pipe.xadd(repo_key, fields=fields)
+        await pipe.expire(pull_key, int(retention.total_seconds()))
+        await pipe.expire(repo_key, int(retention.total_seconds()))
         await pipe.execute()
 
 
 async def get(
     repository: "context.Repository",
-    pull_request: github_types.GitHubPullRequestNumber,
+    pull_request: typing.Optional[github_types.GitHubPullRequestNumber] = None,
 ) -> typing.AsyncIterator[Event]:
     redis = repository.installation.redis.eventlogs
     if redis is None:
@@ -274,9 +287,15 @@ async def get(
     else:
         return
 
-    key = _get_pull_request_key(
-        repository.installation.owner_id, repository.repo["id"], pull_request
-    )
+    if pull_request is None:
+        key = _get_repository_key(
+            repository.installation.owner_id, repository.repo["id"]
+        )
+    else:
+        key = _get_pull_request_key(
+            repository.installation.owner_id, repository.repo["id"], pull_request
+        )
+
     older_event = date.utcnow() - retention
 
     for _, raw in await redis.xrange(key, min=f"{int(older_event.timestamp())}"):
