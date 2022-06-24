@@ -35,6 +35,7 @@ from mergify_engine import date
 from mergify_engine import github_types
 from mergify_engine import json
 from mergify_engine import queue
+from mergify_engine import signals
 from mergify_engine import utils
 from mergify_engine.clients import http
 from mergify_engine.dashboard import subscription
@@ -748,6 +749,31 @@ class TrainCar:
         await self.update_state(check_api.Conclusion.PENDING, evaluated_queue_rule)
         await self.update_summaries(check_api.Conclusion.PENDING, force_refresh=True)
 
+        for ep in self.still_queued_embarked_pulls:
+            position, _ = self.train.find_embarked_pull(ep.user_pull_request_number)
+            if position is None:
+                raise RuntimeError("TrainCar with embarked_pull not in train...")
+            await signals.send(
+                self.train.repository,
+                ep.user_pull_request_number,
+                "action.queue.checks_start",
+                signals.EventQueueChecksStartMetadata(
+                    {
+                        "queue_name": ep.config["name"],
+                        "branch": self.train.ref,
+                        "position": position,
+                        "speculative_check_pull_request": {
+                            "number": self.queue_pull_request_number,
+                            "in_place": self.creation_state == "updated",
+                            "checks_conclusion": self.checks_conclusion.value,
+                            "checks_timed_out": self.has_timed_out,
+                            "checks_ended_at": self.checks_ended_timestamp,
+                        },
+                    }
+                ),
+                "merge-queue internal",
+            )
+
     async def generate_merge_queue_summary(
         self,
         *,
@@ -836,6 +862,41 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 )
                 tmp_pull_ctxt.log.info("train car deleted", reason=reason)
 
+        if reason is None:
+            if self.has_timed_out:
+                aborted = True
+                abort_reason = "Checks have timed out"
+            else:
+                aborted = self.checks_conclusion is not check_api.Conclusion.SUCCESS
+                abort_reason = "Checks did not succeed"
+        else:
+            aborted = True
+            abort_reason = reason
+
+        for ep in self.still_queued_embarked_pulls:
+            position, _ = self.train.find_embarked_pull(ep.user_pull_request_number)
+            await signals.send(
+                self.train.repository,
+                ep.user_pull_request_number,
+                "action.queue.checks_end",
+                signals.EventQueueChecksEndMetadata(
+                    {
+                        "aborted": aborted,
+                        "abort_reason": abort_reason,
+                        "queue_name": ep.config["name"],
+                        "branch": self.train.ref,
+                        "position": position,
+                        "speculative_check_pull_request": {
+                            "number": self.queue_pull_request_number,
+                            "in_place": self.creation_state == "updated",
+                            "checks_conclusion": self.checks_conclusion.value,
+                            "checks_timed_out": self.has_timed_out,
+                            "checks_ended_at": self.checks_ended_timestamp,
+                        },
+                    }
+                ),
+                "merge-queue internal",
+            )
         await self._delete_branch()
 
     async def _delete_branch(self) -> None:
@@ -1567,11 +1628,17 @@ class Train(queue.QueueBase):
 
     def find_embarked_pull(
         self, pull_number: github_types.GitHubPullRequestNumber
-    ) -> typing.Optional[EmbarkedPullWithCar]:
-        return first.first(
-            self._iter_embarked_pulls(),
-            key=lambda c: c.embarked_pull.user_pull_request_number == pull_number,
-        )
+    ) -> typing.Union[
+        typing.Tuple[int, EmbarkedPullWithCar],
+        typing.Tuple[typing.Literal[None], typing.Literal[None]],
+    ]:
+        for position, embarked_pull_with_car in enumerate(self._iter_embarked_pulls()):
+            if (
+                embarked_pull_with_car.embarked_pull.user_pull_request_number
+                == pull_number
+            ):
+                return position, embarked_pull_with_car
+        return None, None
 
     @staticmethod
     def _waiting_pulls_sorter(
@@ -1601,11 +1668,13 @@ class Train(queue.QueueBase):
             yield EmbarkedPullWithCar(embarked_pull, None)
 
     async def add_pull(
-        self, ctxt: context.Context, config: queue.PullQueueConfig
+        self, ctxt: context.Context, config: queue.PullQueueConfig, signal_trigger: str
     ) -> None:
 
         # NOTE(sileht): first, ensure the pull is not in another branch
-        await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
+        await self.force_remove_pull(
+            ctxt, signal_trigger, exclude_ref=ctxt.pull["base"]["ref"]
+        )
 
         new_pull_queue_rule = await self.get_queue_rule(config["name"])
         best_position = -1
@@ -1670,8 +1739,8 @@ class Train(queue.QueueBase):
         if need_to_be_readded:
             # FIXME(sileht): this can be optimised by not dropping spec checks,
             # if the position in the queue does not change
-            await self._remove_pull(ctxt)
-            await self.add_pull(ctxt, config)
+            await self._remove_pull(ctxt, signal_trigger)
+            await self.add_pull(ctxt, config, signal_trigger)
             return
 
         new_embarked_pull = EmbarkedPull(
@@ -1686,26 +1755,47 @@ class Train(queue.QueueBase):
             )
 
         await self.save()
+
+        final_position = await self.get_position(ctxt)
+        if final_position is None:
+            raise RuntimeError(
+                "Could not find the pull request we just added in the queue"
+            )
+
         ctxt.log.info(
             "pull request added to train",
             gh_pull=ctxt.pull["number"],
-            position=best_position,
+            position=final_position,
             queue_name=config["name"],
             **self.log_queue_extras,
         )
-
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.queue.enter",
+            signals.EventQueueEnterMetadata(
+                {
+                    "queue_name": new_embarked_pull.config["name"],
+                    "branch": self.ref,
+                    "position": final_position,
+                }
+            ),
+            signal_trigger,
+        )
         # Refresh summary of all pull requests
         await self.refresh_pulls(
             source=f"pull {ctxt.pull['number']} added to queue",
         )
 
-    async def remove_pull(self, ctxt: context.Context) -> None:
+    async def remove_pull(self, ctxt: context.Context, signal_trigger: str) -> None:
         # NOTE(sileht): Remove the pull request from all trains, just in case
         # the base branch change in the meantime
-        await self.force_remove_pull(ctxt, exclude_ref=ctxt.pull["base"]["ref"])
-        await self._remove_pull(ctxt)
+        await self.force_remove_pull(
+            ctxt, signal_trigger, exclude_ref=ctxt.pull["base"]["ref"]
+        )
+        await self._remove_pull(ctxt, signal_trigger)
 
-    async def _remove_pull(self, ctxt: context.Context) -> None:
+    async def _remove_pull(self, ctxt: context.Context, signal_trigger: str) -> None:
         if (
             ctxt.pull["merged"]
             and ctxt.pull["base"]["ref"] == self.ref
@@ -1737,16 +1827,31 @@ class Train(queue.QueueBase):
             )
             return
 
-        position = await self.get_position(ctxt)
-        if position is None:
+        position, embarked_pull = self.find_embarked_pull(ctxt.pull["number"])
+        if position is None or embarked_pull is None:
             ctxt.log.info("already absent from train", **self.log_queue_extras)
             return
+
         await self._slice_cars(
             position,
             reason=f"Pull request #{ctxt.pull['number']} which was ahead in the queue has been dequeued",
             drop_pull_request=ctxt.pull["number"],
         )
         await self.save()
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.queue.leave",
+            signals.EventQueueLeaveMetadata(
+                {
+                    "queue_name": embarked_pull.embarked_pull.config["name"],
+                    "branch": self.ref,
+                    "position": position,
+                }
+            ),
+            signal_trigger,
+        )
+
         ctxt.log.info("removed from train", position=position, **self.log_queue_extras)
         await self.refresh_pulls(
             source=f"pull {ctxt.pull['number']} removed from queue",
@@ -2087,7 +2192,7 @@ class Train(queue.QueueBase):
     async def get_config(
         self, pull_number: github_types.GitHubPullRequestNumber
     ) -> queue.PullQueueConfig:
-        item = self.find_embarked_pull(pull_number)
+        _, item = self.find_embarked_pull(pull_number)
         if item is not None:
             return item.embarked_pull.config
 
@@ -2126,6 +2231,7 @@ class Train(queue.QueueBase):
     async def force_remove_pull(
         cls,
         ctxt: context.Context,
+        signal_trigger: str,
         *,
         exclude_ref: typing.Optional[github_types.GitHubRefType] = None,
     ) -> None:
@@ -2133,7 +2239,7 @@ class Train(queue.QueueBase):
             ctxt.repository,
             exclude_ref=exclude_ref,
         ):
-            await train._remove_pull(ctxt)
+            await train._remove_pull(ctxt, signal_trigger)
 
     async def generate_merge_queue_summary_footer(
         self,
@@ -2206,7 +2312,7 @@ class Train(queue.QueueBase):
     ) -> str:
         # NOTE(sileht): beware before using this method, car.update_state() must have been called earlier
         # to have up2date informations
-        ep = self.find_embarked_pull(ctxt.pull["number"])
+        _, ep = self.find_embarked_pull(ctxt.pull["number"])
         if ep is None:
             return ""
         if ep.car is None:

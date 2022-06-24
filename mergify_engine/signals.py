@@ -13,6 +13,7 @@
 # under the License.
 
 import abc
+import datetime
 import importlib.metadata
 import typing
 
@@ -39,6 +40,10 @@ EventName = typing.Literal[
     "action.label",
     "action.merge",
     "action.post_check",
+    "action.queue.enter",
+    "action.queue.checks_start",
+    "action.queue.checks_end",
+    "action.queue.leave",
     "action.queue.merged",
     "action.rebase",
     "action.refresh",
@@ -80,6 +85,42 @@ class EventRequestReviewsMetadata(EventMetadata):
 
 class EventDismissReviewsMetadata(EventMetadata):
     users: typing.List[str]
+
+
+class EventQueueEnterMetadata(EventMetadata):
+    queue_name: str
+    branch: str
+    position: int
+
+
+class EventQueueLeaveMetadata(EventMetadata):
+    queue_name: str
+    branch: str
+    position: int
+
+
+class SpeculativeCheckPullRequest(typing.TypedDict):
+    number: int
+    in_place: bool
+    checks_timed_out: bool
+    checks_conclusion: str
+    checks_ended_at: typing.Optional[datetime.datetime]
+
+
+class EventQueueChecksEndMetadata(EventMetadata):
+    aborted: bool
+    abort_reason: typing.Optional[str]
+    queue_name: str
+    branch: str
+    position: typing.Optional[int]
+    speculative_check_pull_request: SpeculativeCheckPullRequest
+
+
+class EventQueueChecksStartMetadata(EventMetadata):
+    queue_name: str
+    branch: str
+    position: int
+    speculative_check_pull_request: SpeculativeCheckPullRequest
 
 
 class EventNoMetadata(EventMetadata):
@@ -159,7 +200,6 @@ async def send(
         "action.requeue",
         "action.unqueue",
         "action.update",
-        # FIXME(sileht): More details should be added, enter/leave with the reason
         "action.queue.merged",
     ],
     metadata: EventNoMetadata,
@@ -229,6 +269,50 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.backport", "action.copy"],
     metadata: EventCopyMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.queue.enter"],
+    metadata: EventQueueEnterMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.queue.leave"],
+    metadata: EventQueueLeaveMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.queue.checks_end"],
+    metadata: EventQueueChecksEndMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.queue.checks_start"],
+    metadata: EventQueueChecksStartMetadata,
     trigger: str,
 ) -> None:
     ...

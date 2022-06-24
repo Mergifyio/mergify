@@ -92,6 +92,26 @@ class EventPostCheck(EventBaseNoMetadata):
     event: typing.Literal["action.post_check"]
 
 
+class EventQueueEnter(EventBase):
+    event: typing.Literal["action.queue.enter"]
+    metadata: signals.EventQueueEnterMetadata
+
+
+class EventQueueLeave(EventBase):
+    event: typing.Literal["action.queue.leave"]
+    metadata: signals.EventQueueLeaveMetadata
+
+
+class EventQueueChecksStart(EventBase):
+    event: typing.Literal["action.queue.checks_start"]
+    metadata: signals.EventQueueChecksStartMetadata
+
+
+class EventQueueChecksEnd(EventBase):
+    event: typing.Literal["action.queue.checks_end"]
+    metadata: signals.EventQueueChecksEndMetadata
+
+
 class EventQueueMerged(EventBaseNoMetadata):
     event: typing.Literal["action.queue.merged"]
 
@@ -149,6 +169,10 @@ Event = typing.Union[
     EventLabel,
     EventMerge,
     EventPostCheck,
+    EventQueueEnter,
+    EventQueueLeave,
+    EventQueueChecksStart,
+    EventQueueChecksEnd,
     EventQueueMerged,
     EventRebase,
     EventRefresh,
@@ -286,6 +310,18 @@ async def get(
 
         elif event["event"] == "action.post_check":
             yield typing.cast(EventPostCheck, event)
+
+        elif event["event"] == "action.queue.checks_start":
+            yield typing.cast(EventQueueChecksStart, event)
+
+        elif event["event"] == "action.queue.checks_end":
+            yield typing.cast(EventQueueChecksEnd, event)
+
+        elif event["event"] == "action.queue.enter":
+            yield typing.cast(EventQueueEnter, event)
+
+        elif event["event"] == "action.queue.leave":
+            yield typing.cast(EventQueueLeave, event)
 
         elif event["event"] == "action.queue.merged":
             yield typing.cast(EventQueueMerged, event)
