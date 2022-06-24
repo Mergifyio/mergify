@@ -77,6 +77,8 @@ class TestLabelAction(base.FunctionalTestBase):
         assert r.json() == {
             "events": [
                 {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {
@@ -86,6 +88,8 @@ class TestLabelAction(base.FunctionalTestBase):
                     "trigger": "Rule: rename label",
                 },
                 {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {
@@ -171,6 +175,8 @@ class TestLabelAction(base.FunctionalTestBase):
         assert r.json() == {
             "events": [
                 {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {"added": [], "removed": ["stable"]},
