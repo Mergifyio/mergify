@@ -1186,8 +1186,6 @@ class Worker:
         await ping_redis(self._redis_links.stream, "Stream")
         await ping_redis(self._redis_links.cache, "Cache")
 
-        await redis_utils.load_scripts(self._redis_links.stream)
-
         self._dedicated_workers_syncer_task = self.create_task(
             "dedicated workers cache syncer",
             self.dedicated_workers_syncer_idle_time,
