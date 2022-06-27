@@ -45,7 +45,7 @@ RedisEventLogs = typing.NewType("RedisEventLogs", "redispy.Redis[bytes]")
 
 ScriptIdT = typing.NewType("ScriptIdT", uuid.UUID)
 
-SCRIPTS: typing.Dict[ScriptIdT, typing.Tuple[str, str]] = {}
+SCRIPTS: typing.Dict[ScriptIdT, typing.Tuple[bytes, str]] = {}
 
 
 # TODO(sileht): Redis script management can be moved back to Redis.register_script() mechanism
@@ -57,7 +57,9 @@ def register_script(script: str) -> ScriptIdT:
         # NOTE(sileht): SHA1 is imposed by Redis itself
         hashlib.sha1(  # nosemgrep contrib.dlint.dlint-equivalent.insecure-hashlib-use, python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             script.encode("utf8")
-        ).hexdigest(),
+        )
+        .hexdigest()
+        .encode(),
         script,
     )
     return script_id
@@ -67,12 +69,12 @@ def register_script(script: str) -> ScriptIdT:
 # it works but if a script is loaded into two redis, this won't works as expected
 # as the app will think it's already loaded while it's not...
 async def load_script(
-    redis: typing.Union[RedisCache, RedisStream], script_id: ScriptIdT
+    redis: "redispy.connection.Connection", script_id: ScriptIdT
 ) -> None:
     global SCRIPTS
     sha, script = SCRIPTS[script_id]
-    # FIXME(sileht): weird, this method is typed on redis-py
-    newsha = await redis.script_load(script)  # type: ignore[no-untyped-call]
+    await redis.send_command("SCRIPT LOAD", script)
+    newsha = await redis.read_response()
     if newsha != sha:
         LOG.error(
             "wrong redis script sha cached",
@@ -83,7 +85,7 @@ async def load_script(
         SCRIPTS[script_id] = (newsha, script)
 
 
-async def load_scripts(redis: typing.Union[RedisCache, RedisStream]) -> None:
+async def load_stream_scripts(redis: "redispy.connection.Connection") -> None:
     # TODO(sileht): cleanup unused script, this is tricky, because during
     # deployment we have running in parallel due to the rolling upgrade:
     # * an old version of the asgi server
@@ -93,9 +95,13 @@ async def load_scripts(redis: typing.Union[RedisCache, RedisStream]) -> None:
     scripts = list(SCRIPTS.items())  # order matter for zip bellow
     shas = [sha for _, (sha, _) in scripts]
     ids = [_id for _id, _ in scripts]
-    exists = await redis.script_exists(*shas)  # type: ignore[no-untyped-call]
+    await redis.on_connect()
+    await redis.send_command("SCRIPT EXISTS", *shas)
+
+    # exists is a list of 0 and/or 1, notifying the existence of each script
+    exists = await redis.read_response()
     for script_id, exist in zip(ids, exists):
-        if not exist:
+        if exist == 0:
             await load_script(redis, script_id)
 
 
@@ -137,11 +143,15 @@ class RedisLinks:
 
     @functools.cached_property
     def stream(self) -> RedisStream:
-        client = self.redis_from_url(
+        # Note(Syffe): mypy struggles to recognize the type of load_scripts because typeshed is missing
+        # typing on the objects we use here.
+        # cf: https://github.com/python/typeshed/pull/8147
+        client = self.redis_from_url(  # type: ignore[call-overload]
             "stream",
             config.STREAM_URL,
             decode_responses=False,
             max_connections=self.stream_max_connections,
+            redis_connect_func=load_stream_scripts,
         )
         return RedisStream(client)
 
@@ -191,7 +201,6 @@ class RedisLinks:
             "active_users",
             config.ACTIVE_USERS_URL,
             decode_responses=False,
-            max_connections=None,
         )
         return RedisActiveUsers(client)
 
@@ -212,6 +221,9 @@ class RedisLinks:
         url: str,
         decode_responses: typing.Literal[True],
         max_connections: typing.Optional[int] = None,
+        redis_connect_func: typing.Optional[
+            "redispy.connection.ConnectCallbackT"
+        ] = None,
     ) -> "redispy.Redis[str]":
         ...
 
@@ -222,6 +234,9 @@ class RedisLinks:
         url: str,
         decode_responses: typing.Literal[False],
         max_connections: typing.Optional[int] = None,
+        redis_connect_func: typing.Optional[
+            "redispy.connection.ConnectCallbackT"
+        ] = None,
     ) -> "redispy.Redis[bytes]":
         ...
 
@@ -231,6 +246,9 @@ class RedisLinks:
         url: str,
         decode_responses: bool,
         max_connections: typing.Optional[int] = None,
+        redis_connect_func: typing.Optional[
+            "redispy.connection.ConnectCallbackT"
+        ] = None,
     ) -> typing.Union["redispy.Redis[bytes]", "redispy.Redis[str]"]:
 
         options: typing.Dict[str, typing.Any] = {}
@@ -243,6 +261,7 @@ class RedisLinks:
             max_connections=max_connections,
             decode_responses=decode_responses,
             client_name=f"{service.SERVICE_NAME}/{self.name}/{name}",
+            redis_connect_func=redis_connect_func,
             **options,
         )
         ddtrace.Pin.override(client, service=f"engine-redis-{name}")
