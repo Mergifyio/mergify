@@ -207,7 +207,7 @@ class RuleConditionGroup:
         return any(c.evaluation_error for c in self.walk())
 
     def copy(self) -> "RuleConditionGroup":
-        return RuleConditionGroup(
+        return self.__class__(
             {self.operator: [c.copy() for c in self.conditions]},
             description=self.description,
         )
