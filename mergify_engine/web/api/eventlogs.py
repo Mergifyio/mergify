@@ -76,3 +76,22 @@ async def get_pull_request_eventlogs(
     return EventLogsResponse(
         events=[e async for e in eventlogs.get(repository_ctxt, pull)]
     )
+
+
+@router.get(
+    "/repos/{owner}/{repository}/events",  # noqa: FS003
+    summary="Get the events log of a repository",
+    description="Get the events log of the requested repository",
+    response_model=EventLogsResponse,
+    dependencies=[fastapi.Depends(security.check_subscription_feature_eventlogs)],
+    responses={
+        **api.default_responses,  # type: ignore
+    },
+)
+async def get_repository_eventlogs(
+    repository_ctxt: context.Repository = fastapi.Depends(  # noqa: B008
+        security.get_repository_context
+    ),
+) -> EventLogsResponse:
+    # TODO(sileht): add pagination
+    return EventLogsResponse(events=[e async for e in eventlogs.get(repository_ctxt)])
