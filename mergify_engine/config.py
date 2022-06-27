@@ -271,10 +271,6 @@ Schema = voluptuous.Schema(
         voluptuous.Required("ORG_USER_ID", default=74646794): int,
         voluptuous.Required("ORG_USER_PERSONAL_TOKEN", default="<ORG_USER_TOKEN>"): str,
         voluptuous.Required(
-            "ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN",
-            default="<ORG_USER_GITHUB_APP_OAUTH_TOKEN>",
-        ): str,
-        voluptuous.Required(
             "TESTING_MERGIFY_TEST_1_ID", default=38494943
         ): voluptuous.Coerce(int),
         voluptuous.Required(
@@ -347,7 +343,6 @@ LOG_DATADOG_LEVEL: int  # This is converted to an int by voluptuous
 LOG_DEBUG_LOGGER_NAMES: typing.List[str]
 ORG_ADMIN_PERSONAL_TOKEN: str
 ORG_ADMIN_ID: github_types.GitHubAccountIdType
-ORG_ADMIN_GITHUB_APP_OAUTH_TOKEN: github_types.GitHubOAuthToken
 ORG_USER_ID: github_types.GitHubAccountIdType
 ORG_USER_PERSONAL_TOKEN: github_types.GitHubOAuthToken
 TESTING_MERGIFY_TEST_1_ID: int
