@@ -81,13 +81,13 @@ async def legacy_push(
     )
 
 
-async def fake_get_subscription(*args, **kwargs):
+async def fake_get_subscription(*args: typing.Any, **kwargs: typing.Any) -> mock.Mock:
     sub = mock.Mock()
     sub.has_feature.return_value = False
     return sub
 
 
-async def stop_and_wait_worker(self):
+async def stop_and_wait_worker(self: worker.Worker) -> None:
     self.stop()
     await self._stopping.wait()
     await self._stop_task
@@ -188,12 +188,12 @@ class InstallationMatcher:
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_legacy_push(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
     buckets = set()
@@ -209,14 +209,14 @@ async def test_worker_legacy_push(
                 bucket_sources.add(f"bucket-sources~{repo_id}~{repo}~{pull_number}")
                 await legacy_push(
                     redis_links.stream,
-                    owner_id,
-                    owner,
-                    repo_id,
-                    repo,
-                    repo,
-                    pull_number,
+                    github_types.GitHubAccountIdType(owner_id),
+                    github_types.GitHubLogin(owner),
+                    github_types.GitHubRepositoryIdType(repo_id),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubPullRequestNumber(pull_number),
                     "pull_request",
-                    {"payload": data},
+                    github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
                 )
 
     # Push some with the new format too
@@ -231,13 +231,13 @@ async def test_worker_legacy_push(
                 bucket_sources.add(f"bucket-sources~{repo_id}~{pull_number}")
                 await worker.push(
                     redis_links.stream,
-                    owner_id,
-                    owner,
-                    repo_id,
-                    repo,
-                    pull_number,
+                    github_types.GitHubAccountIdType(owner_id),
+                    github_types.GitHubLogin(owner),
+                    github_types.GitHubRepositoryIdType(repo_id),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubPullRequestNumber(pull_number),
                     "pull_request",
-                    {"payload": data},
+                    github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
                 )
 
     # Check everything we push are in redis
@@ -293,12 +293,12 @@ async def test_worker_legacy_push(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_waiting_tasks(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
     buckets = set()
@@ -314,13 +314,13 @@ async def test_worker_with_waiting_tasks(
                 bucket_sources.add(f"bucket-sources~{repo_id}~{pull_number}")
                 await worker.push(
                     redis_links.stream,
-                    owner_id,
-                    owner,
-                    repo_id,
-                    repo,
-                    pull_number,
+                    github_types.GitHubAccountIdType(owner_id),
+                    github_types.GitHubLogin(owner),
+                    github_types.GitHubRepositoryIdType(repo_id),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubPullRequestNumber(pull_number),
                     "pull_request",
-                    {"payload": data},
+                    github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
                 )
 
     # Check everything we push are in redis
@@ -376,21 +376,23 @@ async def test_worker_with_waiting_tasks(
 @mock.patch("mergify_engine.clients.github.aget_client")
 @mock.patch("mergify_engine.github_events.extract_pull_numbers_from_event")
 async def test_worker_expanded_events(
-    extract_pull_numbers_from_event,
-    aget_client,
-    get_installation_from_account_id,
-    run_engine,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    extract_pull_numbers_from_event: mock.AsyncMock,
+    aget_client: mock.MagicMock,
+    get_installation_from_account_id: mock.AsyncMock,
+    run_engine: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
     client = mock.Mock(
         auth=mock.Mock(
             owner_id=123,
             owner_login="owner-123",
-            installation=fake_get_installation_from_account_id(123),
+            installation=fake_get_installation_from_account_id(
+                github_types.GitHubAccountIdType(123)
+            ),
         ),
     )
     client.__aenter__ = mock.AsyncMock(return_value=client)
@@ -402,33 +404,33 @@ async def test_worker_expanded_events(
     extract_pull_numbers_from_event.side_effect = [[123, 456, 789], [123, 789]]
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
         None,
         "push",
-        {"payload": "foobar"},
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
         None,
         "check_run",
-        {"payload": "foobar"},
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
 
     assert 1 == await redis_links.stream.zcard("streams")
@@ -508,33 +510,33 @@ async def test_worker_expanded_events(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_one_task(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
-        "comment",
-        {"payload": "foobar"},
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
+        "issue_comment",
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
 
     # Check everything we push are in redis
@@ -566,7 +568,7 @@ async def test_worker_with_one_task(
                 "timestamp": mock.ANY,
             },
             {
-                "event_type": "comment",
+                "event_type": "issue_comment",
                 "data": {"payload": "foobar"},
                 "timestamp": mock.ANY,
             },
@@ -578,12 +580,12 @@ async def test_worker_with_one_task(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_unexisting_stream(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     p = worker.StreamProcessor(
@@ -592,7 +594,11 @@ async def test_consume_unexisting_stream(
         None,
         worker.OwnerLoginsCache(),
     )
-    await p.consume("buckets~2~notexists", 2, "notexists")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("buckets~2~notexists"),
+        github_types.GitHubAccountIdType(2),
+        github_types.GitHubLogin("notexists"),
+    )
     assert len(run_engine.mock_calls) == 0
 
 
@@ -600,33 +606,33 @@ async def test_consume_unexisting_stream(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_consume_good_stream(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_subscription.side_effect = fake_get_subscription
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
-        "comment",
-        {"payload": "foobar"},
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
+        "issue_comment",
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
 
     # Check everything we push are in redis
@@ -638,8 +644,12 @@ async def test_consume_good_stream(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-8", None, owners_cache)
-    await p.consume("bucket~123", 123, "owner-123")
-    assert owners_cache.get(123) == "owner-123"
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -654,7 +664,7 @@ async def test_consume_good_stream(
                 "timestamp": mock.ANY,
             },
             {
-                "event_type": "comment",
+                "event_type": "issue_comment",
                 "data": {"payload": "foobar"},
                 "timestamp": mock.ANY,
             },
@@ -740,15 +750,14 @@ async def test_worker_start_redis_ping(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_pull(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    logger_class,
-    redis_links,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    logger_class: mock.MagicMock,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
     logs.setup_logging()
     logger = logger_class.return_value
-
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
     # One retries once, the other reaches max_retry
@@ -781,23 +790,23 @@ async def test_stream_processor_retrying_pull(
 
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        42,
-        "comment",
-        {"payload": "foobar"},
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(42),
+        "issue_comment",
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
 
     # Check everything we push are in redis
@@ -810,8 +819,12 @@ async def test_stream_processor_retrying_pull(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-8", None, owners_cache)
-    await p.consume("bucket~123", 123, "owner-123")
-    assert owners_cache.get(123) == "owner-123"
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
 
     assert len(run_engine.mock_calls) == 2
     assert run_engine.mock_calls == [
@@ -835,7 +848,7 @@ async def test_stream_processor_retrying_pull(
             42,
             [
                 {
-                    "event_type": "comment",
+                    "event_type": "issue_comment",
                     "data": {"payload": "foobar"},
                     "timestamp": mock.ANY,
                 },
@@ -855,7 +868,11 @@ async def test_stream_processor_retrying_pull(
         b"bucket-sources~123~123": b"1",
     } == await redis_links.stream.hgetall("attempts")
 
-    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
     assert 1 == (await redis_links.stream.zcard("streams"))
     assert 1 == len(await redis_links.stream.keys("bucket~*"))
     assert 1 == await redis_links.stream.zcard("bucket~123")
@@ -869,19 +886,71 @@ async def test_stream_processor_retrying_pull(
         "attempts"
     )
 
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
     assert len(run_engine.mock_calls) == 17
 
     # Too many retries, everything is gone
@@ -909,12 +978,12 @@ async def test_stream_processor_retrying_pull(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_recovered(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    logger,
-    redis_links,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    logger: mock.MagicMock,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
     logs.setup_logging()
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
@@ -929,23 +998,23 @@ async def test_stream_processor_retrying_stream_recovered(
 
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
-        "comment",
-        {"payload": "foobar"},
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
+        "issue_comment",
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
 
     assert 1 == (await redis_links.stream.zcard("streams"))
@@ -956,8 +1025,12 @@ async def test_stream_processor_retrying_stream_recovered(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-8", None, owners_cache)
-    await p.consume("bucket~123", 123, "owner-123")
-    assert owners_cache.get(123) == "owner-123"
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -972,7 +1045,7 @@ async def test_stream_processor_retrying_stream_recovered(
                 "timestamp": mock.ANY,
             },
             {
-                "event_type": "comment",
+                "event_type": "issue_comment",
                 "data": {"payload": "foobar"},
                 "timestamp": mock.ANY,
             },
@@ -990,7 +1063,11 @@ async def test_stream_processor_retrying_stream_recovered(
 
     run_engine.side_effect = None
 
-    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
     assert len(run_engine.mock_calls) == 2
     assert 0 == (await redis_links.stream.zcard("streams"))
     assert 0 == len(await redis_links.stream.keys("bucket~*"))
@@ -1008,12 +1085,12 @@ async def test_stream_processor_retrying_stream_recovered(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_stream_failure(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    logger,
-    redis_links,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    logger: mock.MagicMock,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
     logs.setup_logging()
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
@@ -1024,26 +1101,25 @@ async def test_stream_processor_retrying_stream_failure(
     run_engine.side_effect = http.HTTPClientSideError(
         message="foobar", request=response.request, response=response
     )
-
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
-        "comment",
-        {"payload": "foobar"},
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
+        "issue_comment",
+        github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
     )
 
     assert 1 == await redis_links.stream.zcard("streams")
@@ -1054,8 +1130,12 @@ async def test_stream_processor_retrying_stream_failure(
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-8", None, owners_cache)
-    await p.consume("bucket~123", 123, "owner-123")
-    assert owners_cache.get(123) == "owner-123"
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
 
     assert len(run_engine.mock_calls) == 1
     assert run_engine.mock_calls[0] == mock.call(
@@ -1070,7 +1150,7 @@ async def test_stream_processor_retrying_stream_failure(
                 "timestamp": mock.ANY,
             },
             {
-                "event_type": "comment",
+                "event_type": "issue_comment",
                 "data": {"payload": "foobar"},
                 "timestamp": mock.ANY,
             },
@@ -1084,11 +1164,19 @@ async def test_stream_processor_retrying_stream_failure(
 
     assert {b"bucket~123": b"1"} == await redis_links.stream.hgetall("attempts")
 
-    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
     assert len(run_engine.mock_calls) == 2
     assert {b"bucket~123": b"2"} == await redis_links.stream.hgetall("attempts")
 
-    await p.consume("bucket~123", 123, "owner-123")
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
     assert len(run_engine.mock_calls) == 3
 
     # Still there
@@ -1110,12 +1198,12 @@ async def test_stream_processor_retrying_stream_failure(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_pull_unexpected_error(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    logger_class,
-    redis_links,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.AsyncMock,
+    get_subscription: mock.AsyncMock,
+    logger_class: mock.MagicMock,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
     logs.setup_logging()
     logger = logger_class.return_value
 
@@ -1125,20 +1213,28 @@ async def test_stream_processor_pull_unexpected_error(
 
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
 
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-8", None, owners_cache)
-    await p.consume("bucket~123", 123, "owner-123")
-    await p.consume("bucket~123", 123, "owner-123")
-    assert owners_cache.get(123) == "owner-123"
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    await p.consume(
+        worker_lua.BucketOrgKeyType("bucket~123"),
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+    )
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
 
     # Exception have been logged, redis must be clean
     assert len(run_engine.mock_calls) == 2
@@ -1155,12 +1251,12 @@ async def test_stream_processor_pull_unexpected_error(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_date_scheduling(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
 
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
@@ -1168,26 +1264,26 @@ async def test_stream_processor_date_scheduling(
     with freeze_time("2040-01-01"):
         await worker.push(
             redis_links.stream,
-            123,
-            "owner-123",
-            123,
-            "repo",
-            123,
+            github_types.GitHubAccountIdType(123),
+            github_types.GitHubLogin("owner-123"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(123),
             "pull_request",
-            {"payload": "whatever"},
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         unwanted_owner_id = "owner-123"
 
     with freeze_time("2020-01-01"):
         await worker.push(
             redis_links.stream,
-            234,
-            "owner-234",
-            123,
-            "repo",
-            321,
+            github_types.GitHubAccountIdType(234),
+            github_types.GitHubLogin("owner-234"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(321),
             "pull_request",
-            {"payload": "foobar"},
+            github_types.GitHubEvent({"payload": "foobar"}),  # type: ignore[typeddict-item]
         )
         wanted_owner_id = "owner-234"
 
@@ -1208,7 +1304,13 @@ async def test_stream_processor_date_scheduling(
 
     received = []
 
-    def fake_engine(installation, repo_id, repo, pull_number, sources):
+    def fake_engine(
+        installation: context.Installation,
+        repo_id: github_types.GitHubRepositoryIdType,
+        repo: github_types.GitHubRepositoryName,
+        pull_number: github_types.GitHubPullRequestNumber,
+        sources: typing.List[context.T_PayloadEventSource],
+    ) -> None:
         received.append(installation.owner_login)
 
     run_engine.side_effect = fake_engine
@@ -1238,12 +1340,16 @@ async def test_stream_processor_date_scheduling(
     assert 0 == len(await redis_links.stream.hgetall("attempts"))
     assert received == [wanted_owner_id, unwanted_owner_id]
 
-    assert owners_cache.get(123) == "owner-123"
-    assert owners_cache.get(234) == "owner-234"
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "owner-123"
+    assert owners_cache.get(github_types.GitHubAccountIdType(234)) == "owner-234"
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
-async def test_worker_drop_bucket(get_subscription, redis_links, logger_checker):
+async def test_worker_drop_bucket(
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_subscription.side_effect = fake_get_subscription
 
     buckets = set()
@@ -1259,13 +1365,13 @@ async def test_worker_drop_bucket(get_subscription, redis_links, logger_checker)
             bucket_sources.add(f"bucket-sources~{repo_id}~{pull_number}")
             await worker.push(
                 redis_links.stream,
-                owner_id,
-                owner,
-                repo_id,
-                repo,
-                pull_number,
+                github_types.GitHubAccountIdType(owner_id),
+                github_types.GitHubLogin(owner),
+                github_types.GitHubRepositoryIdType(repo_id),
+                github_types.GitHubRepositoryName(repo),
+                github_types.GitHubPullRequestNumber(pull_number),
                 "pull_request",
-                {"payload": data},
+                github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
             )
 
     assert 1 == len(await redis_links.stream.keys("bucket~*"))
@@ -1276,18 +1382,26 @@ async def test_worker_drop_bucket(get_subscription, redis_links, logger_checker)
     for bucket_source in bucket_sources:
         assert 3 == await redis_links.stream.xlen(bucket_source)
 
-    await worker_lua.drop_bucket(redis_links.stream, "bucket~123")
+    await worker_lua.drop_bucket(
+        redis_links.stream, worker_lua.BucketOrgKeyType("bucket~123")
+    )
     assert 0 == len(await redis_links.stream.keys("bucket~*"))
     assert 0 == len(await redis_links.stream.keys("bucket-sources~*"))
 
-    await worker_lua.clean_org_bucket(redis_links.stream, "bucket~123", date.utcnow())
+    await worker_lua.clean_org_bucket(
+        redis_links.stream, worker_lua.BucketOrgKeyType("bucket~123"), date.utcnow()
+    )
 
     assert 0 == (await redis_links.stream.zcard("streams"))
     assert 0 == len(await redis_links.stream.hgetall("attempts"))
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
-async def test_worker_debug_report(get_subscription, redis_links, logger_checker):
+async def test_worker_debug_report(
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_subscription.side_effect = fake_get_subscription
 
     for installation_id in range(8):
@@ -1297,13 +1411,13 @@ async def test_worker_debug_report(get_subscription, redis_links, logger_checker
                 repo = f"repo-{installation_id}"
                 await worker.push(
                     redis_links.stream,
-                    123,
-                    owner,
-                    123,
-                    repo,
-                    pull_number,
+                    github_types.GitHubAccountIdType(123),
+                    github_types.GitHubLogin(owner),
+                    github_types.GitHubRepositoryIdType(123),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubPullRequestNumber(pull_number),
                     "pull_request",
-                    {"payload": data},
+                    github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
                 )
 
     await worker.async_status()
@@ -1313,11 +1427,11 @@ async def test_worker_debug_report(get_subscription, redis_links, logger_checker
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_retrying_after_read_error(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
 
@@ -1332,26 +1446,32 @@ async def test_stream_processor_retrying_after_read_error(
     owners_cache = worker.OwnerLoginsCache()
     p = worker.StreamProcessor(redis_links, "shared-0", None, owners_cache)
 
-    installation = context.Installation(FAKE_INSTALLATION, {}, None, None, None)
+    installation = context.Installation(FAKE_INSTALLATION, {}, None, None, None)  # type: ignore[arg-type]
     with pytest.raises(worker.OrgBucketRetry):
         async with p._translate_exception_to_retries(
             worker_lua.BucketOrgKeyType("stream~owner~123")
         ):
-            await worker.run_engine(installation, 123, "repo", 1234, [])
+            await worker.run_engine(
+                installation,
+                github_types.GitHubRepositoryIdType(123),
+                github_types.GitHubRepositoryName("repo"),
+                github_types.GitHubPullRequestNumber(1234),
+                [],
+            )
 
-    assert owners_cache.get(123) == "<unknown 123>"
+    assert owners_cache.get(github_types.GitHubAccountIdType(123)) == "<unknown 123>"
 
 
 @mock.patch("mergify_engine.worker.subscription.Subscription.get_subscription")
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_stream_processor_ignore_503(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
 
@@ -1366,13 +1486,13 @@ async def test_stream_processor_ignore_503(
 
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
 
     await run_worker()
@@ -1387,12 +1507,12 @@ async def test_stream_processor_ignore_503(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_with_multiple_workers(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
 
@@ -1409,13 +1529,13 @@ async def test_worker_with_multiple_workers(
                 bucket_sources.add(f"bucket-sources~{repo_id}~{pull_number}")
                 await worker.push(
                     redis_links.stream,
-                    owner_id,
-                    owner,
-                    repo_id,
-                    repo,
-                    pull_number,
+                    github_types.GitHubAccountIdType(owner_id),
+                    github_types.GitHubLogin(owner),
+                    github_types.GitHubRepositoryIdType(repo_id),
+                    github_types.GitHubRepositoryName(repo),
+                    github_types.GitHubPullRequestNumber(pull_number),
                     "pull_request",
-                    {"payload": data},
+                    github_types.GitHubEvent({"payload": data}),  # type: ignore[typeddict-item]
                 )
 
     # Check everything we push are in redis
@@ -1455,26 +1575,26 @@ async def test_worker_with_multiple_workers(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_reschedule(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-    monkeypatch,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
 
     monkeypatch.setattr("mergify_engine.worker.WORKER_PROCESSING_DELAY", 3000)
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
 
     score = (await redis_links.stream.zrange("streams", 0, -1, withscores=True))[0][1]
@@ -1507,28 +1627,28 @@ async def test_worker_reschedule(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_worker_stuck_shutdown(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.AsyncMock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
     get_subscription.side_effect = fake_get_subscription
 
-    async def fake_engine(*args, **kwargs):
+    async def fake_engine(*args: typing.Any, **kwargs: typing.Any) -> None:
         await asyncio.sleep(10000000)
 
     run_engine.side_effect = fake_engine
     await worker.push(
         redis_links.stream,
-        123,
-        "owner-123",
-        123,
-        "repo",
-        123,
+        github_types.GitHubAccountIdType(123),
+        github_types.GitHubLogin("owner-123"),
+        github_types.GitHubRepositoryIdType(123),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(123),
         "pull_request",
-        {"payload": "whatever"},
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
     )
     await run_worker(test_timeout=2, shutdown_timeout=1)
 
@@ -1563,12 +1683,14 @@ async def test_dedicated_worker_scaleup_scaledown(
 
     tracker = []
 
-    async def track_context(*args, **kwargs):
-        tracker.append(logs.WORKER_ID.get(None))
+    async def track_context(*args: typing.Any, **kwargs: typing.Any) -> None:
+        tracker.append(str(logs.WORKER_ID.get(None)))
 
     run_engine.side_effect = track_context
 
-    async def fake_get_subscription_dedicated(redis, owner_id):
+    async def fake_get_subscription_dedicated(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         # 123 is always shared
         if owner_id == 123:
@@ -1577,7 +1699,9 @@ async def test_dedicated_worker_scaleup_scaledown(
             sub.has_feature.return_value = True
         return sub
 
-    async def fake_get_subscription_shared(redis, owner_id):
+    async def fake_get_subscription_shared(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         sub.has_feature.return_value = False
         return sub
@@ -1592,7 +1716,7 @@ async def test_dedicated_worker_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(4446),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 1
         await worker.push(
@@ -1603,7 +1727,7 @@ async def test_dedicated_worker_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(123),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 0
         await worker.push(
@@ -1614,7 +1738,7 @@ async def test_dedicated_worker_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(1),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         started_at = time.monotonic()
         while (
@@ -1706,12 +1830,14 @@ async def test_dedicated_worker_process_scaleup_scaledown(
 
     tracker = []
 
-    async def track_context(*args, **kwargs):
-        tracker.append(logs.WORKER_ID.get(None))
+    async def track_context(*args: typing.Any, **kwargs: typing.Any) -> None:
+        tracker.append(str(logs.WORKER_ID.get(None)))
 
     run_engine.side_effect = track_context
 
-    async def fake_get_subscription_dedicated(redis, owner_id):
+    async def fake_get_subscription_dedicated(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         # 123 is always shared
         if owner_id == 123:
@@ -1720,7 +1846,9 @@ async def test_dedicated_worker_process_scaleup_scaledown(
             sub.has_feature.return_value = True
         return sub
 
-    async def fake_get_subscription_shared(redis, owner_id):
+    async def fake_get_subscription_shared(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         sub.has_feature.return_value = False
         return sub
@@ -1735,7 +1863,7 @@ async def test_dedicated_worker_process_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(4446),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 1
         await worker.push(
@@ -1746,7 +1874,7 @@ async def test_dedicated_worker_process_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(123),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 0
         await worker.push(
@@ -1757,7 +1885,7 @@ async def test_dedicated_worker_process_scaleup_scaledown(
             github_types.GitHubRepositoryName("repo"),
             github_types.GitHubPullRequestNumber(1),
             "pull_request",
-            {"payload": "whatever"},  # type: ignore
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         started_at = time.monotonic()
         while (
@@ -1852,19 +1980,19 @@ async def test_dedicated_worker_process_scaleup_scaledown(
 @mock.patch("mergify_engine.clients.github.get_installation_from_account_id")
 @mock.patch("mergify_engine.worker.run_engine")
 async def test_separate_dedicated_worker(
-    run_engine,
-    get_installation_from_account_id,
-    get_subscription,
-    redis_links,
-    logger_checker,
-):
+    run_engine: mock.Mock,
+    get_installation_from_account_id: mock.Mock,
+    get_subscription: mock.Mock,
+    redis_links: redis_utils.RedisLinks,
+    logger_checker: None,
+) -> None:
     get_installation_from_account_id.side_effect = fake_get_installation_from_account_id
 
     shared_w = worker.Worker(
         shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
-        enabled_services=("shared-stream",),
+        enabled_services={"shared-stream"},
     )
     await shared_w.start()
 
@@ -1872,17 +2000,19 @@ async def test_separate_dedicated_worker(
         shared_stream_tasks_per_process=3,
         delayed_refresh_idle_time=0.01,
         dedicated_workers_spawner_idle_time=0.01,
-        enabled_services=("dedicated-stream",),
+        enabled_services={"dedicated-stream"},
     )
 
     tracker = []
 
-    async def track_context(*args, **kwargs):
-        tracker.append(logs.WORKER_ID.get(None))
+    async def track_context(*args: typing.Any, **kwargs: typing.Any) -> None:
+        tracker.append(str(logs.WORKER_ID.get(None)))
 
     run_engine.side_effect = track_context
 
-    async def fake_get_subscription_dedicated(redis, owner_id):
+    async def fake_get_subscription_dedicated(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         # 123 is always shared
         if owner_id == 123:
@@ -1891,44 +2021,53 @@ async def test_separate_dedicated_worker(
             sub.has_feature.return_value = True
         return sub
 
-    async def fake_get_subscription_shared(redis, owner_id):
+    async def fake_get_subscription_shared(
+        redis: redis_utils.RedisStream, owner_id: github_types.GitHubAccountIdType
+    ) -> mock.Mock:
         sub = mock.Mock()
         sub.has_feature.return_value = False
         return sub
 
-    async def push_and_wait(blocked_stream=0):
+    async def push_and_wait(blocked_stream: int = 0) -> None:
+        github_types.GitHubAccountIdType(1),
+        github_types.GitHubLogin("owner-1"),
+        github_types.GitHubRepositoryIdType(1),
+        github_types.GitHubRepositoryName("repo"),
+        github_types.GitHubPullRequestNumber(1),
+        "pull_request",
+        github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         # worker hash == 2
         await worker.push(
             redis_links.stream,
-            4446,
-            "owner-4446",
-            4446,
-            "repo",
-            4446,
+            github_types.GitHubAccountIdType(4446),
+            github_types.GitHubLogin("owner-4446"),
+            github_types.GitHubRepositoryIdType(4446),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(4446),
             "pull_request",
-            {"payload": "whatever"},
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 1
         await worker.push(
             redis_links.stream,
-            123,
-            "owner-123",
-            123,
-            "repo",
-            123,
+            github_types.GitHubAccountIdType(123),
+            github_types.GitHubLogin("owner-123"),
+            github_types.GitHubRepositoryIdType(123),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(123),
             "pull_request",
-            {"payload": "whatever"},
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         # worker hash == 0
         await worker.push(
             redis_links.stream,
-            1,
-            "owner-1",
-            1,
-            "repo",
-            1,
+            github_types.GitHubAccountIdType(1),
+            github_types.GitHubLogin("owner-1"),
+            github_types.GitHubRepositoryIdType(1),
+            github_types.GitHubRepositoryName("repo"),
+            github_types.GitHubPullRequestNumber(1),
             "pull_request",
-            {"payload": "whatever"},
+            github_types.GitHubEvent({"payload": "whatever"}),  # type: ignore[typeddict-item]
         )
         started_at = time.monotonic()
         while (
@@ -1984,7 +2123,9 @@ def test_worker_start_all_tasks(
     delayed_refresh_task: mock.Mock,
     setup_signals: mock.Mock,
 ) -> None:
-    async def just_run_once(name, idle_time, func):
+    async def just_run_once(
+        name: str, idle_time: float, func: typing.Callable[[], typing.Awaitable[None]]
+    ) -> None:
         await func()
 
     loop_and_sleep_forever.side_effect = just_run_once
@@ -2018,7 +2159,9 @@ def test_worker_start_just_shared(
     delayed_refresh_task: mock.Mock,
     setup_signals: mock.Mock,
 ) -> None:
-    async def just_run_once(name, idle_time, func):
+    async def just_run_once(
+        name: str, idle_time: float, func: typing.Callable[[], typing.Awaitable[None]]
+    ) -> None:
         await func()
 
     loop_and_sleep_forever.side_effect = just_run_once
@@ -2052,7 +2195,9 @@ def test_worker_start_except_shared(
     delayed_refresh_task: mock.Mock,
     setup_signals: mock.Mock,
 ) -> None:
-    async def just_run_once(name, idle_time, func):
+    async def just_run_once(
+        name: str, idle_time: float, func: typing.Callable[[], typing.Awaitable[None]]
+    ) -> None:
         await func()
 
     loop_and_sleep_forever.side_effect = just_run_once
