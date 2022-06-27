@@ -21,6 +21,7 @@ import msgpack
 
 from mergify_engine import date
 from mergify_engine import github_types
+from mergify_engine import pagination
 from mergify_engine import signals
 from mergify_engine.dashboard import subscription
 
@@ -268,13 +269,18 @@ class EventLogsSignal(signals.SignalBase):
         await pipe.execute()
 
 
+class InvalidCursor(Exception):
+    cursor: str
+
+
 async def get(
     repository: "context.Repository",
+    page: pagination.CurrentPage,
     pull_request: typing.Optional[github_types.GitHubPullRequestNumber] = None,
-) -> typing.AsyncIterator[Event]:
+) -> pagination.Page[Event]:
     redis = repository.installation.redis.eventlogs
     if redis is None:
-        return
+        return pagination.Page([], page)
 
     if repository.installation.subscription.has_feature(
         subscription.Features.EVENTLOGS_LONG
@@ -285,7 +291,7 @@ async def get(
     ):
         retention = EVENTLOGS_SHORT_RETENTION
     else:
-        return
+        return pagination.Page([], page)
 
     if pull_request is None:
         key = _get_repository_key(
@@ -297,76 +303,137 @@ async def get(
         )
 
     older_event = date.utcnow() - retention
+    older_event_id = f"{int(older_event.timestamp())}"
 
-    for _, raw in await redis.xrange(key, min=f"{int(older_event.timestamp())}"):
+    pipe = await redis.pipeline()
+
+    if not page.cursor:
+        # first page
+        from_ = "+"
+        to_ = older_event_id
+        look_backward = False
+    elif page.cursor == "-":
+        # last page
+        from_ = "-"
+        to_ = "+"
+        look_backward = True
+    elif page.cursor.startswith("+"):
+        # next page
+        from_ = f"({page.cursor[1:]}"
+        to_ = older_event_id
+        look_backward = False
+    elif page.cursor.startswith("-"):
+        # prev page
+        from_ = f"({page.cursor[1:]}"
+        to_ = "+"
+        look_backward = True
+    else:
+        raise InvalidCursor(page.cursor)
+
+    await pipe.xlen(key)
+    if look_backward:
+        await pipe.xrange(key, min=from_, max=to_, count=page.per_page)
+    else:
+        await pipe.xrevrange(key, max=from_, min=to_, count=page.per_page)
+
+    total, items = await pipe.execute()
+
+    if look_backward:
+        items = list(reversed(items))
+
+    if page.cursor == "-":
+        # NOTE(sileht): On last page, as we look backward and the query doesn't
+        # use event ID, we may have more item that we need. So here, we remove
+        # those that shouldn't be there.
+        items = items[(total % page.per_page) :]
+
+    if page.cursor and items:
+        cursor_prev = f"-{items[0][0].decode()}"
+    else:
+        cursor_prev = None
+    if items:
+        cursor_next = f"+{items[-1][0].decode()}"
+    else:
+        cursor_next = None
+
+    events: typing.List[Event] = []
+    for _, raw in items:
         event = typing.cast(GenericEvent, msgpack.unpackb(raw[b"data"], timestamp=3))
         if event["event"] == "action.assign":
-            yield typing.cast(EventAssign, event)
+            events.append(typing.cast(EventAssign, event))
 
         elif event["event"] == "action.backport":
-            yield typing.cast(EventBackport, event)
+            events.append(typing.cast(EventBackport, event))
 
         elif event["event"] == "action.close":
-            yield typing.cast(EventClose, event)
+            events.append(typing.cast(EventClose, event))
 
         elif event["event"] == "action.comment":
-            yield typing.cast(EventComment, event)
+            events.append(typing.cast(EventComment, event))
 
         elif event["event"] == "action.copy":
-            yield typing.cast(EventCopy, event)
+            events.append(typing.cast(EventCopy, event))
 
         elif event["event"] == "action.delete_head_branch":
-            yield typing.cast(EventDeleteHeadBranch, event)
+            events.append(typing.cast(EventDeleteHeadBranch, event))
 
         elif event["event"] == "action.dismiss_reviews":
-            yield typing.cast(EventDismissReviews, event)
+            events.append(typing.cast(EventDismissReviews, event))
 
         elif event["event"] == "action.label":
-            yield typing.cast(EventLabel, event)
+            events.append(typing.cast(EventLabel, event))
 
         elif event["event"] == "action.merge":
-            yield typing.cast(EventMerge, event)
+            events.append(typing.cast(EventMerge, event))
 
         elif event["event"] == "action.post_check":
-            yield typing.cast(EventPostCheck, event)
+            events.append(typing.cast(EventPostCheck, event))
 
         elif event["event"] == "action.queue.checks_start":
-            yield typing.cast(EventQueueChecksStart, event)
+            events.append(typing.cast(EventQueueChecksStart, event))
 
         elif event["event"] == "action.queue.checks_end":
-            yield typing.cast(EventQueueChecksEnd, event)
+            events.append(typing.cast(EventQueueChecksEnd, event))
 
         elif event["event"] == "action.queue.enter":
-            yield typing.cast(EventQueueEnter, event)
+            events.append(typing.cast(EventQueueEnter, event))
 
         elif event["event"] == "action.queue.leave":
-            yield typing.cast(EventQueueLeave, event)
+            events.append(typing.cast(EventQueueLeave, event))
 
         elif event["event"] == "action.queue.merged":
-            yield typing.cast(EventQueueMerged, event)
+            events.append(typing.cast(EventQueueMerged, event))
 
         elif event["event"] == "action.rebase":
-            yield typing.cast(EventRebase, event)
+            events.append(typing.cast(EventRebase, event))
 
         elif event["event"] == "action.refresh":
-            yield typing.cast(EventRefresh, event)
+            events.append(typing.cast(EventRefresh, event))
 
         elif event["event"] == "action.request_reviewers":
-            yield typing.cast(EventRequestReviewers, event)
+            events.append(typing.cast(EventRequestReviewers, event))
 
         elif event["event"] == "action.requeue":
-            yield typing.cast(EventRequeue, event)
+            events.append(typing.cast(EventRequeue, event))
 
         elif event["event"] == "action.review":
-            yield typing.cast(EventReview, event)
+            events.append(typing.cast(EventReview, event))
 
         elif event["event"] == "action.squash":
-            yield typing.cast(EventSquash, event)
+            events.append(typing.cast(EventSquash, event))
 
         elif event["event"] == "action.unqueue":
-            yield typing.cast(EventUnqueue, event)
+            events.append(typing.cast(EventUnqueue, event))
 
         elif event["event"] == "action.update":
-            yield typing.cast(EventUpdate, event)
+            events.append(typing.cast(EventUpdate, event))
         else:
             LOG.error("unsupported event-type, skipping", event=event)
+
+    return pagination.Page(
+        items=events,
+        current=page,
+        total=total,
+        cursor_prev=cursor_prev,
+        cursor_next=cursor_next,
+    )

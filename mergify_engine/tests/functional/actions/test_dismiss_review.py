@@ -209,7 +209,10 @@ Unknown pull request attribute: Loser
                     },
                     "trigger": "Rule: dismiss reviews",
                 },
-            ]
+            ],
+            "per_page": 10,
+            "size": 2,
+            "total": 2,
         }
         return p
 

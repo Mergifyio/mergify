@@ -61,19 +61,8 @@ class TestEventLogsAction(base.FunctionalTestBase):
                 "repository": p1["base"]["repo"]["full_name"],
                 "pull_request": p1["number"],
                 "timestamp": mock.ANY,
-                "event": "action.comment",
+                "event": "action.merge",
                 "metadata": {},
-                "trigger": "Rule: hello",
-            },
-            {
-                "repository": p1["base"]["repo"]["full_name"],
-                "pull_request": p1["number"],
-                "timestamp": mock.ANY,
-                "event": "action.assign",
-                "metadata": {
-                    "added": ["mergify-test1"],
-                    "removed": [],
-                },
                 "trigger": "Rule: mergeit",
             },
             {
@@ -91,9 +80,20 @@ class TestEventLogsAction(base.FunctionalTestBase):
                 "repository": p1["base"]["repo"]["full_name"],
                 "pull_request": p1["number"],
                 "timestamp": mock.ANY,
-                "event": "action.merge",
-                "metadata": {},
+                "event": "action.assign",
+                "metadata": {
+                    "added": ["mergify-test1"],
+                    "removed": [],
+                },
                 "trigger": "Rule: mergeit",
+            },
+            {
+                "repository": p1["base"]["repo"]["full_name"],
+                "pull_request": p1["number"],
+                "timestamp": mock.ANY,
+                "event": "action.comment",
+                "metadata": {},
+                "trigger": "Rule: hello",
             },
         ]
         p2_expected_events = [
@@ -101,11 +101,8 @@ class TestEventLogsAction(base.FunctionalTestBase):
                 "repository": p2["base"]["repo"]["full_name"],
                 "pull_request": p2["number"],
                 "timestamp": mock.ANY,
-                "event": "action.assign",
-                "metadata": {
-                    "added": ["mergify-test1"],
-                    "removed": [],
-                },
+                "event": "action.merge",
+                "metadata": {},
                 "trigger": "Rule: mergeit",
             },
             {
@@ -123,8 +120,11 @@ class TestEventLogsAction(base.FunctionalTestBase):
                 "repository": p2["base"]["repo"]["full_name"],
                 "pull_request": p2["number"],
                 "timestamp": mock.ANY,
-                "event": "action.merge",
-                "metadata": {},
+                "event": "action.assign",
+                "metadata": {
+                    "added": ["mergify-test1"],
+                    "removed": [],
+                },
                 "trigger": "Rule: mergeit",
             },
         ]
@@ -137,7 +137,12 @@ class TestEventLogsAction(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 200
-        assert r.json() == {"events": p1_expected_events}
+        assert r.json() == {
+            "events": p1_expected_events,
+            "per_page": 10,
+            "size": 4,
+            "total": 4,
+        }
 
         r = await self.app.get(
             f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p2['number']}/events",
@@ -147,7 +152,12 @@ class TestEventLogsAction(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 200
-        assert r.json() == {"events": p2_expected_events}
+        assert r.json() == {
+            "events": p2_expected_events,
+            "per_page": 10,
+            "size": 3,
+            "total": 3,
+        }
 
         r = await self.app.get(
             f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/events",
@@ -157,4 +167,102 @@ class TestEventLogsAction(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 200
-        assert r.json() == {"events": p1_expected_events + p2_expected_events}
+        assert r.json() == {
+            "events": p2_expected_events + p1_expected_events,
+            "per_page": 10,
+            "size": 7,
+            "total": 7,
+        }
+
+        # pagination
+        r_pagination = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/events?per_page=2",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_pagination.status_code == 200
+        assert r_pagination.json() == {
+            "events": p2_expected_events[:2],
+            "per_page": 2,
+            "size": 2,
+            "total": 7,
+        }
+
+        # first page
+        r_first = await self.app.get(
+            r_pagination.links["first"]["url"],
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_first.status_code == 200
+        assert r_first.json() == {
+            "events": p2_expected_events[:2],
+            "per_page": 2,
+            "size": 2,
+            "total": 7,
+        }
+        # next page
+        r_next = await self.app.get(
+            r_pagination.links["next"]["url"],
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_next.status_code == 200
+        assert r_next.json() == {
+            "events": [p2_expected_events[2], p1_expected_events[0]],
+            "per_page": 2,
+            "size": 2,
+            "total": 7,
+        }
+        # next next
+        r_next_next = await self.app.get(
+            r_next.links["next"]["url"],
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_next_next.status_code == 200
+        assert r_next_next.json() == {
+            "events": p1_expected_events[1:3],
+            "per_page": 2,
+            "size": 2,
+            "total": 7,
+        }
+        # prev
+        r_prev = await self.app.get(
+            r_next.links["prev"]["url"],
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_prev.status_code == 200
+        assert r_prev.json() == {
+            "events": p2_expected_events[:2],
+            "per_page": 2,
+            "size": 2,
+            "total": 7,
+        }
+
+        # last
+        r_last = await self.app.get(
+            r_pagination.links["last"]["url"],
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r_last.status_code == 200
+        assert r_last.json() == {
+            "events": [p1_expected_events[3]],
+            "per_page": 2,
+            "size": 1,
+            "total": 7,
+        }
