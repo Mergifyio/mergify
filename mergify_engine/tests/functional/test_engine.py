@@ -23,6 +23,7 @@ import yaml
 
 from mergify_engine import cache
 from mergify_engine import check_api
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import github_types
@@ -227,7 +228,7 @@ class TestEngineV2Scenario(base.FunctionalTestBase):
             "Commit Message:\n",
             "merge",
             msg="{{title}}\n\nThanks to {{author}}",
-            commit_msg="test_merge_custom_msg_template: pull request n1 from integration\n\nThanks to mergify-test[bot]",
+            commit_msg=f"test_merge_custom_msg_template: pull request n1 from integration\n\nThanks to {config.BOT_USER_LOGIN}",
         )
 
     async def test_merge_invalid_custom_msg(self) -> None:

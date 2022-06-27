@@ -20,6 +20,7 @@ from freezegun import freeze_time
 import pytest
 import yaml
 
+from mergify_engine import config
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine.tests.functional import base
@@ -367,7 +368,7 @@ class TestAttributes(base.FunctionalTestBase):
             "merged": False,
             "commits": ["test_draft: pull request n2 from integration"],
             "head": self.get_full_branch_name("integration/pr2"),
-            "author": "mergify-test[bot]",
+            "author": config.BOT_USER_LOGIN,
             "dismissed-reviews-by": [],
             "merged-by": "",
             "queue-position": -1,
