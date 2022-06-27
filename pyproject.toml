@@ -1,12 +1,153 @@
-[tool.black]
-target-version = ['py310']
-
 [build-system]
-requires = ["setuptools >= 40.6.0"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "mergify_engine"
+version = "0.0.0"
+description = "mergify-engine is a GitHub Application to automate pull requests"
+classifiers = ["Intended Audience :: Information Technology", "License :: OSI Approved :: Apache Software License", "Operating System :: POSIX", "Programming Language :: Python", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.10"]
+homepage = "https://github.com/mergifyio/mergify-engine"
+authors = ["Mergify <hello@mergify.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+aiofiles = "*"
+cryptography = "*"
+daiquiri = ">=3"
+datadog = "*"
+ddtrace = ">=1.2.0rc1"
+fastapi = "*"
+first = "*"
+graphql-utils = ">=0.4"
+gunicorn = {extras = ["setproctitle"], version = "*"}
+hiredis = "*"
+honcho = "*"
+httpx = {version = ">=0.20.0", extras = ["http2"]}
+jinja2 = "*"
+markdownify = "*"
+msgpack = ">=1.0.0"
+pyjwt = "*"
+python-dotenv = "*"
+python-multipart = "*"
+pyyaml = "*"
+redis = "*"
+sentry-sdk = ">=1.2.0"
+tenacity = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+voluptuous = "*"
+
+[tool.poetry.dev-dependencies]
+sphinx = "^4.5.0"
+sphinxcontrib-spelling = "^7.5.1"
+respx = "^0.19.2"
+semgrep = "^0.100.0"
+types-first = "^2.0.4"
+types-freezegun = "^1.1.10"
+types-pkg-resources = "^0.1.3"
+types-pyyaml = "^6.0.8"
+types-redis = "^4.3.2"
+pytest = "^7.1.2"
+pytest-asyncio = "^0.18.3"
+pytest-cov = "^3.0.0"
+pytest-github-actions-annotate-failures = "^0.1.6"
+pytest-httpserver = "^1.0.4"
+pytest-timeout = "^2.1.0"
+isort = "^5.10.1"
+mypy = "^0.950"
+mypy-extensions = "^0.4.3"
+vcrpy = ">=4.1.1"
+flake8 = "^4.0.1"
+flake8-black = "^0.3.3"
+flake8-blind-except = "^0.2.1"
+flake8-bugbear = "^22.6.22"
+flake8-builtins = "^1.5.3"
+flake8-comprehensions = "^3.10.0"
+flake8-docstrings = "^1.6.0"
+flake8-logging-format = "^0.6.0"
+flake8-rst-docstrings = "^0.2.6"
+flake8-use-fstring = "^1.3"
+freezegun = "^1.2.1"
+yamllint = "^1.26.3"
+reno = "^3.5.0"
+
+[tool.poetry.scripts]
+  mergify-refresher = "mergify_engine.web_cli:refresher"
+  mergify-queues = "mergify_engine.web_cli:queues"
+  mergify-clear-token-cache = "mergify_engine.web_cli:clear_token_cache"
+  mergify-debug = "mergify_engine.debug:main"
+  mergify-worker-status = "mergify_engine.worker:status"
+  mergify-reschedule = "mergify_engine.worker:reschedule_now"
+  mergify-engine-worker = "mergify_engine.worker:main"
+  mergify-import-check-worker = "mergify_engine.import_check:import_check_worker"
+  mergify-import-check-web = "mergify_engine.import_check:import_check_web"
+  mergify-count-seats = "mergify_engine.count_seats:main"
+  mergify-openapi-spec = "mergify_engine.web.api.root:generate_openapi_spec"
+  mergify-admin = "mergify_engine.admin:main"
+  # TODO(sileht): compat, drop me
+  mergify-import-check = "mergify_engine.import_check:import_check_worker"
+
+[tool.poetry.plugins]
+
+[tool.poetry.plugins.mergify_signals]
+  noop = "mergify_engine.signals:NoopSignal"
+  last_seen = "mergify_engine.usage.last_seen:Signal"
+  datadog = "mergify_engine._datadog:Signal"
+  eventlogs = "mergify_engine.eventlogs:EventLogsSignal"
+
+[tool.poetry.plugins.mergify_actions]
+  assign = "mergify_engine.actions.assign:AssignAction"
+  backport = "mergify_engine.actions.backport:BackportAction"
+  copy = "mergify_engine.actions.copy:CopyAction"
+  post_check = "mergify_engine.actions.post_check:PostCheckAction"
+  label = "mergify_engine.actions.label:LabelAction"
+  delete_head_branch = "mergify_engine.actions.delete_head_branch:DeleteHeadBranchAction"
+  merge = "mergify_engine.actions.merge:MergeAction"
+  queue = "mergify_engine.actions.queue:QueueAction"
+  unqueue = "mergify_engine.actions.unqueue:UnqueueAction"
+  requeue = "mergify_engine.actions.requeue:RequeueAction"
+  close = "mergify_engine.actions.close:CloseAction"
+  comment = "mergify_engine.actions.comment:CommentAction"
+  review = "mergify_engine.actions.review:ReviewAction"
+  dismiss_reviews = "mergify_engine.actions.dismiss_reviews:DismissReviewsAction"
+  request_reviews = "mergify_engine.actions.request_reviews:RequestReviewsAction"
+  rebase = "mergify_engine.actions.rebase:RebaseAction"
+  update = "mergify_engine.actions.update:UpdateAction"
+  refresh = "mergify_engine.actions.refresh:RefreshAction"
+  squash = "mergify_engine.actions.squash:SquashAction"
+  edit = "mergify_engine.actions.edit:EditAction"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "--strict-markers"
 asyncio_mode = "auto"
 markers = ["recorder", "subscription"]
+
+[tool.black]
+target-version = ['py310']
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+warn_unused_configs = true
+disallow_any_generics = true
+warn_return_any = true
+files = ["mergify_engine"]
+disallow_subclassing_any = true
+warn_redundant_casts = true
+strict_equality = true
+no_implicit_optional = true
+disallow_untyped_decorators = true
+show_error_codes = true
+disallow_untyped_calls = true
+plugins = ["pydantic.mypy"]
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+lines_after_imports = "2"
+force_sort_within_sections = true
+known_first_party = "mergify_engine,mergify_engine_signals"
+known_third_party = "datadog"
+default_section = "THIRDPARTY"

@@ -24,7 +24,8 @@ jobs:
 
       - name: Build 🔧 & Test 🔍
         run: |
-          pip install tox
+          # nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
+          pip install -r requirements-dev.txt
           tox -e pep8
 
   requirements:
@@ -41,11 +42,9 @@ jobs:
 
       - name: Build 🔧 & Test 🔍
         run: |
-          pip install tox
-          tox -e requirements
+          # nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
+          pip install -r requirements-dev.txt
           tox -e missing-imports
-          tox -e genreqs
-          git diff --exit-code
   test:
     timeout-minutes: 10
     runs-on: ubuntu-20.04
@@ -65,8 +64,8 @@ jobs:
 
       - name: Build 🔧 & Test 🔍
         run: |
-          sudo apt install -y redis-server
-          pip install tox
+          # nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
+          pip install -r requirements-dev.txt
           tox -e py310
   docs:
     timeout-minutes: 5
@@ -88,7 +87,8 @@ jobs:
       - name: Build 🔧
         run: |
           sudo apt-get install graphviz
-          pip install tox
+          # nosemgrep: generic.ci.security.use-frozen-lockfile.use-frozen-lockfile-pip
+          pip install -r requirements-dev.txt
           tox -e docs
 
       # NOTE(sileht): workflow run on/pull_request doesn't have access to
