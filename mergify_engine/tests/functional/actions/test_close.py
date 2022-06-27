@@ -15,6 +15,7 @@
 # under the License.
 import yaml
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -62,7 +63,7 @@ class TestCloseAction(base.FunctionalTestBase):
         p = await self.get_pull(p["number"])
         self.assertEqual("closed", p["state"])
         comments = await self.get_issue_comments(p["number"])
-        self.assertEqual("Thank you mergify-test[bot]", comments[-1]["body"])
+        self.assertEqual(f"Thank you {config.BOT_USER_LOGIN}", comments[-1]["body"])
 
     async def _test_close_template_error(self, msg):
         rules = {

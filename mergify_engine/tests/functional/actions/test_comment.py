@@ -15,6 +15,7 @@
 # under the License.
 import yaml
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -113,7 +114,7 @@ class TestCommentAction(base.FunctionalTestBase):
         await self.run_engine()
 
         new_comments = await self.get_issue_comments(p["number"])
-        assert new_comments[-1]["body"] == "Thank you mergify-test[bot]"
+        assert new_comments[-1]["body"] == f"Thank you {config.BOT_USER_LOGIN}"
 
     async def test_comment_with_none(self):
         rules = {

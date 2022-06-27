@@ -165,7 +165,10 @@ class GitterRecorder(gitter.Gitter):
 
 class EventReader:
     def __init__(
-        self, app: httpx.AsyncClient, repository_id: github_types.GitHubRepositoryIdType
+        self,
+        app: httpx.AsyncClient,
+        integration_id: int,
+        repository_id: github_types.GitHubRepositoryIdType,
     ) -> None:
         self._app = app
         self._session = http.AsyncClient()
@@ -173,7 +176,7 @@ class EventReader:
         self._counter = 0
 
         hostname = parse.urlparse(config.GITHUB_URL).hostname
-        self._namespace_endpoint = f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{config.INTEGRATION_ID}/{repository_id}"
+        self._namespace_endpoint = f"{config.TESTING_FORWARDER_ENDPOINT}/{hostname}/{integration_id}/{repository_id}"
 
     async def aclose(self) -> None:
         await self.drain()
@@ -447,7 +450,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
             side_effect=fake_pretty_datetime,
         ).start()
 
-        self._event_reader = EventReader(self.app, self.RECORD_CONFIG["repository_id"])
+        self._event_reader = EventReader(
+            self.app,
+            self.RECORD_CONFIG["integration_id"],
+            self.RECORD_CONFIG["repository_id"],
+        )
         await self._event_reader.drain()
 
         # Track when worker work

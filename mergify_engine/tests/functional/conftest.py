@@ -42,6 +42,9 @@ CASSETTE_LIBRARY_DIR_BASE = "zfixtures/cassettes"
 
 
 class RecordConfigType(typing.TypedDict):
+    integration_id: int
+    app_user_id: github_types.GitHubAccountIdType
+    app_user_login: github_types.GitHubLogin
     organization_id: github_types.GitHubAccountIdType
     organization_name: github_types.GitHubLogin
     repository_id: github_types.GitHubRepositoryIdType
@@ -265,6 +268,7 @@ class RecorderFixture(typing.NamedTuple):
 @pytest.fixture(autouse=True)
 async def recorder(
     request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> typing.Optional[RecorderFixture]:
     is_unittest_class = request.cls is not None
 
@@ -338,6 +342,9 @@ async def recorder(
                 json.dumps(
                     RecordConfigType(
                         {
+                            "integration_id": config.INTEGRATION_ID,
+                            "app_user_id": config.BOT_USER_ID,
+                            "app_user_login": config.BOT_USER_LOGIN,
                             "organization_id": config.TESTING_ORGANIZATION_ID,
                             "organization_name": config.TESTING_ORGANIZATION_NAME,
                             "repository_id": config.TESTING_REPOSITORY_ID,
@@ -353,9 +360,11 @@ async def recorder(
             )
 
     with open(record_config_file, "r") as f:
-        return RecorderFixture(
-            typing.cast(RecordConfigType, json.loads(f.read())), recorder
-        )
+        recorder_config = typing.cast(RecordConfigType, json.loads(f.read()))
+        monkeypatch.setattr(config, "INTEGRATION_ID", recorder_config["integration_id"])
+        monkeypatch.setattr(config, "BOT_USER_ID", recorder_config["app_user_id"])
+        monkeypatch.setattr(config, "BOT_USER_LOGIN", recorder_config["app_user_login"])
+        return RecorderFixture(recorder_config, recorder)
 
 
 @pytest.fixture

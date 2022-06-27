@@ -125,7 +125,7 @@ pull_request_rules:
  '#files': 1,
  'approved-reviews-by': [],
  'assignee': [],
- 'author': 'mergify-test[bot]',
+ 'author': '{config.BOT_USER_LOGIN}',
  'base': '{self.main_branch_name}',
  'body': 'test_debugger: pull request n1 from integration',
  'body-raw': 'test_debugger: pull request n1 from integration',
