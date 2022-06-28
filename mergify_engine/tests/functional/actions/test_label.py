@@ -82,8 +82,8 @@ class TestLabelAction(base.FunctionalTestBase):
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {
-                        "added": ["foobar", "unstable"],
-                        "removed": ["remove-me"],
+                        "added": ["unstable"],
+                        "removed": [],
                     },
                     "trigger": "Rule: rename label",
                 },
@@ -93,12 +93,15 @@ class TestLabelAction(base.FunctionalTestBase):
                     "timestamp": mock.ANY,
                     "event": "action.label",
                     "metadata": {
-                        "added": ["unstable"],
-                        "removed": [],
+                        "added": ["foobar", "unstable"],
+                        "removed": ["remove-me"],
                     },
                     "trigger": "Rule: rename label",
                 },
-            ]
+            ],
+            "per_page": 10,
+            "size": 2,
+            "total": 2,
         }
 
     async def test_label_empty(self):
@@ -138,7 +141,12 @@ class TestLabelAction(base.FunctionalTestBase):
             },
         )
         assert r.status_code == 200
-        assert r.json() == {"events": []}
+        assert r.json() == {
+            "events": [],
+            "per_page": 10,
+            "size": 0,
+            "total": 0,
+        }
 
     async def test_label_remove_all(self):
         rules = {
@@ -182,5 +190,8 @@ class TestLabelAction(base.FunctionalTestBase):
                     "metadata": {"added": [], "removed": ["stable"]},
                     "trigger": "Rule: delete all labels",
                 }
-            ]
+            ],
+            "per_page": 10,
+            "size": 1,
+            "total": 1,
         }
