@@ -91,7 +91,6 @@ def enable_api() -> None:
 async def redis_links() -> typing.AsyncGenerator[redis_utils.RedisLinks, None]:
     links = redis_utils.RedisLinks(name="global-fixture")
     await links.flushall()
-    await redis_utils.load_scripts(links.cache)
     try:
         yield links
     finally:

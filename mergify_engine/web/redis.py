@@ -34,7 +34,6 @@ async def startup() -> None:
         queue_max_connections=config.REDIS_QUEUE_WEB_MAX_CONNECTIONS,
         eventlogs_max_connections=config.REDIS_EVENTLOGS_WEB_MAX_CONNECTIONS,
     )
-    await redis_utils.load_scripts(_REDIS_LINKS.cache)
 
 
 async def shutdown() -> None:
