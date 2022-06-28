@@ -257,7 +257,7 @@ async def duplicate(
         if not bot_account_user:
             raise DuplicateFailed(
                 f"User `{bot_account}` is unknown. "
-                f"Please make sure `{bot_account}` has logged in Mergify dashboard."
+                f"Please make sure `{bot_account}` exists and has logged in [Mergify dashboard](https://dashboard.mergify.com).",
             )
 
     # TODO(sileht): This can be done with the Github API only I think:
