@@ -92,8 +92,8 @@ async def render_bot_account(
         except http.HTTPNotFound:
             raise RenderBotAccountFailure(
                 check_api.Conclusion.ACTION_REQUIRED,
-                (f"`{bot_account}` account used as `{option_name}` does not exist"),
-                "",
+                f"User `{bot_account}` used as `{option_name}` is unknown",
+                f"Please make sure `{bot_account}` exists and has logged in [Mergify dashboard](https://dashboard.mergify.com).",
             )
 
         if permission not in required_permissions:
