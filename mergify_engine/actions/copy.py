@@ -233,7 +233,7 @@ class CopyAction(actions.Action):
                 ctxt,
                 self.config["bot_account"],
                 required_feature=subscription.Features.BOT_ACCOUNT,
-                missing_feature_message=f"{self.KIND.capitalize()} with `bot_account` set is unavailable",
+                missing_feature_message=f"Cannot use `bot_account` with {self.KIND.capitalize()} action",
             )
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)

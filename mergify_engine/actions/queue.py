@@ -101,7 +101,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ):
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
-                "Queue with more than 1 rule set is unavailable.",
+                "Cannot use multiple queues.",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
@@ -112,7 +112,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
-                "Queue with `speculative_checks` set is unavailable.",
+                "Cannot use `speculative_checks` with queue action.",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
@@ -123,7 +123,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ] > 1 and not ctxt.subscription.has_feature(subscription.Features.QUEUE_ACTION):
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
-                "Queue with `batch_size` set is unavailable.",
+                "Cannot use `batch_size` with queue action.",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
@@ -135,7 +135,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         ):
             return check_api.Result(
                 check_api.Conclusion.ACTION_REQUIRED,
-                "Queue with `priority` set is unavailable.",
+                "Cannot use `priority` with queue action.",
                 ctxt.subscription.missing_feature_reason(
                     ctxt.pull["base"]["repo"]["owner"]["login"]
                 ),
@@ -258,7 +258,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 self.config["update_bot_account"],
                 option_name="update_bot_account",
                 required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Queue with `update_bot_account` set is unavailable",
+                missing_feature_message="Cannot use `update_bot_account` with queue action",
             )
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
@@ -269,7 +269,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 self.config["merge_bot_account"],
                 option_name="merge_bot_account",
                 required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Queue with `merge_bot_account` set is unavailable",
+                missing_feature_message="Cannot use `merge_bot_account` with queue action",
                 # NOTE(sileht): we don't allow admin, because if branch protection are
                 # enabled, but not enforced on admins, we may bypass them
                 required_permissions=["write", "maintain"],
@@ -383,7 +383,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 self.config["update_bot_account"],
                 option_name="update_bot_account",
                 required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Queue with `update_bot_account` set is unavailable",
+                missing_feature_message="Cannot use `update_bot_account` with queue action",
             )
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
