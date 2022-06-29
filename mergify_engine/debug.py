@@ -112,7 +112,7 @@ async def report_worker_status(
     print(f"* WORKER PENDING EVENTS for this installation: {size}")
 
 
-async def report_queue(title: str, q: queue.QueueT) -> None:
+async def report_queue(title: str, q: merge_train.Train) -> None:
     pulls = await q.get_pulls()
     if not pulls:
         return
