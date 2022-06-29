@@ -559,13 +559,22 @@ Then, re-embark the pull request into the merge queue by posting the comment
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def send_signal(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: merge_train.Train
     ) -> None:
+        _, embarked_pull = q.find_embarked_pull(ctxt.pull["number"])
+        if embarked_pull is None:
+            raise RuntimeError("Queue pull request with no embarked_pull")
         await signals.send(
             ctxt.repository,
             ctxt.pull["number"],
             "action.queue.merged",
-            signals.EventNoMetadata(),
+            signals.EventQueueMergedMetadata(
+                {
+                    "queue_name": self.config["name"],
+                    "branch": ctxt.pull["base"]["ref"],
+                    "queued_at": embarked_pull.embarked_pull.queued_at,
+                }
+            ),
             rule.get_signal_trigger(),
         )
 
