@@ -56,7 +56,7 @@ EventName = typing.Literal[
 ]
 
 
-class EventMetadata(typing.TypedDict):
+class EventMetadata(typing.TypedDict, total=False):
     pass
 
 
@@ -116,7 +116,7 @@ ChecksConclusion = typing.Literal[
 ]
 
 
-class SpeculativeCheckPullRequest(typing.TypedDict):
+class SpeculativeCheckPullRequest(typing.TypedDict, total=False):
     number: int
     in_place: bool
     checks_timed_out: bool
