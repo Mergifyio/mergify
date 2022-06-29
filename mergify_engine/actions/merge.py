@@ -134,7 +134,7 @@ class MergeAction(merge_base.MergeBaseAction[None]):
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def send_signal(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule"
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", queue: None
     ) -> None:
         await signals.send(
             ctxt.repository,
