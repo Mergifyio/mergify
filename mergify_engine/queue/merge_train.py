@@ -762,6 +762,7 @@ class TrainCar:
                         "queue_name": ep.config["name"],
                         "branch": self.train.ref,
                         "position": position,
+                        "queued_at": ep.queued_at,
                         "speculative_check_pull_request": {
                             "number": self.queue_pull_request_number,
                             "in_place": self.creation_state == "updated",
@@ -886,6 +887,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
                         "queue_name": ep.config["name"],
                         "branch": self.train.ref,
                         "position": position,
+                        "queued_at": ep.queued_at,
                         "speculative_check_pull_request": {
                             "number": self.queue_pull_request_number,
                             "in_place": self.creation_state == "updated",
@@ -1778,6 +1780,7 @@ class Train(queue.QueueBase):
                     "queue_name": new_embarked_pull.config["name"],
                     "branch": self.ref,
                     "position": final_position,
+                    "queued_at": new_embarked_pull.queued_at,
                 }
             ),
             signal_trigger,
@@ -1847,6 +1850,7 @@ class Train(queue.QueueBase):
                     "queue_name": embarked_pull.embarked_pull.config["name"],
                     "branch": self.ref,
                     "position": position,
+                    "queued_at": embarked_pull.embarked_pull.queued_at,
                 }
             ),
             signal_trigger,

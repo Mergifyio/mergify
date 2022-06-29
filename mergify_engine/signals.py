@@ -91,12 +91,14 @@ class EventQueueEnterMetadata(EventMetadata):
     queue_name: str
     branch: str
     position: int
+    queued_at: datetime.datetime
 
 
 class EventQueueLeaveMetadata(EventMetadata):
     queue_name: str
     branch: str
     position: int
+    queued_at: datetime.datetime
 
 
 class SpeculativeCheckPullRequest(typing.TypedDict):
@@ -107,12 +109,19 @@ class SpeculativeCheckPullRequest(typing.TypedDict):
     checks_ended_at: typing.Optional[datetime.datetime]
 
 
+class EventQueueMergedMetadata(EventMetadata):
+    queue_name: str
+    branch: str
+    queued_at: datetime.datetime
+
+
 class EventQueueChecksEndMetadata(EventMetadata):
     aborted: bool
     abort_reason: typing.Optional[str]
     queue_name: str
     branch: str
     position: typing.Optional[int]
+    queued_at: datetime.datetime
     speculative_check_pull_request: SpeculativeCheckPullRequest
 
 
@@ -120,6 +129,7 @@ class EventQueueChecksStartMetadata(EventMetadata):
     queue_name: str
     branch: str
     position: int
+    queued_at: datetime.datetime
     speculative_check_pull_request: SpeculativeCheckPullRequest
 
 
@@ -200,7 +210,6 @@ async def send(
         "action.requeue",
         "action.unqueue",
         "action.update",
-        "action.queue.merged",
     ],
     metadata: EventNoMetadata,
     trigger: str,
@@ -313,6 +322,17 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.queue.checks_start"],
     metadata: EventQueueChecksStartMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.queue.merged"],
+    metadata: EventQueueMergedMetadata,
     trigger: str,
 ) -> None:
     ...
