@@ -876,7 +876,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             aborted = True
             abort_reason = reason
 
-        for ep in self.still_queued_embarked_pulls:
+        for ep in self.initial_embarked_pulls:
             position, _ = self.train.find_embarked_pull(ep.user_pull_request_number)
             await signals.send(
                 self.train.repository,
