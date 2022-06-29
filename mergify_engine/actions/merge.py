@@ -96,7 +96,7 @@ class MergeAction(merge_base.MergeBaseAction[None]):
                 self.config["merge_bot_account"],
                 option_name="merge_bot_account",
                 required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Merge with `merge_bot_account` set is unavailable",
+                missing_feature_message="Cannot use `merge_bot_account` with merge action",
                 # NOTE(sileht): we don't allow admin, because if branch protection are
                 # enabled, but not enforced on admins, we may bypass them
                 required_permissions=["write", "maintain"],

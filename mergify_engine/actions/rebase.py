@@ -52,7 +52,7 @@ class RebaseAction(actions.Action):
                 self.config["bot_account"],
                 option_name="bot_account",
                 required_feature=subscription.Features.BOT_ACCOUNT,
-                missing_feature_message="Rebase with `update_bot_account` set is unavailable",
+                missing_feature_message="Cannot use `bot_account` with rebase action",
             )
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)

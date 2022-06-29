@@ -43,7 +43,7 @@ async def render_bot_account(
     *,
     option_name: str = "bot_account",
     required_feature: subscription.Features,
-    missing_feature_message: str = "This action with `bot_account` set is unavailable",
+    missing_feature_message: str = "Cannot use `bot_account`",
     required_permissions: typing.Optional[
         typing.List[github_types.GitHubRepositoryPermission]
     ] = None,
