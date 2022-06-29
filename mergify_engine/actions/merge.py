@@ -56,7 +56,7 @@ def DeprecatedOption(
     return validator
 
 
-class MergeAction(merge_base.MergeBaseAction):
+class MergeAction(merge_base.MergeBaseAction[None]):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALWAYS_SEND_REPORT
@@ -127,7 +127,7 @@ class MergeAction(merge_base.MergeBaseAction):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: typing.Optional[queue.QueueBase],
+        queue: None,
     ) -> check_api.Result:
         title = "The pull request will be merged soon"
         summary = ""
