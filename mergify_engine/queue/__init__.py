@@ -11,18 +11,13 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-import abc
-import dataclasses
 import enum
-import functools
 import typing
 
 import daiquiri
 import voluptuous
 
-from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import utils
 
 
 if typing.TYPE_CHECKING:
@@ -64,85 +59,3 @@ class PullQueueConfig(typing.TypedDict):
     bot_account: typing.Optional[github_types.GitHubLogin]
     update_bot_account: typing.Optional[github_types.GitHubLogin]
     name: "rules.QueueName"
-
-
-QueueT = typing.TypeVar("QueueT", bound="QueueBase")
-
-
-@dataclasses.dataclass  # type: ignore
-class QueueBase(abc.ABC):
-    repository: context.Repository
-    ref: github_types.GitHubRefType
-
-    @functools.cached_property
-    def log(self) -> daiquiri.KeywordArgumentAdapter:
-        return daiquiri.getLogger(
-            __name__,
-            gh_owner=self.repository.installation.owner_login,
-            gh_repo=self.repository.repo["name"],
-            gh_branch=self.ref,
-        )
-
-    @classmethod
-    async def from_context(cls: typing.Type[QueueT], ctxt: context.Context) -> QueueT:
-        return cls(ctxt.repository, ctxt.pull["base"]["ref"])
-
-    @abc.abstractmethod
-    async def get_config(
-        self, pull_number: github_types.GitHubPullRequestNumber
-    ) -> PullQueueConfig:
-        """Return merge config for a pull request.
-
-        Do not use it for logic, just for displaying the queue summary.
-
-        :param pull_number: The pull request number.
-        """
-
-    @abc.abstractmethod
-    async def add_pull(
-        self, ctxt: context.Context, config: PullQueueConfig, signal_trigger: str
-    ) -> None:
-        pass
-
-    @abc.abstractmethod
-    async def remove_pull(self, ctxt: context.Context, signal_trigger: str) -> None:
-        pass
-
-    @abc.abstractmethod
-    async def is_first_pull(self, ctxt: context.Context) -> bool:
-        pass
-
-    @abc.abstractmethod
-    async def get_pulls(self) -> typing.List[github_types.GitHubPullRequestNumber]:
-        """Return ordered queued pull requests"""
-        pass
-
-    async def get_position(self, ctxt: context.Context) -> typing.Optional[int]:
-        pulls = await self.get_pulls()
-        try:
-            return pulls.index(ctxt.pull["number"])
-        except ValueError:
-            return None
-
-    async def refresh_pulls(
-        self,
-        source: str,
-        additional_pull_request: typing.Optional[
-            github_types.GitHubPullRequestNumber
-        ] = None,
-    ) -> None:
-
-        pulls = set(await self.get_pulls())
-        if additional_pull_request:
-            pulls.add(additional_pull_request)
-
-        pipe = await self.repository.installation.redis.stream.pipeline()
-        for pull_number in pulls:
-            await utils.send_pull_refresh(
-                pipe,
-                self.repository.repo,
-                pull_request_number=pull_number,
-                action="internal",
-                source=source,
-            )
-        await pipe.execute()

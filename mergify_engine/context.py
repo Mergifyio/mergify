@@ -1241,29 +1241,20 @@ class Context(object):
 
         elif name == "queue-position":
             q = await merge_train.Train.from_context(self)
-            position = await q.get_position(self)
+            position, _ = q.find_embarked_pull(self.pull["number"])
             if position is None:
                 return -1
             return position
 
         elif name in ("queued-at", "queued-at-relative"):
             q = await merge_train.Train.from_context(self)
-            car = q.get_car(self)
-            queued_at: typing.Optional[datetime.datetime]
-            if car is None:
+            position, embarked_pull = q.find_embarked_pull(self.pull["number"])
+            if embarked_pull is None:
                 return None
+            elif name == "queued-at":
+                return embarked_pull.embarked_pull.queued_at
             else:
-                queued_at = first.first(
-                    ep.queued_at
-                    for ep in car.initial_embarked_pulls
-                    if ep.user_pull_request_number == self.pull["number"]
-                )
-                if queued_at is None:
-                    raise RuntimeError("current pull request not found in its car")
-            if name == "queued-at":
-                return queued_at
-            else:
-                return date.RelativeDatetime(queued_at)
+                return date.RelativeDatetime(embarked_pull.embarked_pull.queued_at)
 
         elif name in ("queue-merge-started-at", "queue-merge-started-at-relative"):
             # Only used with QueuePullRequest

@@ -34,7 +34,8 @@ class UnqueueAction(actions.Action):
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         train = await merge_train.Train.from_context(ctxt)
-        if await train.get_position(ctxt) is None:
+        _, embarked_pull = train.find_embarked_pull(ctxt.pull["number"])
+        if embarked_pull is None:
             return check_api.Result(
                 check_api.Conclusion.NEUTRAL,
                 title="The pull request is not queued",

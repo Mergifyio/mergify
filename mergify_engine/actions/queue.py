@@ -514,7 +514,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if await ctxt.has_been_synchronized_by_user():
             return True
 
-        position = await q.get_position(ctxt)
+        position, _ = q.find_embarked_pull(ctxt.pull["number"])
         if position is None:
             return True
 
@@ -547,7 +547,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if qf is not None:
             title = f'The queue "{qf.name}" is currently frozen, for the following reason: {qf.reason}'
         else:
-            position = await q.get_position(ctxt)
+            position, _ = q.find_embarked_pull(ctxt.pull["number"])
             if position is None:
                 ctxt.log.error("expected queued pull request not found in queue")
                 title = "The pull request is queued to be merged"

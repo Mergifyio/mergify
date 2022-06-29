@@ -16,6 +16,7 @@
 
 import dataclasses
 import datetime
+import functools
 import itertools
 import typing
 from urllib import parse
@@ -1320,7 +1321,9 @@ You don't need to do anything. Mergify will close this pull request automaticall
 
 
 @dataclasses.dataclass
-class Train(queue.QueueBase):
+class Train:
+    repository: context.Repository
+    ref: github_types.GitHubRefType
 
     # Stored in redis
     _cars: typing.List[TrainCar] = dataclasses.field(default_factory=list)
@@ -1336,7 +1339,7 @@ class Train(queue.QueueBase):
 
     @classmethod
     async def from_context(cls, ctxt: context.Context) -> "Train":
-        q = await super().from_context(ctxt)
+        q = cls(ctxt.repository, ctxt.pull["base"]["ref"])
         await q.load()
         return q
 
@@ -1428,7 +1431,7 @@ class Train(queue.QueueBase):
             ],
         }
 
-    @property
+    @functools.cached_property
     def log(self) -> daiquiri.KeywordArgumentAdapter:
         return daiquiri.getLogger(
             __name__,
@@ -1756,7 +1759,7 @@ class Train(queue.QueueBase):
 
         await self.save()
 
-        final_position = await self.get_position(ctxt)
+        final_position, _ = self.find_embarked_pull(ctxt.pull["number"])
         if final_position is None:
             raise RuntimeError(
                 "Could not find the pull request we just added in the queue"
@@ -2358,3 +2361,26 @@ class Train(queue.QueueBase):
                 pull_request_number=pull_request_number,
                 exc_info=True,
             )
+
+    async def refresh_pulls(
+        self,
+        source: str,
+        additional_pull_request: typing.Optional[
+            github_types.GitHubPullRequestNumber
+        ] = None,
+    ) -> None:
+
+        pulls = set(await self.get_pulls())
+        if additional_pull_request:
+            pulls.add(additional_pull_request)
+
+        pipe = await self.repository.installation.redis.stream.pipeline()
+        for pull_number in pulls:
+            await utils.send_pull_refresh(
+                pipe,
+                self.repository.repo,
+                pull_request_number=pull_number,
+                action="internal",
+                source=source,
+            )
+        await pipe.execute()
