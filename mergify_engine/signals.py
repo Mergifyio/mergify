@@ -56,45 +56,45 @@ EventName = typing.Literal[
 ]
 
 
-class EventMetadata(typing.TypedDict, total=False):
+class EventMetadata(typing.TypedDict):
     pass
 
 
-class EventReviewMetadata(EventMetadata):
+class EventReviewMetadata(EventMetadata, total=False):
     type: str
 
 
-class EventCopyMetadata(EventMetadata):
+class EventCopyMetadata(EventMetadata, total=False):
     to: str
 
 
-class EventAssignMetadata(EventMetadata):
+class EventAssignMetadata(EventMetadata, total=False):
     added: typing.List[str]
     removed: typing.List[str]
 
 
-class EventLabelMetadata(EventMetadata):
+class EventLabelMetadata(EventMetadata, total=False):
     added: typing.List[str]
     removed: typing.List[str]
 
 
-class EventRequestReviewsMetadata(EventMetadata):
+class EventRequestReviewsMetadata(EventMetadata, total=False):
     reviewers: typing.List[str]
     team_reviewers: typing.List[str]
 
 
-class EventDismissReviewsMetadata(EventMetadata):
+class EventDismissReviewsMetadata(EventMetadata, total=False):
     users: typing.List[str]
 
 
-class EventQueueEnterMetadata(EventMetadata):
+class EventQueueEnterMetadata(EventMetadata, total=False):
     queue_name: str
     branch: str
     position: int
     queued_at: datetime.datetime
 
 
-class EventQueueLeaveMetadata(EventMetadata):
+class EventQueueLeaveMetadata(EventMetadata, total=False):
     queue_name: str
     branch: str
     position: int
@@ -124,13 +124,13 @@ class SpeculativeCheckPullRequest(typing.TypedDict, total=False):
     checks_ended_at: typing.Optional[datetime.datetime]
 
 
-class EventQueueMergedMetadata(EventMetadata):
+class EventQueueMergedMetadata(EventMetadata, total=False):
     queue_name: str
     branch: str
     queued_at: datetime.datetime
 
 
-class EventQueueChecksEndMetadata(EventMetadata):
+class EventQueueChecksEndMetadata(EventMetadata, total=False):
     aborted: bool
     abort_reason: typing.Optional[str]
     queue_name: str
@@ -140,7 +140,7 @@ class EventQueueChecksEndMetadata(EventMetadata):
     speculative_check_pull_request: SpeculativeCheckPullRequest
 
 
-class EventQueueChecksStartMetadata(EventMetadata):
+class EventQueueChecksStartMetadata(EventMetadata, total=False):
     queue_name: str
     branch: str
     position: int

@@ -18,6 +18,7 @@ from unittest import mock
 import yaml
 
 from mergify_engine import config
+from mergify_engine import signals
 from mergify_engine.tests.functional import base
 
 
@@ -265,4 +266,37 @@ class TestEventLogsAction(base.FunctionalTestBase):
             "per_page": 2,
             "size": 1,
             "total": 7,
+        }
+
+    async def test_incomplete_eventlogs_metadata(self):
+        await self.setup_repo()
+
+        expected_events = [
+            {
+                "repository": self.repository_ctxt.repo["full_name"],
+                "pull_request": 123,
+                "timestamp": mock.ANY,
+                "event": "action.queue.merged",
+                "metadata": {},
+                "trigger": "gogogo",
+            },
+        ]
+
+        # We don't send any metadata on purpose
+        await signals.send(
+            self.repository_ctxt, 123, "action.queue.merged", {}, "gogogo"
+        )
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/123/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": expected_events,
+            "per_page": 10,
+            "size": 1,
+            "total": 1,
         }
