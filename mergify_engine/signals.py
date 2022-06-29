@@ -101,11 +101,26 @@ class EventQueueLeaveMetadata(EventMetadata):
     queued_at: datetime.datetime
 
 
+# Like GitHubCheckRunConclusion but with "pending" instead of None
+ChecksConclusion = typing.Literal[
+    "success",
+    "failure",
+    "error",
+    "cancelled",
+    "skipped",
+    "action_required",
+    "timed_out",
+    "neutral",
+    "stale",
+    "pending",
+]
+
+
 class SpeculativeCheckPullRequest(typing.TypedDict):
     number: int
     in_place: bool
     checks_timed_out: bool
-    checks_conclusion: str
+    checks_conclusion: ChecksConclusion
     checks_ended_at: typing.Optional[datetime.datetime]
 
 

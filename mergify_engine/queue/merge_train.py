@@ -767,7 +767,8 @@ class TrainCar:
                         "speculative_check_pull_request": {
                             "number": self.queue_pull_request_number,
                             "in_place": self.creation_state == "updated",
-                            "checks_conclusion": self.checks_conclusion.value,
+                            "checks_conclusion": self.checks_conclusion.value
+                            or "pending",
                             "checks_timed_out": self.has_timed_out,
                             "checks_ended_at": self.checks_ended_timestamp,
                         },
@@ -892,7 +893,8 @@ You don't need to do anything. Mergify will close this pull request automaticall
                         "speculative_check_pull_request": {
                             "number": self.queue_pull_request_number,
                             "in_place": self.creation_state == "updated",
-                            "checks_conclusion": self.checks_conclusion.value,
+                            "checks_conclusion": self.checks_conclusion.value
+                            or "pending",
                             "checks_timed_out": self.has_timed_out,
                             "checks_ended_at": self.checks_ended_timestamp,
                         },
