@@ -22,7 +22,6 @@ from mergify_engine import check_api
 from mergify_engine import config
 from mergify_engine import context
 from mergify_engine import github_types
-from mergify_engine import queue
 from mergify_engine import rules
 from mergify_engine.clients import http
 from mergify_engine.dashboard import user_tokens
@@ -33,8 +32,10 @@ FORBIDDEN_MERGE_COMMITS_MSG = "Merge commits are not allowed on this repository.
 FORBIDDEN_SQUASH_MERGE_MSG = "Squash merges are not allowed on this repository."
 FORBIDDEN_REBASE_MERGE_MSG = "Rebase merges are not allowed on this repository."
 
+T = typing.TypeVar("T")
 
-class MergeBaseAction(actions.Action, abc.ABC):
+
+class MergeBaseAction(actions.Action, abc.ABC, typing.Generic[T]):
     @abc.abstractmethod
     async def send_signal(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
@@ -46,7 +47,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: typing.Optional[queue.QueueBase],
+        queue: T,
     ) -> check_api.Result:
         pass
 
@@ -54,7 +55,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: typing.Optional[queue.QueueBase],
+        queue: T,
         merge_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> check_api.Result:
         if self.config["method"] != "rebase" or ctxt.pull["rebaseable"]:
@@ -97,7 +98,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 if ctxt.pull["merged"]:
                     ctxt.log.info("merged in the meantime")
                 else:
-                    return await self._handle_merge_error(e, ctxt, rule, q)
+                    return await self._handle_merge_error(e, ctxt, rule, queue)
             else:
                 await self.send_signal(ctxt, rule)
                 ctxt.log.info("merged")
@@ -147,7 +148,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 if ctxt.pull["merged"]:
                     ctxt.log.info("merged in the meantime")
                 else:
-                    return await self._handle_merge_error(e, ctxt, rule, q)
+                    return await self._handle_merge_error(e, ctxt, rule, queue)
             else:
                 await self.send_signal(ctxt, rule)
                 await ctxt.update()
@@ -168,7 +169,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
         e: http.HTTPClientSideError,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: typing.Optional[queue.QueueBase],
+        queue: T,
     ) -> check_api.Result:
         if "Head branch was modified" in e.message:
             ctxt.log.info(
@@ -176,7 +177,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 status_code=e.status_code,
                 error_message=e.message,
             )
-            return await self.get_queue_status(ctxt, rule, q)
+            return await self.get_queue_status(ctxt, rule, queue)
         elif "Base branch was modified" in e.message:
             # NOTE(sileht): The base branch was modified between pull.is_behind call and
             # here, usually by something not merged by mergify. So we need sync it again
@@ -186,7 +187,7 @@ class MergeBaseAction(actions.Action, abc.ABC):
                 status_code=e.status_code,
                 error_message=e.message,
             )
-            return await self.get_queue_status(ctxt, rule, q)
+            return await self.get_queue_status(ctxt, rule, queue)
 
         elif e.status_code == 405:
             if REQUIRED_STATUS_RE.match(e.message):

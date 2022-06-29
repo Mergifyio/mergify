@@ -39,7 +39,7 @@ if typing.TYPE_CHECKING:
     from mergify_engine import rules
 
 
-class QueueAction(merge_base.MergeBaseAction):
+class QueueAction(merge_base.MergeBaseAction[merge_train.Train]):
     flags = (
         actions.ActionFlag.ALLOW_AS_ACTION
         | actions.ActionFlag.ALWAYS_SEND_REPORT
@@ -454,7 +454,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         )
 
     async def get_unqueue_status(
-        self, ctxt: context.Context, q: queue.QueueT
+        self, ctxt: context.Context, q: merge_train.Train
     ) -> check_api.Result:
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         manually_unqueued = (
@@ -475,7 +475,9 @@ Then, re-embark the pull request into the merge queue by posting the comment
             reason,
         )
 
-    async def _should_be_queued(self, ctxt: context.Context, q: queue.QueueT) -> bool:
+    async def _should_be_queued(
+        self, ctxt: context.Context, q: merge_train.Train
+    ) -> bool:
         check = await ctxt.get_engine_check_run(constants.MERGE_QUEUE_SUMMARY_NAME)
         return not check or check_api.Conclusion(check["conclusion"]) in [
             check_api.Conclusion.SUCCESS,
@@ -486,7 +488,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
     async def _should_be_merged(
         self,
         ctxt: context.Context,
-        q: queue.QueueT,
+        q: merge_train.Train,
         qf: typing.Optional[freeze.QueueFreeze],
     ) -> bool:
 
@@ -496,14 +498,14 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if not await q.is_first_pull(ctxt):
             return False
 
-        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        car = q.get_car(ctxt)
         if car is None:
             return False
 
         return car.checks_conclusion == check_api.Conclusion.SUCCESS
 
     async def _should_be_cancel(
-        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: queue.QueueBase
+        self, ctxt: context.Context, rule: "rules.EvaluatedRule", q: merge_train.Train
     ) -> bool:
         # It's closed, it's not going to change
         if ctxt.closed:
@@ -516,7 +518,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
         if position is None:
             return True
 
-        car = typing.cast(merge_train.Train, q).get_car(ctxt)
+        car = q.get_car(ctxt)
         if car and car.creation_state == "updated":
             # NOTE(sileht) check first if PR should be removed from the queue
             pull_rule_checks_status = await checks_status.get_rule_checks_status(
@@ -539,12 +541,10 @@ Then, re-embark the pull request into the merge queue by posting the comment
         self,
         ctxt: context.Context,
         rule: "rules.EvaluatedRule",
-        q: typing.Optional[queue.QueueBase],
+        q: merge_train.Train,
         qf: typing.Optional[freeze.QueueFreeze] = None,
     ) -> check_api.Result:
-        if q is None:
-            title = "The pull request will be merged soon"
-        elif qf is not None:
+        if qf is not None:
             title = f'The queue "{qf.name}" is currently frozen, for the following reason: {qf.reason}'
         else:
             position = await q.get_position(ctxt)
@@ -555,9 +555,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
                 _ord = utils.to_ordinal_numeric(position + 1)
                 title = f"The pull request is the {_ord} in the queue to be merged"
 
-        summary = await typing.cast(merge_train.Train, q).get_pull_summary(
-            ctxt, self.queue_rule
-        )
+        summary = await q.get_pull_summary(ctxt, self.queue_rule)
         return check_api.Result(check_api.Conclusion.PENDING, title, summary)
 
     async def send_signal(
