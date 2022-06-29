@@ -115,8 +115,9 @@ class EventQueueChecksEnd(EventBase):
     metadata: signals.EventQueueChecksEndMetadata
 
 
-class EventQueueMerged(EventBaseNoMetadata):
+class EventQueueMerged(EventBase):
     event: typing.Literal["action.queue.merged"]
+    metadata: signals.EventQueueMergedMetadata
 
 
 class EventRebase(EventBaseNoMetadata):
