@@ -170,10 +170,16 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
     # next matching rules.
     BASE_ATTRIBUTES = (
         "head",
-        "base",
         "author",
         "merged_by",
     )
+
+    # Base attributes that are looked for in the rules matching, but
+    # should not appear in summary.
+    # Note(Syffe): this list was created after GitHub integrated the possibility to change
+    # the base branch of a PR. It invalidated the unchangeable state of this base attribute.
+    # and thus we needed to process it separately from the other base attributes.
+    BASE_CHANGEABLE_ATTRIBUTES = ("base",)
 
     # The list of pull request rules to match against.
     rules: typing.List[T_Rule]
@@ -193,13 +199,18 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
         init=False, default_factory=list
     )
 
+    # The rules not matching the base changeable attributes
+    not_applicable_base_changeable_attributes_rules: typing.List[
+        T_EvaluatedRule
+    ] = dataclasses.field(init=False, default_factory=list)
+
     @classmethod
     async def create(
         cls,
         rules: typing.List[T_Rule],
         repository: context.Repository,
         pulls: typing.List[context.BasePullRequest],
-        hide_rule: bool,
+        rule_hidden_from_merge_queue: bool,
         logger: "logging.LoggerAdapter[logging.Logger]",
         log_schedule_details: bool,
     ) -> "GenericRulesEvaluator[T_Rule, T_EvaluatedRule]":
@@ -241,34 +252,47 @@ class GenericRulesEvaluator(typing.Generic[T_Rule, T_EvaluatedRule]):
                         )
 
             # NOTE(sileht):
-            # In the summary, we display rules in four groups:
+            # In the summary, we display rules in five groups:
             # * rules where all attributes match -> matching_rules
             # * rules where only BASE_ATTRIBUTES match (filter out rule written for other branches) -> matching_rules
             # * rules that won't work due to a configuration issue detected at runtime (eg team doesn't exists) -> faulty_rules
             # * rules where only BASE_ATTRIBUTES don't match (mainly to hide rule written for other branches) -> ignored_rules
+            # * rules where only BASE_CHANGEABLE ATTRIBUTES don't match (they rarely change but are handled)-> not_applicable_base_changeable_attributes_rules
             categorized = False
+            evaluated_rule = typing.cast(T_EvaluatedRule, rule)
+            if rule_hidden_from_merge_queue and not rule.conditions.match:
+                # NOTE(sileht): Replace non-base attribute and non-base changeables attributes
+                # by true, if it still matches it's a potential rule otherwise hide it.
+                base_changeable_conditions = rule.conditions.copy()
+                for condition in base_changeable_conditions.walk():
+                    attr = condition.get_attribute_name()
+                    if attr not in self.BASE_CHANGEABLE_ATTRIBUTES:
+                        condition.update("number>0")
 
-            if hide_rule and not rule.conditions.match:
-                # NOTE(sileht): Replace non-base attribute by true, if it
-                # still matches it's a potential rule otherwise hide it.
                 base_conditions = rule.conditions.copy()
                 for condition in base_conditions.walk():
                     attr = condition.get_attribute_name()
                     if attr not in self.BASE_ATTRIBUTES:
                         condition.update("number>0")
 
+                await base_changeable_conditions(pulls)
                 await base_conditions(pulls)
 
+                if not base_changeable_conditions.match:
+                    self.not_applicable_base_changeable_attributes_rules.append(
+                        evaluated_rule
+                    )
+
                 if not base_conditions.match:
-                    self.ignored_rules.append(typing.cast(T_EvaluatedRule, rule))
+                    self.ignored_rules.append(evaluated_rule)
                     categorized = True
 
                 if not categorized and rule.conditions.is_faulty():
-                    self.faulty_rules.append(typing.cast(T_EvaluatedRule, rule))
+                    self.faulty_rules.append(evaluated_rule)
                     categorized = True
 
             if not categorized:
-                self.matching_rules.append(typing.cast(T_EvaluatedRule, rule))
+                self.matching_rules.append(evaluated_rule)
 
         return self
 
