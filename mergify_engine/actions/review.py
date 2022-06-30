@@ -153,7 +153,9 @@ class ReviewAction(actions.Action):
             ctxt.repository,
             ctxt.pull["number"],
             "action.review",
-            signals.EventReviewMetadata({"type": self.config["type"]}),
+            signals.EventReviewMetadata(
+                {"type": self.config["type"], "reviewer": review_user}
+            ),
             rule.get_signal_trigger(),
         )
         return check_api.Result(check_api.Conclusion.SUCCESS, "Review posted", "")
