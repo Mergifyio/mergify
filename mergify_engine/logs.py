@@ -38,27 +38,27 @@ LEVEL_COLORS[42] = "\033[01;35m"
 WORKER_ID: contextvars.ContextVar[str] = contextvars.ContextVar("worker_id")
 
 
-class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):  # type: ignore[misc]
+class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):
     LEVEL_COLORS = LEVEL_COLORS
 
     def format(self, record: logging.LogRecord) -> str:
         if hasattr(record, "_daiquiri_extra_keys"):
             record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)  # type: ignore[attr-defined]
-        return super().format(record)  # type: ignore[no-any-return]
+        return super().format(record)  # type: ignore[no-any-return,no-untyped-call]
 
     def add_extras(self, record: logging.LogRecord) -> None:
-        super().add_extras(record)
+        super().add_extras(record)  # type: ignore[no-untyped-call]
         worker_id = WORKER_ID.get(None)
         if worker_id is not None:
             record.extras += " " + self.extras_template.format("worker_id", worker_id)  # type: ignore[attr-defined]
 
 
-CUSTOM_FORMATTER = CustomFormatter(
+CUSTOM_FORMATTER = CustomFormatter(  # type: ignore[no-untyped-call]
     fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: \033[1m%(message)s\033[0m%(extras)s%(color_stop)s"
 )
 
 
-class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: ignore [misc]
+class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):
     HEROKU_LOG_EXTRAS = {
         envvar: os.environ[envvar]
         for envvar in ("HEROKU_RELEASE_VERSION", "HEROKU_SLUG_COMMIT")
@@ -71,7 +71,7 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):  # type: igno
         record: logging.LogRecord,
         message_dict: typing.Dict[str, str],
     ) -> None:
-        super().add_fields(log_record, record, message_dict)
+        super().add_fields(log_record, record, message_dict)  # type: ignore[no-untyped-call]
         log_record.update(self.HEROKU_LOG_EXTRAS)
         log_record.update(
             {
@@ -130,21 +130,21 @@ MERGIFYENGINE_GITHUB_API_URL configuration environment is deprecated and must be
 
 
 def setup_logging(dump_config: bool = True) -> None:
-    outputs = []
+    outputs: typing.List[daiquiri.output.Output] = []
 
     if config.LOG_STDOUT:
         outputs.append(
-            daiquiri.output.Stream(
+            daiquiri.output.Stream(  # type: ignore[no-untyped-call]
                 sys.stdout, level=config.LOG_STDOUT_LEVEL, formatter=CUSTOM_FORMATTER
             )
         )
 
     if config.LOG_DATADOG:
         outputs.append(
-            daiquiri.output.Datadog(
+            daiquiri.output.Datadog(  # type: ignore[no-untyped-call]
                 level=config.LOG_DATADOG_LEVEL,
                 handler_class=daiquiri.handlers.PlainTextDatagramHandler,
-                formatter=HerokuDatadogFormatter(),
+                formatter=HerokuDatadogFormatter(),  # type: ignore[no-untyped-call]
             )
         )
 
