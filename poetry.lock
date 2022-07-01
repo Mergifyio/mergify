@@ -229,7 +229,7 @@ test = ["pytest (>=6.2.0)", "pytest-benchmark", "pytest-cov", "pytest-subtests",
 
 [[package]]
 name = "daiquiri"
-version = "3.1.1"
+version = "3.2.1"
 description = "Library to configure Python logging easily"
 category = "main"
 optional = false
@@ -1954,8 +1954,8 @@ cryptography = [
     {file = "cryptography-37.0.3.tar.gz", hash = "sha256:ae430d51c67ac638dfbb42edf56c669ca9c74744f4d225ad11c6f3d355858187"},
 ]
 daiquiri = [
-    {file = "daiquiri-3.1.1-py3-none-any.whl", hash = "sha256:5208ba60215087804e522a97758fbb9836ef3d2cfd10d539d8e3d4398df6997f"},
-    {file = "daiquiri-3.1.1.tar.gz", hash = "sha256:7f572c4edfbac88f5a7a0a5182840e83ff65c3c5ebf4e44903e0bccb846e7f24"},
+    {file = "daiquiri-3.2.1-py3-none-any.whl", hash = "sha256:b797a7ac94219dc26ef8ebf04f1f507eefa83a7d174e9eb41acc33e3ebf16f38"},
+    {file = "daiquiri-3.2.1.tar.gz", hash = "sha256:408c4d28ec8f0ea23e965374479829bd22364d0c08d791cbeb7bba245963e0fd"},
 ]
 datadog = [
     {file = "datadog-0.44.0-py2.py3-none-any.whl", hash = "sha256:57c4878d3a8351f652792cdba78050274789dcc44313adec096e87f9d3ca5992"},

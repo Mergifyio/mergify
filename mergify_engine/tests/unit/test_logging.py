@@ -64,7 +64,7 @@ def test_logging(
             (),
             None,
         )
-        formatter = logs.HerokuDatadogFormatter()  # type: ignore[no-untyped-call]
+        formatter = logs.HerokuDatadogFormatter()
         formatted = formatter.format(record)
         assert json.loads(formatted) == {
             "message": "this is impossible",
