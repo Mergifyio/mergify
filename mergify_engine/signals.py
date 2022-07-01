@@ -62,6 +62,7 @@ class EventMetadata(typing.TypedDict):
 
 class EventReviewMetadata(EventMetadata, total=False):
     type: str
+    reviewer: str
 
 
 class EventCopyMetadata(EventMetadata, total=False):

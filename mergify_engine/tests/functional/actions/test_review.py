@@ -13,8 +13,11 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+from unittest import mock
+
 import yaml
 
+from mergify_engine import config
 from mergify_engine import context
 from mergify_engine.tests.functional import base
 
@@ -194,3 +197,41 @@ Unknown pull request attribute: hello
         await self.run_engine()
         reviews = await self.get_reviews(p["number"])
         self.assertEqual(2, len(reviews))
+
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": [
+                {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
+                    "timestamp": mock.ANY,
+                    "event": "action.review",
+                    "metadata": {
+                        "type": "REQUEST_CHANGES",
+                        "reviewer": "mergify-test4",
+                    },
+                    "trigger": "Rule: requested",
+                },
+                {
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
+                    "timestamp": mock.ANY,
+                    "event": "action.review",
+                    "metadata": {
+                        "type": "APPROVE",
+                        "reviewer": config.BOT_USER_LOGIN,
+                    },
+                    "trigger": "Rule: approve",
+                },
+            ],
+            "per_page": 10,
+            "size": 2,
+            "total": 2,
+        }
