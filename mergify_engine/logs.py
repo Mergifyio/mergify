@@ -44,16 +44,16 @@ class CustomFormatter(daiquiri.formatter.ColorExtrasFormatter):
     def format(self, record: logging.LogRecord) -> str:
         if hasattr(record, "_daiquiri_extra_keys"):
             record._daiquiri_extra_keys = sorted(record._daiquiri_extra_keys)  # type: ignore[attr-defined]
-        return super().format(record)  # type: ignore[no-any-return,no-untyped-call]
+        return super().format(record)
 
-    def add_extras(self, record: logging.LogRecord) -> None:
-        super().add_extras(record)  # type: ignore[no-untyped-call]
+    def add_extras(self, record: daiquiri.types.ExtrasLogRecord) -> None:
+        super().add_extras(record)
         worker_id = WORKER_ID.get(None)
         if worker_id is not None:
-            record.extras += " " + self.extras_template.format("worker_id", worker_id)  # type: ignore[attr-defined]
+            record.extras += " " + self.extras_template.format("worker_id", worker_id)
 
 
-CUSTOM_FORMATTER = CustomFormatter(  # type: ignore[no-untyped-call]
+CUSTOM_FORMATTER = CustomFormatter(
     fmt="%(asctime)s [%(process)d] %(color)s%(levelname)-8.8s %(name)s: \033[1m%(message)s\033[0m%(extras)s%(color_stop)s"
 )
 
@@ -71,7 +71,7 @@ class HerokuDatadogFormatter(daiquiri.formatter.DatadogFormatter):
         record: logging.LogRecord,
         message_dict: typing.Dict[str, str],
     ) -> None:
-        super().add_fields(log_record, record, message_dict)  # type: ignore[no-untyped-call]
+        super().add_fields(log_record, record, message_dict)
         log_record.update(self.HEROKU_LOG_EXTRAS)
         log_record.update(
             {
@@ -134,17 +134,17 @@ def setup_logging(dump_config: bool = True) -> None:
 
     if config.LOG_STDOUT:
         outputs.append(
-            daiquiri.output.Stream(  # type: ignore[no-untyped-call]
+            daiquiri.output.Stream(
                 sys.stdout, level=config.LOG_STDOUT_LEVEL, formatter=CUSTOM_FORMATTER
             )
         )
 
     if config.LOG_DATADOG:
         outputs.append(
-            daiquiri.output.Datadog(  # type: ignore[no-untyped-call]
+            daiquiri.output.Datadog(
                 level=config.LOG_DATADOG_LEVEL,
                 handler_class=daiquiri.handlers.PlainTextDatagramHandler,
-                formatter=HerokuDatadogFormatter(),  # type: ignore[no-untyped-call]
+                formatter=HerokuDatadogFormatter(),
             )
         )
 
