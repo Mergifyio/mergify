@@ -154,7 +154,7 @@ class MergeBaseAction(actions.Action, abc.ABC, typing.Generic[T]):
                     return await self._handle_merge_error(e, ctxt, rule, queue)
             else:
                 await self.send_signal(ctxt, rule, queue)
-                await ctxt.update()
+                await ctxt.update(wait_merged=True)
                 ctxt.log.info("merged")
 
         result = await self.merge_report(ctxt)
