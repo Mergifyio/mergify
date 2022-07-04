@@ -1031,7 +1031,9 @@ async def test_get_pull_request_rule(
 
     match = await pull_request_rules.get_pull_request_rule(ctxt)
     assert [r.name for r in match.rules] == ["merge"]
-    assert [r.name for r in match.matching_rules] == []
+    assert [r.name for r in match.not_applicable_base_changeable_attributes_rules] == [
+        "merge"
+    ]
 
     pull_request_rules = pull_request_rule_from_list(
         [
