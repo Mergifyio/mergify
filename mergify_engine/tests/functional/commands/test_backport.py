@@ -186,3 +186,37 @@ class TestCommandBackport(base.FunctionalTestBase):
         ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1
+
+    async def test_command_edited_by_human(self) -> None:
+        feature_branch = self.get_full_branch_name("feature/one")
+        await self.setup_repo(test_branches=[feature_branch])
+        p = await self.create_pr()
+
+        await self.run_engine()
+        await self.create_comment_as_admin(
+            p["number"], f"@mergifyio backport {feature_branch}"
+        )
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+
+        comments = await self.get_issue_comments(p["number"])
+        assert len(comments) == 2, comments
+        assert "Waiting for conditions" in comments[-1]["body"]
+        await self.client_admin.post(
+            f"{self.repository_ctxt.base_url}/issues/comments/{comments[-1]['id']}",
+            json={"body": f"{comments[-1]['body']}\neheh!!"},
+        )
+        await self.wait_for("issue_comment", {"action": "edited"})
+        await self.run_engine()
+        await self.wait_for("issue_comment", {"action": "created"})
+        comments = await self.get_issue_comments(p["number"])
+        assert len(comments) == 3, comments
+        assert "eheh" in comments[-2]["body"]
+        assert "Command aborted" in comments[-1]["body"]
+
+        # rerun ensure it's idempotent
+        await self.run_engine()
+        comments = await self.get_issue_comments(p["number"])
+        assert len(comments) == 3, comments
+        assert "eheh" in comments[-2]["body"]
+        assert "Command aborted" in comments[-1]["body"]
