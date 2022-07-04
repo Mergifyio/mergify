@@ -107,38 +107,64 @@ async def gen_summary(
     summary = ""
     summary += await get_already_merged_summary(ctxt, match)
 
+    matching_rules_to_display = match.matching_rules[:]
+    not_applicable_base_changeable_attributes_rules_to_display = []
+    for rule in match.matching_rules:
+        if rule in match.not_applicable_base_changeable_attributes_rules:
+            matching_rules_to_display.remove(rule)
+            not_applicable_base_changeable_attributes_rules_to_display.append(rule)
+
     if ctxt.configuration_changed:
         summary += "⚠️ The configuration has been changed, *queue* and *merge* actions are ignored. ⚠️\n\n"
     summary += await gen_summary_rules(ctxt, match.faulty_rules)
-    summary += await gen_summary_rules(ctxt, match.matching_rules)
-    ignored_rules = len(list(filter(lambda x: not x.hidden, match.ignored_rules)))
-
+    summary += await gen_summary_rules(ctxt, matching_rules_to_display)
     if ctxt.subscription.has_feature(subscription.Features.SHOW_SPONSOR):
         summary += constants.MERGIFY_OPENSOURCE_SPONSOR_DOC
 
     summary += "<hr />\n"
 
-    if ignored_rules > 0:
+    ignored_rules = list(filter(lambda x: not x.hidden, match.ignored_rules))
+    ignored_rules_count = len(ignored_rules)
+    not_applicable_base_changeable_attributes_rules_to_display_count = len(
+        not_applicable_base_changeable_attributes_rules_to_display
+    )
+    not_applicable_count = (
+        ignored_rules_count
+        + not_applicable_base_changeable_attributes_rules_to_display_count
+    )
+    if not_applicable_count > 0:
         summary += "<details>\n"
-        if ignored_rules == 1:
-            summary += f"<summary>{ignored_rules} not applicable rule</summary>\n\n"
+        if not_applicable_count == 1:
+            summary += (
+                f"<summary>{not_applicable_count} not applicable rule</summary>\n\n"
+            )
         else:
-            summary += f"<summary>{ignored_rules} not applicable rules</summary>\n\n"
-        summary += await gen_summary_rules(ctxt, match.ignored_rules)
+            summary += (
+                f"<summary>{not_applicable_count} not applicable rules</summary>\n\n"
+            )
+
+        if ignored_rules_count > 0:
+            summary += await gen_summary_rules(ctxt, ignored_rules)
+
+        if not_applicable_base_changeable_attributes_rules_to_display_count > 0:
+            summary += await gen_summary_rules(
+                ctxt, not_applicable_base_changeable_attributes_rules_to_display
+            )
+
         summary += "</details>\n"
 
     completed_rules = len(
         list(filter(lambda rule: rule.conditions.match, match.matching_rules))
     )
-    potential_rules = len(match.matching_rules) - completed_rules
+    potential_rules = len(matching_rules_to_display) - completed_rules
     faulty_rules = len(match.faulty_rules)
 
     if pull_request_rules.has_user_rules():
         summary_title = []
         if faulty_rules == 1:
-            summary_title.append(f"{potential_rules} faulty rule")
+            summary_title.append(f"{faulty_rules} faulty rule")
         elif faulty_rules > 1:
-            summary_title.append(f"{potential_rules} faulty rules")
+            summary_title.append(f"{faulty_rules} faulty rules")
 
         if completed_rules == 1:
             summary_title.append(f"{completed_rules} rule matches")
@@ -517,15 +543,7 @@ async def cleanup_pending_actions_with_no_associated_rules(
 
     for check_name in check_to_cancel:
         ctxt.log.info("action removal cleanup", check_name=check_name)
-        await check_api.set_check_run(
-            ctxt,
-            check_name,
-            check_api.Result(
-                check_api.Conclusion.CANCELLED,
-                "The rule/action does not exist anymore",
-                "",
-            ),
-        )
+        await check_api.set_check_run(ctxt, check_name, actions.CANCELLED_CHECK_REPORT)
 
     if not is_queued and was_queued:
         ctxt.log.info("action removal cleanup, cleanup queue")
