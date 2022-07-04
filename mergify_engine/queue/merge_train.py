@@ -871,7 +871,10 @@ You don't need to do anything. Mergify will close this pull request automaticall
                 abort_reason = "Checks have timed out"
             else:
                 aborted = self.checks_conclusion is not check_api.Conclusion.SUCCESS
-                abort_reason = "Checks did not succeed"
+                if aborted:
+                    abort_reason = "Checks did not succeed"
+                else:
+                    abort_reason = ""
         else:
             aborted = True
             abort_reason = reason
