@@ -28,7 +28,6 @@ if typing.TYPE_CHECKING:
 
 LOG = daiquiri.getLogger(__name__)
 
-# FIXME(sileht): edit is missing
 EventName = typing.Literal[
     "action.assign",
     "action.backport",
@@ -37,6 +36,7 @@ EventName = typing.Literal[
     "action.copy",
     "action.delete_head_branch",
     "action.dismiss_reviews",
+    "action.edit",
     "action.label",
     "action.merge",
     "action.post_check",
@@ -72,6 +72,10 @@ class EventCopyMetadata(EventMetadata, total=False):
 class EventAssignMetadata(EventMetadata, total=False):
     added: typing.List[str]
     removed: typing.List[str]
+
+
+class EventEditMetadata(EventMetadata, total=False):
+    draft: bool
 
 
 class EventLabelMetadata(EventMetadata, total=False):
@@ -250,6 +254,17 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.assign"],
     metadata: EventAssignMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.edit"],
+    metadata: EventEditMetadata,
     trigger: str,
 ) -> None:
     ...

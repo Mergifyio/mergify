@@ -73,6 +73,11 @@ class EventCopy(EventBase):
     metadata: signals.EventCopyMetadata
 
 
+class EventEdit(EventBase):
+    event: typing.Literal["action.edit"]
+    metadata: signals.EventEditMetadata
+
+
 class EventDeleteHeadBranch(EventBaseNoMetadata):
     event: typing.Literal["action.delete_head_branch"]
 
@@ -177,6 +182,7 @@ Event = typing.Union[
     EventCopy,
     EventDeleteHeadBranch,
     EventDismissReviews,
+    EventEdit,
     EventLabel,
     EventMerge,
     EventPostCheck,
@@ -428,6 +434,10 @@ async def get(
 
         elif event["event"] == "action.update":
             events.append(typing.cast(EventUpdate, event))
+
+        elif event["event"] == "action.edit":
+            events.append(typing.cast(EventEdit, event))
+
         else:
             LOG.error("unsupported event-type, skipping", event=event)
 

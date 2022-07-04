@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-#  Copyright © 2021 Mergify SAS
+#  Copyright © 2021–2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -20,6 +20,7 @@ from mergify_engine import actions
 from mergify_engine import check_api
 from mergify_engine import context
 from mergify_engine import rules
+from mergify_engine import signals
 from mergify_engine.actions import utils as action_utils
 from mergify_engine.clients import github
 from mergify_engine.dashboard import subscription
@@ -43,7 +44,7 @@ class EditAction(actions.Action):
         self, ctxt: context.Context, rule: rules.EvaluatedRule
     ) -> check_api.Result:
         if self.config["draft"] is not None:
-            return await self._edit_draft_state(ctxt, self.config["draft"])
+            return await self._edit_draft_state(ctxt, rule, self.config["draft"])
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             "Nothing to do.",
@@ -56,7 +57,10 @@ class EditAction(actions.Action):
         return actions.CANCELLED_CHECK_REPORT
 
     async def _edit_draft_state(
-        self, ctxt: context.Context, draft_converted: bool
+        self,
+        ctxt: context.Context,
+        rule: rules.EvaluatedRule,
+        draft_converted: bool,
     ) -> check_api.Result:
 
         if draft_converted:
@@ -125,6 +129,15 @@ class EditAction(actions.Action):
                 "",
             )
         ctxt.pull["draft"] = expected_state
+
+        await signals.send(
+            ctxt.repository,
+            ctxt.pull["number"],
+            "action.edit",
+            signals.EventEditMetadata({"draft": expected_state}),
+            rule.get_signal_trigger(),
+        )
+
         return check_api.Result(
             check_api.Conclusion.SUCCESS,
             f"Pull request successfully converted to {current_state}",
