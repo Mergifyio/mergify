@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 #
-# Copyright © 2020 Mergify SAS
+# Copyright © 2020–2022 Mergify SAS
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
@@ -14,6 +14,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 import operator
+from unittest import mock
 
 import yaml
 
@@ -58,6 +59,42 @@ class TestPostCheckAction(base.FunctionalTestBase):
         check = sorted_checks[0]
         assert "failure" == check["conclusion"]
         assert "'body need sentry ticket' failed" == check["output"]["title"]
+
+        r = await self.app.get(
+            f"/v1/repos/{config.TESTING_ORGANIZATION_NAME}/{self.RECORD_CONFIG['repository_name']}/pulls/{p['number']}/events",
+            headers={
+                "Authorization": f"bearer {self.api_key_admin}",
+                "Content-type": "application/json",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "events": [
+                {
+                    "event": "action.post_check",
+                    "metadata": {
+                        "conclusion": "failure",
+                        "summary": "- [X] "
+                        f"`base={self.main_branch_name}`\n"
+                        f"- [X] `#title>10`\n"
+                        f"- [ ] `#title<50`\n"
+                        f"- [X] `#body<4096`\n"
+                        f"- [X] `#files<100`\n"
+                        f"- [ ] `body~=(?m)^(Fixes|Related|Closes) "
+                        f"(MERGIFY-ENGINE|MRGFY)-`\n"
+                        f"- [X] `-label=ignore-guideline`\n",
+                        "title": "'body need sentry ticket' failed",
+                    },
+                    "repository": p["base"]["repo"]["full_name"],
+                    "pull_request": p["number"],
+                    "timestamp": mock.ANY,
+                    "trigger": "Rule: body need sentry ticket",
+                },
+            ],
+            "per_page": 10,
+            "size": 1,
+            "total": 1,
+        }
 
     async def test_checks_custom(self):
         rules = {

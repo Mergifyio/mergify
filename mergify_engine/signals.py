@@ -83,6 +83,12 @@ class EventLabelMetadata(EventMetadata, total=False):
     removed: typing.List[str]
 
 
+class EventPostCheckMetadata(EventMetadata, total=False):
+    conclusion: str
+    title: str
+    summary: str
+
+
 class EventRequestReviewsMetadata(EventMetadata, total=False):
     reviewers: typing.List[str]
     team_reviewers: typing.List[str]
@@ -223,7 +229,6 @@ async def send(
         "action.comment",
         "action.delete_head_branch",
         "action.merge",
-        "action.post_check",
         "action.squash",
         "action.rebase",
         "action.refresh",
@@ -276,6 +281,17 @@ async def send(
     pull_request: github_types.GitHubPullRequestNumber,
     event: typing.Literal["action.label"],
     metadata: EventLabelMetadata,
+    trigger: str,
+) -> None:
+    ...
+
+
+@typing.overload
+async def send(
+    repository: "context.Repository",
+    pull_request: github_types.GitHubPullRequestNumber,
+    event: typing.Literal["action.post_check"],
+    metadata: EventPostCheckMetadata,
     trigger: str,
 ) -> None:
     ...
