@@ -342,7 +342,10 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
 
     WAIT_TIME_BEFORE_TEARDOWN = 0.20
     WORKER_IDLE_SLEEP_TIME = 0.20
-    WORKER_HAS_WORK_INTERVAL_CHECK = 0.02
+
+    # NOTE(Syffe): If too low (previously 0.02), this value can cause some tests using
+    # delayed-refreshes to be flaky
+    WORKER_HAS_WORK_INTERVAL_CHECK = 0.04
 
     def _setupAsyncioLoop(self):
         # We reuse the event loop created by pytest-asyncio
