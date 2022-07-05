@@ -14,6 +14,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+MERGIFY_CONFIG_FILENAMES = [
+    ".mergify.yml",
+    ".mergify/config.yml",
+    ".github/mergify.yml",
+]
+
 SUMMARY_NAME = "Summary"
 
 MERGE_QUEUE_BRANCH_PREFIX = "mergify/merge-queue"

@@ -339,12 +339,6 @@ class Repository(object):
         """The URL prefix to make GitHub request."""
         return f"/repos/{self.installation.owner_login}/{self.repo['name']}"
 
-    MERGIFY_CONFIG_FILENAMES = [
-        ".mergify.yml",
-        ".mergify/config.yml",
-        ".github/mergify.yml",
-    ]
-
     async def iter_mergify_config_files(
         self,
         ref: typing.Optional[github_types.SHAType] = None,
@@ -359,7 +353,7 @@ class Repository(object):
         if ref:
             params["ref"] = str(ref)
 
-        filenames = self.MERGIFY_CONFIG_FILENAMES.copy()
+        filenames = constants.MERGIFY_CONFIG_FILENAMES.copy()
         if preferred_filename:
             filenames.remove(preferred_filename)
             filenames.insert(0, preferred_filename)

@@ -169,9 +169,24 @@ expected alphabetic or numeric character, but found"""
         assert cached_config_file is not None
         assert cached_config_file["decoded_content"] == yaml.dump(rules_default)
 
-        with open(self.git.repository + "/.mergify.yml", "wb") as f:
-            f.write(yaml.dump(rules).encode())
+        # Change unrelated file and config stay cached
+        with open(self.git.repository + "/random", "w") as f:
+            f.write("yo")
+        await self.git("add", "random")
+        await self.git("commit", "--no-edit", "-m", "random update")
+        await self.git("push", "--quiet", "origin", self.main_branch_name)
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
+        await self.run_engine()
 
+        cached_config_file = await self.repository_ctxt.get_cached_config_file(
+            self.repository_ctxt.repo["id"]
+        )
+        assert cached_config_file is not None
+        assert cached_config_file["decoded_content"] == yaml.dump(rules_default)
+
+        # Change config file and config cache gets cleaned
+        with open(self.git.repository + "/.mergify.yml", "w") as f:
+            f.write(yaml.dump(rules))
         await self.git("add", ".mergify.yml")
         await self.git("commit", "--no-edit", "-m", "conf update")
         await self.git("push", "--quiet", "origin", self.main_branch_name)
@@ -183,6 +198,7 @@ expected alphabetic or numeric character, but found"""
         )
         assert cached_config_file is None
 
+        # Open a PR and it's cached again
         p = await self.create_pr()
         await context.Context.create(self.repository_ctxt, p, [])
         await self.run_engine()

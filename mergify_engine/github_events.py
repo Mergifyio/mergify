@@ -191,6 +191,16 @@ async def push_to_worker(
         ):
             ignore_reason = "mergify merge-queue description update"
 
+    elif event_type == "repository":
+        event = typing.cast(github_types.GitHubEventRepository, event)
+        owner_login = event["repository"]["owner"]["login"]
+        owner_id = event["repository"]["owner"]["id"]
+        repo_id = event["repository"]["id"]
+        repo_name = event["repository"]["name"]
+        if event["action"] in ("edited", "deleted"):
+            await context.Repository.clear_config_file_cache(redis_links.cache, repo_id)
+        ignore_reason = "unused repository event"
+
     elif event_type == "refresh":
         event = typing.cast(github_types.GitHubEventRefresh, event)
         owner_login = event["repository"]["owner"]["login"]
@@ -280,7 +290,31 @@ async def push_to_worker(
         elif event["repository"]["archived"]:  # pragma: no cover
             ignore_reason = "repository archived"
 
-        await context.Repository.clear_config_file_cache(redis_links.cache, repo_id)
+        if f"refs/heads/{event['repository']['default_branch']}" == event["ref"]:
+
+            # NOTE(sileht): commits contains the list of commits returned by compare API
+            # that by default returns only 250 commits
+            # https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#push
+            # https://docs.github.com/en/rest/commits/commits#compare-two-commits
+            if event["forced"] or len(event["commits"]) > 250:
+                mergify_configuration_changed = True
+            else:
+                mergify_configuration_changed = False
+
+                mergify_config_filenames = set(constants.MERGIFY_CONFIG_FILENAMES)
+                for commit in event["commits"]:
+                    if (
+                        set(commit["added"]) & mergify_config_filenames
+                        or set(commit["modified"]) & mergify_config_filenames
+                        or set(commit["removed"]) & mergify_config_filenames
+                    ):
+                        mergify_configuration_changed = True
+                        break
+
+            if mergify_configuration_changed:
+                await context.Repository.clear_config_file_cache(
+                    redis_links.cache, repo_id
+                )
 
     elif event_type == "check_suite":
         event = typing.cast(github_types.GitHubEventCheckSuite, event)

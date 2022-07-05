@@ -619,10 +619,11 @@ class FunctionalTestBase(unittest.IsolatedAsyncioTestCase):
         await self.git(
             "push", "--quiet", "origin", self.main_branch_name, *test_branches
         )
-
+        await self.wait_for("push", {"ref": f"refs/heads/{self.main_branch_name}"})
         await self.client_admin.patch(
             self.url_origin, json={"default_branch": self.main_branch_name}
         )
+        await self.wait_for("repository", {"action": "edited"})
 
     def get_full_branch_name(self, name: str) -> str:
         return f"{self.RECORD_CONFIG['branch_prefix']}/{self._testMethodName}/{name}"

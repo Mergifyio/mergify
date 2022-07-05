@@ -188,7 +188,7 @@ class TestQueueAction(base.FunctionalTestBase):
             key=lambda c: c["name"] == "Rule: Merge me (queue)",
         )
         assert check["conclusion"] == "cancelled"
-        assert check["output"]["title"] == "The rule/action does not exist anymore"
+        assert check["output"]["title"] == "The rule doesn't match anymore"
         q = await merge_train.Train.from_context(ctxt)
         assert len(await q.get_pulls()) == 0
 
