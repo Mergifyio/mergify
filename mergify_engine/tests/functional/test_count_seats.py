@@ -145,55 +145,29 @@ class TestCountSeats(base.FunctionalTestBase):
                 assert org["id"] == config.TESTING_ORGANIZATION_ID
                 assert org["login"] == config.TESTING_ORGANIZATION_NAME
 
-                repos = (
-                    await self.client_admin.get(
-                        url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/repos"
-                    )
-                ).json()
-                expected_repositories = sorted(
-                    [(repo["id"], repo["name"]) for repo in repos]
+                assert len(org["repositories"]) == 1
+                repo = org["repositories"][0]
+                assert sorted(
+                    repo["collaborators"]["active_users"],
+                    key=operator.itemgetter("id"),
+                ) == sorted(
+                    [
+                        {
+                            "id": github_types.GitHubAccountIdType(
+                                config.TESTING_MERGIFY_TEST_1_ID
+                            ),
+                            "login": github_types.GitHubLogin("mergify-test1"),
+                        },
+                        {
+                            "id": github_types.GitHubAccountIdType(
+                                config.TESTING_MERGIFY_TEST_2_ID
+                            ),
+                            "login": github_types.GitHubLogin("mergify-test2"),
+                        },
+                    ],
+                    key=operator.itemgetter("id"),
                 )
-                assert (
-                    sorted([(repo["id"], repo["name"]) for repo in org["repositories"]])
-                    == expected_repositories
-                )
-
-                members = (
-                    await self.client_admin.get(
-                        url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
-                    )
-                ).json()
-                users_expected = {(member["id"], member["login"]) for member in members}
-                for repo in org["repositories"]:
-                    if repo["name"] == "functional-testing-repo":
-                        users_retrieved = {
-                            (write_user["id"], write_user["login"])
-                            for write_user in repo["collaborators"]["write_users"]
-                        }
-                        assert users_retrieved.issubset(users_expected)
-                        assert len(repo["collaborators"]["write_users"]) == len(members)
-                    if repo["id"] == self.repository_ctxt.repo["id"]:
-                        assert sorted(
-                            repo["collaborators"]["active_users"],
-                            key=operator.itemgetter("id"),
-                        ) == sorted(
-                            [
-                                {
-                                    "id": github_types.GitHubAccountIdType(
-                                        config.TESTING_MERGIFY_TEST_1_ID
-                                    ),
-                                    "login": github_types.GitHubLogin("mergify-test1"),
-                                },
-                                {
-                                    "id": github_types.GitHubAccountIdType(
-                                        config.TESTING_MERGIFY_TEST_2_ID
-                                    ),
-                                    "login": github_types.GitHubLogin("mergify-test2"),
-                                },
-                            ],
-                            key=operator.itemgetter("id"),
-                        )
-                        assert len(repo["collaborators"]["active_users"]) == 2
+                assert len(repo["collaborators"]["active_users"]) == 2
 
     async def test_stored_user_in_redis(self) -> None:
         rules = {
