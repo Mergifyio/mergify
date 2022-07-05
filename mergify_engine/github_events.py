@@ -235,10 +235,12 @@ async def push_to_worker(
         elif "pull_request" not in event["issue"]:
             ignore_reason = "comment is not on a pull request"
 
-        elif event["action"] != "created":
-            ignore_reason = f"comment has been {event['action']}"
-
-        elif event["comment"]["user"]["id"] == config.BOT_USER_ID:
+        elif (
+            # When someone else edit our comment the user id is still us
+            # but the sender id is the one that edited the comment
+            event["comment"]["user"]["id"] == config.BOT_USER_ID
+            and event["sender"]["id"] == config.BOT_USER_ID
+        ):
             ignore_reason = "comment by Mergify[bot]"
 
         else:

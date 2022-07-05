@@ -90,6 +90,33 @@ class NotACommand(Exception):
     message: str
 
 
+def prepare_message(command_full: str, result: check_api.Result) -> str:
+    # NOTE: Do not serialize this with Mergify JSON encoder:
+    # we don't want to allow loading/unloading weird value/classes
+    # this could be modified by a user, so we keep it really straightforward
+    payload = {
+        "command": command_full,
+        "conclusion": result.conclusion.value,
+    }
+    details = ""
+    if result.summary:
+        details = f"<details>\n\n{result.summary}\n\n</details>\n"
+
+    return f"""> {command_full}
+
+#### {result.conclusion.emoji} {result.title}
+
+{details}
+
+<!--
+DO NOT EDIT
+-*- Mergify Payload -*-
+{json.dumps(payload)}
+-*- Mergify Payload End -*-
+-->
+"""
+
+
 def load_command(
     mergify_config: rules.MergifyConfig,
     message: str,
@@ -151,11 +178,13 @@ async def run_pending_commands_tasks(
         return
 
     pendings = set()
+    edited = set()
     async for comment in ctxt.client.items(
         f"{ctxt.base_url}/issues/{ctxt.pull['number']}/comments",
         resource_name="comments",
         page_limit=20,
     ):
+
         if comment["user"]["id"] != config.BOT_USER_ID:
             continue
 
@@ -196,12 +225,24 @@ async def run_pending_commands_tasks(
             continue
 
         if conclusion == check_api.Conclusion.PENDING:
-            pendings.add(command)
-        elif command in pendings:
-            try:
-                pendings.remove(command)
-            except KeyError:
-                LOG.error("Unable to remove command: %s", command)
+            if comment["created_at"] == comment["updated_at"]:
+                pendings.add(command)
+            else:
+                edited.add(command)
+        else:
+            edited.discard(command)
+            pendings.discard(command)
+
+    for edit in edited:
+        message = prepare_message(
+            edit,
+            check_api.Result(
+                check_api.Conclusion.FAILURE,
+                "Command aborted",
+                "The Mergify comment has been edited manually.",
+            ),
+        )
+        await post_comment(ctxt, message)
 
     for pending in pendings:
         await handle(ctxt, mergify_config, f"@Mergifyio {pending}", None, rerun=True)
@@ -235,8 +276,6 @@ async def run_command(
             result = await command.action.run(
                 ctxt,
                 rules.EvaluatedRule(
-                    # TODO(sileht): inject the user that run the command in the name
-                    # but we need first to make it mandatory
                     rules.CommandRule(command_full, None, conds, {}, False)
                 ),
             )
@@ -267,33 +306,8 @@ async def run_command(
         result=result,
         user=user["login"] if user else None,
     )
-    # NOTE: Do not serialize this with Mergify JSON encoder:
-    # we don't want to allow loading/unloading weird value/classes
-    # this could be modified by a user, so we keep it really straightforward
-    payload = {
-        "command": command_full,
-        "conclusion": result.conclusion.value,
-    }
-    details = ""
-    if result.summary:
-        details = f"<details>\n\n{result.summary}\n\n</details>\n"
-
-    return (
-        result,
-        f"""> {command_full}
-
-#### {result.conclusion.emoji} {result.title}
-
-{details}
-
-<!--
-DO NOT EDIT
--*- Mergify Payload -*-
-{json.dumps(payload)}
--*- Mergify Payload End -*-
--->
-""",
-    )
+    message = prepare_message(command_full, result)
+    return result, message
 
 
 async def handle(
