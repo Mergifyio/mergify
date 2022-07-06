@@ -115,7 +115,13 @@ class PostCheckAction(actions.Action):
                 ctxt.repository,
                 ctxt.pull["number"],
                 "action.post_check",
-                signals.EventNoMetadata(),
+                signals.EventPostCheckMetadata(
+                    {
+                        "conclusion": conclusion.value,
+                        "title": title,
+                        "summary": summary,
+                    }
+                ),
                 rule.get_signal_trigger(),
             )
 

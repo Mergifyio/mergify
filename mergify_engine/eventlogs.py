@@ -96,8 +96,9 @@ class EventMerge(EventBaseNoMetadata):
     event: typing.Literal["action.merge"]
 
 
-class EventPostCheck(EventBaseNoMetadata):
+class EventPostCheck(EventBase):
     event: typing.Literal["action.post_check"]
+    metadata: signals.EventPostCheckMetadata
 
 
 class EventQueueEnter(EventBase):
