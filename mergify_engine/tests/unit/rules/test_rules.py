@@ -40,7 +40,7 @@ def pull_request_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
     )
 
 
-def test_valid_condition():
+def test_valid_condition() -> None:
     c = conditions.RuleCondition("head~=bar")
     assert str(c) == "head~=bar"
 
@@ -49,7 +49,7 @@ def fake_expander(v: str) -> typing.List[str]:
     return ["foo", "bar"]
 
 
-async def test_expanders():
+async def test_expanders() -> None:
     rc = conditions.RuleCondition("author=@team")
     rc.partial_filter.value_expanders["author"] = fake_expander
     await rc(mock.Mock(author="foo"))
@@ -60,13 +60,13 @@ async def test_expanders():
     assert copy_rc.match
 
 
-def test_invalid_condition_re():
+def test_invalid_condition_re() -> None:
     with pytest.raises(voluptuous.Invalid):
         conditions.RuleCondition("head~=(bar")
 
 
 @dataclasses.dataclass
-class FakeQueuePullRequest:
+class FakeQueuePullRequest(context.BasePullRequest):
     attrs: typing.Dict[str, context.ContextAttributeType]
 
     async def __getattr__(self, name: str) -> context.ContextAttributeType:
@@ -77,7 +77,7 @@ class FakeQueuePullRequest:
             raise context.PullRequestAttributeError(name=fancy_name)
 
 
-async def test_multiple_pulls_to_match():
+async def test_multiple_pulls_to_match() -> None:
     c = conditions.QueueRuleConditions(
         [
             conditions.RuleConditionGroup(
@@ -143,7 +143,7 @@ async def test_multiple_pulls_to_match():
         },
     ),
 )
-def test_pull_request_rule(valid):
+def test_pull_request_rule(valid: typing.Any) -> None:
     pull_request_rule_from_list([valid])
 
 
@@ -212,14 +212,14 @@ def test_pull_request_rule(valid):
         ),
     ),
 )
-def test_invalid_pull_request_rule(invalid, error):
+def test_invalid_pull_request_rule(invalid: typing.Any, error: str) -> None:
     with pytest.raises(voluptuous.Invalid) as i:
         pull_request_rule_from_list([invalid])
 
     assert error in str(i.value)
 
 
-def test_same_names():
+def test_same_names() -> None:
     pull_request_rules = pull_request_rule_from_list(
         [
             {"name": "hello", "conditions": [], "actions": {}},
@@ -234,7 +234,7 @@ def test_same_names():
     ]
 
 
-def test_jinja_with_list_attribute():
+def test_jinja_with_list_attribute() -> None:
     pull_request_rules = rules.UserConfigurationSchema(
         rules.YamlSchema(
             """
@@ -267,7 +267,7 @@ def test_jinja_with_list_attribute():
     ]
 
 
-def test_jinja_filters():
+def test_jinja_filters() -> None:
     rules.UserConfigurationSchema(
         rules.YamlSchema(
             """queue_rules:
@@ -308,7 +308,7 @@ pull_request_rules:
     )
 
 
-def test_jinja_with_wrong_syntax():
+def test_jinja_with_wrong_syntax() -> None:
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(
             rules.YamlSchema(
@@ -800,7 +800,7 @@ found undefined alias 'yaml'
     )
 
 
-def test_user_binary_file():
+def test_user_binary_file() -> None:
     with pytest.raises(voluptuous.Invalid) as i:
         rules.UserConfigurationSchema(rules.YamlSchema(chr(4)))
     assert str(i.value) == "Invalid YAML at []"
@@ -878,7 +878,9 @@ unacceptable character #x0004: special characters are not allowed
         ),
     ),
 )
-def test_pull_request_rule_schema_invalid(invalid, match):
+def test_pull_request_rule_schema_invalid(
+    invalid: typing.Any, match: typing.Pattern[str]
+) -> None:
     with pytest.raises(voluptuous.MultipleInvalid, match=match):
         pull_request_rule_from_list([invalid])
 
@@ -910,7 +912,9 @@ async def test_get_pull_request_rule(
         }
     ]
 
-    async def client_item(url, *args, **kwargs):
+    async def client_item(
+        url: str, *args: typing.Any, **kwargs: typing.Any
+    ) -> typing.Optional[typing.Dict[str, str]]:
         if url == "/repos/Mergifyio/mergify-engine/collaborators/sileht/permission":
             return {"permission": "write"}
         elif url == "/repos/Mergifyio/mergify-engine/collaborators/jd/permission":
@@ -923,7 +927,9 @@ async def test_get_pull_request_rule(
 
     client.item.side_effect = client_item
 
-    async def client_items(url, *args, **kwargs):
+    async def client_items(
+        url: str, *args: typing.Any, **kwargs: typing.Any
+    ) -> typing.Optional[typing.AsyncGenerator[typing.Dict[str, typing.Any], None]]:
         if url == "/repos/Mergifyio/mergify-engine/pulls/1/reviews":
             for r in get_reviews:
                 yield r
@@ -1286,7 +1292,11 @@ async def test_get_pull_request_rule(
     ]
 
     # branch protection
-    async def client_item_with_branch_protection_enabled(url, *args, **kwargs):
+    async def client_item_with_branch_protection_enabled(
+        url: str, *args: typing.Any, **kwargs: typing.Any
+    ) -> typing.Optional[
+        typing.Dict[str, typing.Dict[str, typing.Union[typing.List[str], bool]]]
+    ]:
         if url == "/repos/Mergifyio/mergify-engine/branches/main/protection":
             return {
                 "required_status_checks": {"contexts": ["awesome-ci"], "strict": False},
@@ -1329,7 +1339,7 @@ async def test_get_pull_request_rule(
     assert len(match.matching_rules[1].conditions.condition.conditions) == 0
 
 
-def test_check_runs_custom():
+def test_check_runs_custom() -> None:
     pull_request_rules = rules.UserConfigurationSchema(
         rules.YamlSchema(
             """
@@ -1353,7 +1363,7 @@ def test_check_runs_custom():
     ]
 
 
-def test_check_runs_default():
+def test_check_runs_default() -> None:
     pull_request_rules = rules.UserConfigurationSchema(
         rules.YamlSchema(
             """
@@ -1371,7 +1381,7 @@ def test_check_runs_default():
     ]
 
 
-def test_merge_config():
+def test_merge_config() -> None:
     config = {
         "defaults": {"actions": {"rebase": {"bot_account": "foo"}}},
         "pull_request_rules": [
@@ -1384,10 +1394,10 @@ def test_merge_config():
     }
 
     defaults = config.pop("defaults", {})
-    merged_config = rules.merge_config(config, defaults)
+    merged_config = rules.merge_config(config, defaults)  # type: ignore[arg-type]
 
     expected_config = config.copy()
-    expected_config["pull_request_rules"][0]["actions"].update(defaults["actions"])
+    expected_config["pull_request_rules"][0]["actions"].update(defaults["actions"])  # type: ignore[index]
 
     assert merged_config == expected_config
 
@@ -1408,7 +1418,7 @@ def test_merge_config():
     }
 
     defaults = config.pop("defaults", {})
-    merged_config = rules.merge_config(config, defaults)
+    merged_config = rules.merge_config(config, defaults)  # type: ignore[arg-type]
 
     assert merged_config == config
 
@@ -1423,16 +1433,16 @@ def test_merge_config():
     }
 
     defaults = config.pop("defaults", {})
-    merged_config = rules.merge_config(config, defaults)
+    merged_config = rules.merge_config(config, defaults)  # type: ignore[arg-type]
 
     assert merged_config == config
 
 
-def test_actions_with_options_none():
+def test_actions_with_options_none() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 defaults:
@@ -1469,11 +1479,11 @@ pull_request_rules:
     ]
 
 
-def test_action_queue_with_duplicate_queue():
+def test_action_queue_with_duplicate_queue() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 queue_rules:
@@ -1500,11 +1510,11 @@ pull_request_rules:
     )
 
 
-def test_action_queue_with_no_default_queue():
+def test_action_queue_with_no_default_queue() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 pull_request_rules:
@@ -1525,7 +1535,7 @@ pull_request_rules:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 pull_request_rules:
@@ -1546,11 +1556,11 @@ pull_request_rules:
     )
 
 
-def test_default_with_no_pull_requests_rules():
+def test_default_with_no_pull_requests_rules() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 defaults:
@@ -1566,11 +1576,11 @@ defaults:
     assert config["pull_request_rules"].rules == []
 
 
-def test_multiple_cascaded_errors():
+def test_multiple_cascaded_errors() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 pull_request_rules:
@@ -1598,7 +1608,7 @@ Invalid GitHub login
     )
 
 
-async def test_queue_rules_summary():
+async def test_queue_rules_summary() -> None:
     schema = voluptuous.Schema(
         voluptuous.All(
             [voluptuous.Coerce(rules.RuleConditionSchema)],
@@ -1651,8 +1661,8 @@ async def test_queue_rules_summary():
                 "head": "feature-1",
                 "label": ["foo", "bar"],
                 "check-success": ["first-ci", "my-awesome-ci"],
-                "check-neutral": [],
-                "check-skipped": [],
+                "check-neutral": None,
+                "check-skipped": None,
                 "status-failure": ["noway"],
                 "approved-reviews-by": ["jd", "sileht"],
             }
@@ -1666,8 +1676,8 @@ async def test_queue_rules_summary():
                 "head": "feature-2",
                 "label": ["foo", "urgent"],
                 "check-success": ["first-ci", "my-awesome-ci"],
-                "check-neutral": [],
-                "check-skipped": [],
+                "check-neutral": None,
+                "check-skipped": None,
                 "status-failure": ["noway"],
                 "approved-reviews-by": ["jd", "sileht"],
             }
@@ -1681,8 +1691,8 @@ async def test_queue_rules_summary():
                 "head": "feature-3",
                 "label": ["foo", "urgent"],
                 "check-success": ["first-ci", "my-awesome-ci"],
-                "check-neutral": [],
-                "check-skipped": [],
+                "check-neutral": None,
+                "check-skipped": None,
                 "status-failure": ["noway"],
                 "approved-reviews-by": ["jd", "sileht"],
             }
@@ -1754,7 +1764,7 @@ async def test_queue_rules_summary():
 
 
 @freeze_time("2021-09-22T08:00:05", tz_offset=0)
-async def test_rules_conditions_schedule():
+async def test_rules_conditions_schedule() -> None:
     pulls = [
         FakeQueuePullRequest(
             {
@@ -1798,11 +1808,11 @@ async def test_rules_conditions_schedule():
     )
 
 
-def test_queue_action_defaults():
+def test_queue_action_defaults() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 defaults:
@@ -1836,11 +1846,11 @@ def queue_rule_from_list(lst: typing.Any) -> rules.PullRequestRules:
     )
 
 
-def test_invalid_disallow_checks_interruption_from_queues():
+def test_invalid_disallow_checks_interruption_from_queues() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 queue_rules:
@@ -1859,11 +1869,11 @@ queue_rules:
     )
 
 
-def test_valid_disallow_checks_interruption_from_queues():
+def test_valid_disallow_checks_interruption_from_queues() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 queue_rules:
@@ -1876,16 +1886,16 @@ queue_rules:
 """,
     )
 
-    assert rules.get_mergify_config(file)["queue_rules"]["low"].config[
+    assert rules.get_mergify_config(file)["queue_rules"][rules.QueueName("low")].config[
         "disallow_checks_interruption_from_queues"
     ] == ["default"]
 
 
-def test_invalid_interval():
+def test_invalid_interval() -> None:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 queue_rules:
@@ -1910,7 +1920,7 @@ queue_rules:
     file = context.MergifyConfigFile(
         type="file",
         content="whatever",
-        sha="azertyuiop",
+        sha=github_types.SHAType("azertyuiop"),
         path="whatever",
         decoded_content="""
 queue_rules:
