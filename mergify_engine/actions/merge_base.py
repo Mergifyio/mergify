@@ -157,7 +157,7 @@ class MergeBaseAction(actions.Action, abc.ABC, typing.Generic[T]):
                 await ctxt.update(wait_merged=True)
                 ctxt.log.info("merged")
 
-        result = await self.merge_report(ctxt)
+        result = await self.merge_report(ctxt, merge_bot_account)
         if result:
             return result
         else:
@@ -281,15 +281,18 @@ class MergeBaseAction(actions.Action, abc.ABC, typing.Generic[T]):
     async def merge_report(
         self,
         ctxt: context.Context,
+        merge_bot_account: typing.Optional[github_types.GitHubLogin],
     ) -> typing.Optional[check_api.Result]:
         if ctxt.pull["draft"]:
             conclusion = check_api.Conclusion.PENDING
             title = "Draft flag needs to be removed"
             summary = ""
         elif ctxt.pull["merged"]:
+            if merge_bot_account is None:
+                merge_bot_account = config.BOT_USER_LOGIN
             if ctxt.pull["merged_by"] is None:
                 mode = "somehow"
-            elif ctxt.pull["merged_by"]["login"] == config.BOT_USER_LOGIN:
+            elif ctxt.pull["merged_by"]["login"] == merge_bot_account:
                 mode = "automatically"
             else:
                 mode = "manually"

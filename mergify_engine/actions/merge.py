@@ -112,7 +112,7 @@ class MergeAction(merge_base.MergeBaseAction[None]):
                     "`commit_message_template` must not be set if `method: fast-forward` is set.",
                 )
 
-        report = await self.merge_report(ctxt)
+        report = await self.merge_report(ctxt, merge_bot_account)
         if report is not None:
             return report
 

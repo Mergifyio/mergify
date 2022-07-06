@@ -112,6 +112,19 @@ class TestMergeAction(base.FunctionalTestBase):
         self.assertEqual(True, p["merged"])
         self.assertEqual("mergify-test4", p["merged_by"]["login"])
 
+        ctxt = await context.Context.create(self.repository_ctxt, p, [])
+        checks = await ctxt.pull_engine_check_runs
+        assert len(checks) == 2
+        check = checks[1]
+        assert check["conclusion"] == "success"
+        assert (
+            check["output"]["title"] == "The pull request has been merged automatically"
+        )
+        assert (
+            check["output"]["summary"]
+            == f"The pull request has been merged automatically at *{p['merge_commit_sha']}*"
+        )
+
     @pytest.mark.skipif(
         not config.GITHUB_URL.startswith("https://github.com"),
         reason="required_conversation_resolution requires GHES 3.2",

@@ -22,6 +22,7 @@ from mergify_engine import check_api
 from mergify_engine import constants
 from mergify_engine import context
 from mergify_engine import delayed_refresh
+from mergify_engine import github_types
 from mergify_engine import queue
 from mergify_engine import signals
 from mergify_engine import utils
@@ -189,6 +190,20 @@ Then, re-embark the pull request into the merge queue by posting the comment
             await car.update_summaries(status, unexpected_change=unexpected_changes)
             await q.save()
 
+    async def _render_bot_account(
+        self, ctxt: context.Context
+    ) -> typing.Optional[github_types.GitHubLogin]:
+        return await action_utils.render_bot_account(
+            ctxt,
+            self.config["merge_bot_account"],
+            option_name="merge_bot_account",
+            required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
+            missing_feature_message="Cannot use `merge_bot_account` with queue action",
+            # NOTE(sileht): we don't allow admin, because if branch protection are
+            # enabled, but not enforced on admins, we may bypass them
+            required_permissions=["write", "maintain"],
+        )
+
     async def run(
         self, ctxt: context.Context, rule: "rules.EvaluatedRule"
     ) -> check_api.Result:
@@ -264,16 +279,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
             return check_api.Result(e.status, e.title, e.reason)
 
         try:
-            merge_bot_account = await action_utils.render_bot_account(
-                ctxt,
-                self.config["merge_bot_account"],
-                option_name="merge_bot_account",
-                required_feature=subscription.Features.MERGE_BOT_ACCOUNT,
-                missing_feature_message="Cannot use `merge_bot_account` with queue action",
-                # NOTE(sileht): we don't allow admin, because if branch protection are
-                # enabled, but not enforced on admins, we may bypass them
-                required_permissions=["write", "maintain"],
-            )
+            merge_bot_account = await self._render_bot_account(ctxt)
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
@@ -302,7 +308,7 @@ Then, re-embark the pull request into the merge queue by posting the comment
 
         self._set_effective_priority(ctxt)
 
-        result = await self.merge_report(ctxt)
+        result = await self.merge_report(ctxt, merge_bot_account)
         if result is None:
             if await self._should_be_queued(ctxt, q):
                 await q.add_pull(
@@ -388,13 +394,18 @@ Then, re-embark the pull request into the merge queue by posting the comment
         except action_utils.RenderBotAccountFailure as e:
             return check_api.Result(e.status, e.title, e.reason)
 
+        try:
+            merge_bot_account = await self._render_bot_account(ctxt)
+        except action_utils.RenderBotAccountFailure as e:
+            return check_api.Result(e.status, e.title, e.reason)
+
         self._set_effective_priority(ctxt)
 
         q = await merge_train.Train.from_context(ctxt)
         car = q.get_car(ctxt)
         await self._update_merge_queue_summary(ctxt, rule, q, car)
 
-        result = await self.merge_report(ctxt)
+        result = await self.merge_report(ctxt, merge_bot_account)
         if result is None:
             # We just rebase the pull request, don't cancel it yet if CIs are
             # running. The pull request will be merged if all rules match again.
