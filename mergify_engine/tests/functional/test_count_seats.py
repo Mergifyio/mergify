@@ -38,11 +38,6 @@ class TestCountSeats(base.FunctionalTestBase):
         # NOTE(sileht): we add active users only on the repository used for
         # recording the fixture
 
-        repos = (
-            await self.client_admin.get(
-                url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/repos"
-            )
-        ).json()
         members = (
             await self.client_admin.get(
                 url=f"{config.GITHUB_REST_API_URL}/orgs/mergifyio-testing/members"
@@ -56,40 +51,27 @@ class TestCountSeats(base.FunctionalTestBase):
             for member in members
         }
         organization = {}
-        for repo in repos:
-            active_users = None
-            key_repo = count_seats.SeatRepository(
-                github_types.GitHubRepositoryIdType(repo["id"]),
-                github_types.GitHubRepositoryName(repo["name"]),
-            )
-            if repo["id"] == self.repository_ctxt.repo["id"]:
-                active_users = {
-                    count_seats.ActiveUser(
-                        github_types.GitHubAccountIdType(
-                            config.TESTING_MERGIFY_TEST_1_ID
-                        ),
-                        github_types.GitHubLogin("mergify-test1"),
-                    ),
-                    count_seats.ActiveUser(
-                        github_types.GitHubAccountIdType(
-                            config.TESTING_MERGIFY_TEST_2_ID
-                        ),
-                        github_types.GitHubLogin("mergify-test2"),
-                    ),
-                }
-            write_users_used: typing.Union[
-                typing.Set[count_seats.SeatAccount], mock.ANY
-            ]
-            if repo["name"] == "functional-testing-repo":
-                write_users_used = write_users
-            else:
-                write_users_used = mock.ANY
-            organization[key_repo] = count_seats.CollaboratorsSetsT(
-                {
-                    "write_users": write_users_used,
-                    "active_users": active_users,
-                }
-            )
+        active_users = None
+        key_repo = count_seats.SeatRepository(
+            github_types.GitHubRepositoryIdType(self.repository_ctxt.repo["id"]),
+            github_types.GitHubRepositoryName(self.repository_ctxt.repo["name"]),
+        )
+        active_users = {
+            count_seats.ActiveUser(
+                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_1_ID),
+                github_types.GitHubLogin("mergify-test1"),
+            ),
+            count_seats.ActiveUser(
+                github_types.GitHubAccountIdType(config.TESTING_MERGIFY_TEST_2_ID),
+                github_types.GitHubLogin("mergify-test2"),
+            ),
+        }
+        organization[key_repo] = count_seats.CollaboratorsSetsT(
+            {
+                "write_users": write_users,
+                "active_users": active_users,
+            }
+        )
 
         collaborators = {
             count_seats.SeatAccount(
