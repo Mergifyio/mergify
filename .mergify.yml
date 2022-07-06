@@ -76,7 +76,6 @@ pull_request_rules:
     conditions:
       - and: *CheckRuns
       - check-success=semantic-pull-request
-      - check-success=constraints
       - author=mergify-ci-bot
       - label!=work-in-progress
       - label!=manual merge
