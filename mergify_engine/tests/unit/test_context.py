@@ -37,7 +37,9 @@ async def test_user_permission_cache(redis_links: redis_utils.RedisLinks) -> Non
             self.repo = repo
             self.called = 0
 
-        async def item(self, url, *args, **kwargs):
+        async def item(
+            self, url: str, *args: typing.Any, **kwargs: typing.Any
+        ) -> typing.Optional[typing.Dict[str, str]]:
             self.called += 1
             if self.repo == "test":
                 if (
@@ -201,12 +203,15 @@ async def test_team_members_cache(redis_links: redis_utils.RedisLinks) -> None:
     class FakeClient(github.AsyncGithubInstallationClient):
         called: int
 
-        def __init__(self, owner: str) -> None:
+        def __init__(self, owner: str, repo: str) -> None:
             super().__init__(auth=None)  # type: ignore[arg-type]
             self.owner = owner
+            self.repo = repo
             self.called = 0
 
-        async def items(self, url, *args, **kwargs):
+        async def items(
+            self, url: str, *args: typing.Any, **kwargs: typing.Any
+        ) -> typing.Optional[typing.AsyncGenerator[typing.Dict[str, str], None]]:
             self.called += 1
             if url == f"/orgs/{self.owner}/teams/team1/members":
                 yield {"login": "member1"}
@@ -227,6 +232,19 @@ async def test_team_members_cache(redis_links: redis_utils.RedisLinks) -> None:
             "avatar_url": "",
         }
     )
+    gh_repo = github_types.GitHubRepository(
+        {
+            "id": github_types.GitHubRepositoryIdType(0),
+            "owner": gh_owner,
+            "full_name": "",
+            "archived": False,
+            "url": "",
+            "html_url": "",
+            "default_branch": github_types.GitHubRefType(""),
+            "name": github_types.GitHubRepositoryName("test"),
+            "private": False,
+        }
+    )
     installation_json = github_types.GitHubInstallation(
         {
             "id": github_types.GitHubInstallationIdType(12345),
@@ -243,7 +261,7 @@ async def test_team_members_cache(redis_links: redis_utils.RedisLinks) -> None:
     sub = subscription.Subscription(
         redis_links.cache, 0, "", frozenset([subscription.Features.PUBLIC_REPOSITORY])
     )
-    client = FakeClient(gh_owner["login"])
+    client = FakeClient(gh_owner["login"], gh_repo["name"])
     installation = context.Installation(installation_json, sub, client, redis_links)
     assert client.called == 0
     assert (await installation.get_team_members(team_slug1)) == ["member1", "member2"]
@@ -332,7 +350,9 @@ async def test_team_permission_cache(redis_links: redis_utils.RedisLinks) -> Non
             self.repo = repo
             self.called = 0
 
-        async def get(self, url: str, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:  # type: ignore[override]
+        async def get(  # type: ignore[override]
+            self, url: str, *args: typing.Any, **kwargs: typing.Any
+        ) -> typing.Optional[typing.Dict[typing.Any, typing.Any]]:
             self.called += 1
             if (
                 url
@@ -573,7 +593,9 @@ def a_pull_request() -> github_types.GitHubPullRequest:
     )
 
 
-async def test_length_optimisation(a_pull_request):
+async def test_length_optimisation(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request["commits"] = 10
     a_pull_request["changed_files"] = 5
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
@@ -581,7 +603,9 @@ async def test_length_optimisation(a_pull_request):
     assert await getattr(ctxt.pull_request, "#files") == 5
 
 
-async def test_context_depends_on(a_pull_request):
+async def test_context_depends_on(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request[
         "body"
     ] = f"""header
@@ -607,13 +631,17 @@ footer
     assert ctxt.get_depends_on() == [42, 48, 50, 123, 456, 457, 789]
 
 
-async def test_context_body_null(a_pull_request):
+async def test_context_body_null(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request["body"] = None
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert await ctxt._get_consolidated_data("body") == ""
 
 
-async def test_context_body_html(a_pull_request):
+async def test_context_body_html(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request["title"] = "chore(deps-dev): update flake8 requirement from <4 to <5"
     a_pull_request[
         "body"
@@ -720,7 +748,9 @@ You can trigger Dependabot actions by commenting on this PR:
     ) == (expected_title, expected_body)
 
 
-async def test_context_body_section(a_pull_request):
+async def test_context_body_section(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request[
         "title"
     ] = "chore(deps-dev): update flake8 requirement <-- noway we commit this-->from <4 to <5"
@@ -761,7 +791,9 @@ Fixes MRGFY-XXX"""
     ) == (expected_title, expected_body)
 
 
-async def test_context_unexisting_section(a_pull_request):
+async def test_context_unexisting_section(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert (
         await ctxt.pull_request.get_commit_message(
@@ -771,14 +803,18 @@ async def test_context_unexisting_section(a_pull_request):
     )
 
 
-async def test_context_unexisting_section_with_templated_default(a_pull_request):
+async def test_context_unexisting_section_with_templated_default(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     ctxt = await context.Context.create(mock.Mock(), a_pull_request)
     assert await ctxt.pull_request.get_commit_message(
         "{{ body | get_section('### Description', '{{number}}\n{{author}}') }}",
     ) == (str(a_pull_request["number"]), a_pull_request["user"]["login"])
 
 
-async def test_context_body_section_with_template(a_pull_request):
+async def test_context_body_section_with_template(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request[
         "body"
     ] = """
@@ -796,7 +832,9 @@ BODY OF #{{number}}
     ) == ("TITLE", f"BODY OF #{a_pull_request['number']}")
 
 
-async def test_context_body_section_with_bad_template(a_pull_request):
+async def test_context_body_section_with_bad_template(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     a_pull_request[
         "body"
     ] = """
@@ -817,7 +855,9 @@ Instructions
         )
 
 
-async def test_check_runs_ordering(a_pull_request):
+async def test_check_runs_ordering(
+    a_pull_request: github_types.GitHubPullRequest,
+) -> None:
     repo = mock.Mock()
     repo.get_branch_protection.side_effect = mock.AsyncMock(return_value=None)
     repo.installation.client.items = mock.MagicMock(__aiter__=[])
