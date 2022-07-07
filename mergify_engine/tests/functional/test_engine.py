@@ -798,11 +798,12 @@ DO NOT EDIT
         await self.setup_repo(yaml.dump(rules))
 
         # Run the engine once, to initialiaze the config location cache
-        await self.create_pr()
+        p = await self.create_pr()
         await self.run_engine()
 
         # Check initial summary is submitted
         p = await self.create_pr()
+        await self.wait_for("check_run", {})
         ctxt = await self.repository_ctxt.get_pull_request_context(p["number"], p)
         checks = await ctxt.pull_engine_check_runs
         assert len(checks) == 1

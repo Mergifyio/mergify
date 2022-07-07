@@ -338,6 +338,7 @@ GitHubEventType = typing.Literal[
     "issue_comment",
     "pull_request_review",
     "pull_request_review_comment",
+    "repository",
     # This does not exist in GitHub, it's a Mergify made one
     "refresh",
 ]
@@ -390,6 +391,25 @@ class GitHubEventPullRequest(GitHubEvent):
     # At least in action=synchronize
     after: SHAType
     before: SHAType
+
+
+GitHubEventRepositoryActionType = typing.Literal[
+    "created",
+    "deleted",
+    "archived",
+    "unarchived",
+    "edited",
+    "renamed",
+    "transferred",
+    "publicized",
+    "privatized",
+]
+
+
+class GitHubEventRepository(GitHubEvent):
+    repository: GitHubRepository
+    action: GitHubEventRepositoryActionType
+    pull_request: GitHubPullRequest
 
 
 GitHubEventPullRequestReviewCommentActionType = typing.Literal[
@@ -463,11 +483,19 @@ class GitHubEventIssueComment(GitHubEvent):
     comment: GitHubComment
 
 
+class GitHubEventPushCommit(typing.TypedDict):
+    added: typing.List[str]
+    modified: typing.List[str]
+    removed: typing.List[str]
+
+
 class GitHubEventPush(GitHubEvent):
     repository: GitHubRepository
     ref: GitHubRefType
+    forced: bool
     before: SHAType
     after: SHAType
+    commits: typing.List[GitHubEventPushCommit]
 
 
 class GitHubEventStatus(GitHubEvent):

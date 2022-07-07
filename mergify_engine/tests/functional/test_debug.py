@@ -86,7 +86,7 @@ class TestDebugger(base.FunctionalTestBase):
         ][0]["html_url"]
         assert (
             s1.strip()
-            == f"""* INSTALLATION ID: {config.TESTING_INSTALLATION_ID}
+            == f"""* INSTALLATION ID: {self.installation_ctxt.installation["id"]}
 * Features (db):
   - priority_queues
   - public_repository
@@ -224,7 +224,7 @@ mergeable_state: clean
 
         assert (
             s3.strip()
-            == f"""* INSTALLATION ID: {config.TESTING_INSTALLATION_ID}
+            == f"""* INSTALLATION ID: {self.installation_ctxt.installation["id"]}
 * Features (db):
   - priority_queues
   - public_repository
