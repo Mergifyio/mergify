@@ -1515,54 +1515,7 @@ class Train:
         await self._sync_configuration_change(queue_rules)
         await self._split_failed_batches(queue_rules)
         await self._populate_cars(queue_rules)
-        # FIXME(sileht): we should not ran that on each worker run, once a hour or once a day should be enough
-        # TODO(sileht): reenable me
-        # await self._clean_unsused_merge_queue_branches()
         await self.save()
-
-    async def _clean_unsused_merge_queue_branches(self) -> None:
-        match = (
-            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
-            f"{parse.quote(self.ref, safe='')}"
-        )
-
-        list_car_branch_refs = [
-            f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/{self.ref}/{car.head_branch}"
-            for car in self._cars
-            if car.head_branch
-        ]
-
-        async for branch in typing.cast(
-            typing.AsyncGenerator[github_types.GitHubGitRef, None],
-            self.repository.installation.client.items(
-                f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/git/matching-refs/heads/{match}",
-                resource_name="branches",
-                page_limit=100,
-            ),
-        ):
-            branch_ref = branch["ref"].split("heads/")[-1]
-            if branch_ref not in list_car_branch_refs:
-                self.log.info("removing orphan merge-queue branch", branch=branch_ref)
-                await self._delete_branch(branch_ref)
-
-        # NOTE(sileht): This is time consuming and slow... but we don't have much choose
-        # We should run this method less often.
-        async for pull in self.repository.installation.client.items(
-            f"/repos/{self.repository.installation.owner_login}/{self.repository.repo['name']}/pulls",
-            params={"base": self.ref},
-            resource_name="pulls",
-            page_limit=100,
-        ):
-            if (
-                pull["base"]["ref"] == self.ref
-                and pull["head"]["repo"]
-                and pull["head"]["repo"]["id"] == self.repository.repo["id"]
-                and pull["head"]["ref"].startswith(
-                    f"{constants.MERGE_QUEUE_BRANCH_PREFIX}/"
-                )
-                and pull["head"]["ref"] not in list_car_branch_refs
-            ):
-                await self._close_pull_request(pull["number"])
 
     async def _remove_duplicate_pulls(self) -> None:
         known_prs = set()
