@@ -15,6 +15,7 @@
 # under the License.
 import logging
 import operator
+from unittest import mock
 
 from freezegun import freeze_time
 import pytest
@@ -366,7 +367,16 @@ class TestAttributes(base.FunctionalTestBase):
             "status-success": ["Summary"],
             "changes-requested-reviews-by": [],
             "merged": False,
-            "commits": ["test_draft: pull request n2 from integration"],
+            "commits": [
+                {
+                    "sha": mock.ANY,
+                    "commit_message": "test_draft: pull request n2 from integration",
+                    "commit_verification_verified": False,
+                    "parents": [mock.ANY],
+                    "author": mock.ANY,
+                    "date": mock.ANY,
+                },
+            ],
             "head": self.get_full_branch_name("integration/pr2"),
             "author": config.BOT_USER_LOGIN,
             "dismissed-reviews-by": [],

@@ -66,6 +66,8 @@ async def test_get_commits_to_cherry_pick_rebase(
             "parents": [],
             "commit_message": "foobar",
             "commit_verification_verified": False,
+            "author": "someone",
+            "date": mock.ANY,
         }
     )
     c2 = github_types.CachedGitHubBranchCommit(
@@ -74,6 +76,8 @@ async def test_get_commits_to_cherry_pick_rebase(
             "parents": [c1["sha"]],
             "commit_message": "foobar",
             "commit_verification_verified": False,
+            "author": "someone",
+            "date": mock.ANY,
         }
     )
     commits.return_value = [c1, c2]
@@ -92,14 +96,24 @@ async def test_get_commits_to_cherry_pick_rebase(
         {
             "sha": github_types.SHAType("rebased_c1"),
             "parents": [base_branch],
-            "commit": {"message": "hello c1", "verification": {"verified": False}},
+            "commit": {
+                "message": "hello c1",
+                "verification": {"verified": False},
+                "author": {"date": mock.ANY},
+            },
+            "author": {"login": "someone"},
         }
     )
     rebased_c2 = github_types.GitHubBranchCommit(
         {
             "sha": github_types.SHAType("rebased_c2"),
             "parents": [rebased_c1],
-            "commit": {"message": "hello c2", "verification": {"verified": False}},
+            "commit": {
+                "message": "hello c2",
+                "verification": {"verified": False},
+                "author": {"date": mock.ANY},
+            },
+            "author": {"login": "someone"},
         }
     )
 

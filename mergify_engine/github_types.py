@@ -123,19 +123,24 @@ class GitHubBranchCommitVerification(typing.TypedDict):
 class GitHubBranchCommitCommit(typing.TypedDict):
     message: str
     verification: GitHubBranchCommitVerification
+    author: str
 
 
 class GitHubBranchCommit(typing.TypedDict):
     sha: SHAType
     parents: typing.List[GitHubBranchCommitParent]
     commit: GitHubBranchCommitCommit
+    author: str
 
 
+# TO DO adapt and improve typing overall for this solution
 class CachedGitHubBranchCommit(typing.TypedDict):
     sha: SHAType
     parents: typing.List[SHAType]
     commit_message: str
     commit_verification_verified: bool
+    author: str
+    date: str
 
 
 def to_cached_github_branch_commit(
@@ -149,6 +154,8 @@ def to_cached_github_branch_commit(
                 "verified"
             ],
             "parents": [p["sha"] for p in commit["parents"]],
+            "author": commit["author"]["login"],
+            "date": commit["commit"]["author"]["date"],
         }
     )
 

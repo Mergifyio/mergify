@@ -907,6 +907,7 @@ ContextAttributeType = typing.Union[
     typing.List[github_types.SHAType],
     typing.List[github_types.GitHubLogin],
     typing.List[github_types.GitHubBranchCommit],
+    typing.List[github_types.CachedGitHubBranchCommit],
 ]
 
 
@@ -1349,7 +1350,7 @@ class Context(object):
             return self.pull["commits"]
 
         elif name == "commits":
-            return [c["commit_message"] for c in await self.commits]
+            return await self.commits
 
         elif name == "approved-reviews-by":
             _, approvals = await self.consolidated_reviews()
@@ -2036,6 +2037,10 @@ class PullRequest(BasePullRequest):
         "#commits-behind",
     }
 
+    LIST_DEFAULT_LOOP_VARIABLE_CALL = {
+        "commits": "commit_message",
+    }
+
     async def __getattr__(self, name: str) -> ContextAttributeType:
         return await self.context._get_consolidated_data(name.replace("_", "-"))
 
@@ -2069,6 +2074,24 @@ class PullRequest(BasePullRequest):
             env.filters["get_section"] = functools.partial(
                 self._filter_get_section, self
             )
+
+        # TO DO improve the regex mecanism/logic and check for other solutions
+        for_loop_pattern = re.findall(
+            r"{%\s*for\s*([^\s]+)\s*in\s*([^\s]+)\s*%}", template
+        )
+        if for_loop_pattern is not None:
+            for match in for_loop_pattern:
+                increment_variable, looped_variable = match
+                if looped_variable not in self.LIST_DEFAULT_LOOP_VARIABLE_CALL:
+                    continue
+                increment_variable_call_regex = re.compile(
+                    rf"{{{{\s*{increment_variable}\s*}}}}"
+                )
+                template = re.sub(
+                    increment_variable_call_regex,
+                    f"{{{{ {increment_variable}.{self.LIST_DEFAULT_LOOP_VARIABLE_CALL[looped_variable]} }}}}",
+                    template,
+                )
 
         with self._template_exceptions_mapping():
             used_variables = jinja2.meta.find_undeclared_variables(env.parse(template))

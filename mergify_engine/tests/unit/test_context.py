@@ -1022,3 +1022,92 @@ async def test_check_runs_ordering(
             "ci (Native)": "success",
             "mima": "success",
         }
+
+
+async def test_commit_details_from_attributes(a_pull_request) -> None:
+    a_pull_request[
+        "body"
+    ] = """
+Yo!
+### Commits:
+
+# FIRST LOOP WITH USUAL CASE:
+{% for commit in commits %}
+    - {{ commit.author }}
+    - {{ commit }}
+{% endfor %}
+
+# SECOND LOOP FOR MULTIPLE LOOPS HANDLING TESTING:
+{% for dummy in commits %}
+    - {{ dummy.author }}
+    - {{ dummy }}
+{% endfor %}
+"""
+    commits = [
+        github_types.CachedGitHubBranchCommit(
+            {
+                "sha": github_types.SHAType("6666bbbb"),
+                "commit_message": "first commit to do something",
+                "commit_verification_verified": True,
+                "parents": [github_types.SHAType("6666aaaa")],
+                "author": "someone",
+                "date": "2012-04-14T16:00:49Z",
+            }
+        ),
+        github_types.CachedGitHubBranchCommit(
+            {
+                "sha": github_types.SHAType("7777bbbb"),
+                "commit_message": "second commit to do something",
+                "commit_verification_verified": True,
+                "parents": [github_types.SHAType("7777aaaa")],
+                "author": "someone-else",
+                "date": "2013-04-14T16:00:49Z",
+            }
+        ),
+        github_types.CachedGitHubBranchCommit(
+            {
+                "sha": github_types.SHAType("8888bbbb"),
+                "commit_message": "third commit to do something",
+                "commit_verification_verified": True,
+                "parents": [github_types.SHAType("8888aaaa")],
+                "author": "another-someone",
+                "date": "2014-04-14T16:00:49Z",
+            }
+        ),
+    ]
+    ctxt = await context.Context.create(mock.Mock(), a_pull_request)
+    ctxt._caches.commits.set(commits)
+
+    template = await ctxt.pull_request.render_template(a_pull_request["body"])
+
+    assert (
+        template
+        == """
+Yo!
+### Commits:
+
+# FIRST LOOP WITH USUAL CASE:
+
+    - someone
+    - first commit to do something
+
+    - someone-else
+    - second commit to do something
+
+    - another-someone
+    - third commit to do something
+
+
+# SECOND LOOP FOR MULTIPLE LOOPS HANDLING TESTING:
+
+    - someone
+    - first commit to do something
+
+    - someone-else
+    - second commit to do something
+
+    - another-someone
+    - third commit to do something
+"""
+    )
+
