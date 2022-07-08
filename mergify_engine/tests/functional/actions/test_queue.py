@@ -565,6 +565,67 @@ class TestQueueAction(base.FunctionalTestBase):
         assert p2["head"]["sha"] == branch["commit"]["sha"]
         await self._assert_cars_contents(q, None, [])
 
+    async def test_queue_with_ci_and_files(self):
+        rules = {
+            "queue_rules": [
+                {
+                    "name": "default",
+                    "conditions": [
+                        {
+                            "or": [
+                                "status-success=continuous-integration/fake-ci",
+                                "files~=^.*\\.rst$",
+                            ]
+                        }
+                    ],
+                    "allow_inplace_checks": False,
+                }
+            ],
+            "pull_request_rules": [
+                {
+                    "name": "Queue",
+                    "conditions": [
+                        f"base={self.main_branch_name}",
+                        "label=queue",
+                    ],
+                    "actions": {"queue": {"name": "default"}},
+                },
+            ],
+        }
+        await self.setup_repo(yaml.dump(rules))
+
+        p = await self.create_pr()
+
+        await self.add_label(p["number"], "queue")
+        await self.run_engine()
+
+        await self.wait_for("pull_request", {"action": "opened"})
+
+        pulls = await self.get_pulls()
+        assert len(pulls) == 2
+
+        tmp_pull = await self.get_pull(p["number"] + 1)
+
+        await self.create_status(tmp_pull, state="failure")
+        await self.run_engine()
+        await self.wait_for("pull_request", {"action": "closed"})
+        ctxt = context.Context(self.repository_ctxt, p)
+        q = await merge_train.Train.from_context(ctxt)
+        await self._assert_cars_contents(q, None, [])
+        check = first(
+            await ctxt.pull_engine_check_runs,
+            key=lambda c: c["name"] == "Queue: Embarked in merge train",
+        )
+        assert check is not None
+        assert check["conclusion"] == "failure"
+
+        check = first(
+            await ctxt.pull_engine_check_runs,
+            key=lambda c: c["name"] == "Rule: Queue (queue)",
+        )
+        assert check is not None
+        assert check["conclusion"] == "cancelled"
+
     async def test_basic_queue(self):
         rules = {
             "queue_rules": [
