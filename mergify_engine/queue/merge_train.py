@@ -1266,6 +1266,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             unexpected_change_summary=unexpected_change_summary.strip(),
             queue_summary=queue_summary.strip(),
             batch_failure_summary=batch_failure_summary.strip(),
+            checks_copy_summary={check.name: check.state for check in self.last_checks},
         )
 
         original_pull_summary = (
