@@ -1,6 +1,0 @@
----
-features:
-  - |
-    The ``merge`` and ``queue`` actions offer a new ``commit_message_template``
-    option. It allows defining a Jinja2 template in that will be used as the
-    merge commit message for the whole repo.
