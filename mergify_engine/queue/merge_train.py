@@ -1258,6 +1258,16 @@ You don't need to do anything. Mergify will close this pull request automaticall
         if self.has_timed_out:
             conclusion = check_api.Conclusion.FAILURE
 
+        self.train.log.info(
+            "pull request train car status update",
+            conclusion=conclusion.value,
+            original_pull_title=original_pull_title,
+            checked_pull=checked_pull,
+            unexpected_change_summary=unexpected_change_summary.strip(),
+            queue_summary=queue_summary.strip(),
+            batch_failure_summary=batch_failure_summary.strip(),
+        )
+
         original_pull_summary = (
             unexpected_change_summary
             + queue_summary
@@ -1272,17 +1282,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
             title=original_pull_title,
             summary=original_pull_summary,
         )
-
         for original_ctxt in original_ctxts:
-            original_ctxt.log.info(
-                "pull request train car status update",
-                conclusion=conclusion.value,
-                original_pull_title=original_pull_title,
-                checked_pull=checked_pull,
-                unexpected_change_summary=unexpected_change_summary.strip(),
-                queue_summary=queue_summary.strip(),
-                batch_failure_summary=batch_failure_summary.strip(),
-            )
             await check_api.set_check_run(
                 original_ctxt,
                 constants.MERGE_QUEUE_SUMMARY_NAME,
