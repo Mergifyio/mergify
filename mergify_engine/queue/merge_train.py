@@ -1258,7 +1258,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         if self.has_timed_out:
             conclusion = check_api.Conclusion.FAILURE
 
-        check_api_summary = (
+        original_pull_summary = (
             unexpected_change_summary
             + queue_summary
             + "\n"
@@ -1270,7 +1270,7 @@ You don't need to do anything. Mergify will close this pull request automaticall
         report = check_api.Result(
             conclusion,
             title=original_pull_title,
-            summary=check_api_summary,
+            summary=original_pull_summary,
         )
 
         for original_ctxt in original_ctxts:
