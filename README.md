@@ -8,4 +8,4 @@ create feature requests, [comment and upvote on community-led ideas](https://git
 
 You can learn more about the product on our [website](https://mergify.com) or by browsing the [documentation](https://docs.mergify.com).
 
-Feel free to also join our amazing [slack community](https://mergifycommunity.slack.com/).
+Feel free to join our amazing [Slack community](https://slack.mergify.com/).
