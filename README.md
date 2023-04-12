@@ -7,3 +7,5 @@ This is a place for users of [Mergify](https://mergify.com), to [report bugs](ht
 create feature requests, [comment and upvote on community-led ideas](https://github.com/Mergifyio/mergify/discussions).
 
 You can learn more about the product on our [website](https://mergify.com) or by browsing the [documentation](https://docs.mergify.com).
+
+Feel free to join our amazing [Slack community](https://slack.mergify.com/).
